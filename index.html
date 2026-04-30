@@ -1,671 +1,838 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OrderFlow — Suivi Commandes</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg:#0a0c10; --surface:#111318; --surface2:#181c24; --border:rgba(255,255,255,0.07);
-    --accent:#00e5b0; --accent2:#ff6b35; --accent3:#6c63ff;
-    --text:#f0f2f5; --muted:#6b7280; --green:#22c55e; --yellow:#f59e0b; --red:#ef4444; --blue:#3b82f6;
-  }
-  *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
-  body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;
-    background:radial-gradient(ellipse at 20% 20%,rgba(0,229,176,0.04) 0%,transparent 50%),
-               radial-gradient(ellipse at 80% 80%,rgba(108,99,255,0.04) 0%,transparent 50%);
-    pointer-events:none;z-index:0;}
+import React, { useState, useMemo } from 'react';
+import { 
+  Search, Upload, Clock, 
+  CheckCircle, AlertCircle, Package, Calendar,
+  ChevronDown, ChevronUp, X, Eye, Edit, RefreshCw,
+  BarChart3, PieChart, ArrowUpRight, ArrowDownRight, Bell,
+  Settings, Moon, Sun, Download, FileSpreadsheet, Plus,
+  History, TrendingUp
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
 
-  /* SIDEBAR */
-  .sidebar{position:fixed;left:0;top:0;width:220px;height:100vh;background:var(--surface);
-    border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;padding:28px 0;}
-  .logo{padding:0 24px 28px;border-bottom:1px solid var(--border);margin-bottom:12px;}
-  .logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--accent);letter-spacing:-0.5px;}
-  .logo-sub{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
-  .nav-section{padding:8px 12px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:8px 0 4px;}
-  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 24px;cursor:pointer;transition:all 0.2s;
-    font-size:13px;color:var(--muted);border-left:3px solid transparent;}
-  .nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03);}
-  .nav-item.active{color:var(--accent);background:rgba(0,229,176,0.06);border-left-color:var(--accent);}
-  .nav-icon{font-size:15px;width:18px;text-align:center;}
-  .sidebar-bottom{margin-top:auto;padding:16px 24px;border-top:1px solid var(--border);}
-  .user-selector{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;
-    cursor:pointer;display:flex;align-items:center;gap:8px;transition:border-color 0.2s;}
-  .user-selector:hover{border-color:var(--accent);}
-  .user-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-    font-size:11px;font-weight:600;font-family:'Syne',sans-serif;}
-  .user-name{font-size:12px;color:var(--text);flex:1;}
-  .user-role{font-size:10px;color:var(--muted);}
+// Types
+interface Order {
+  id: string;
+  reference: string;
+  client: string;
+  vehicle: string;
+  vehicleBrand: string;
+  task: string;
+  lastUpdateBy: string;
+  validationDate: string;
+  delay: number;
+  partsStatus: 'received' | 'pending' | 'delayed' | 'critical';
+  estimatedDate: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  week: string;
+  importDate: string;
+}
 
-  /* MAIN */
-  .main{margin-left:220px;padding:28px 32px;position:relative;z-index:1;}
-  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;}
-  .page-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-1px;}
-  .page-title span{color:var(--accent);}
-  .header-actions{display:flex;gap:10px;align-items:center;}
-  .btn{padding:9px 18px;border-radius:6px;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;border:none;transition:all 0.2s;font-weight:500;}
-  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);}
-  .btn-outline:hover{border-color:var(--text);color:var(--text);}
-  .btn-primary{background:var(--accent);color:#0a0c10;font-weight:700;}
-  .btn-primary:hover{background:#00ffc5;transform:translateY(-1px);}
+interface WeekData {
+  name: string;
+  startDate: string;
+  endDate: string;
+  orderCount: number;
+}
 
-  /* STATS */
-  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
-  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;
-    position:relative;overflow:hidden;transition:border-color 0.2s,transform 0.2s;}
-  .stat-card:hover{border-color:rgba(255,255,255,0.15);transform:translateY(-2px);}
-  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
-  .stat-card.c-accent::before{background:var(--accent);}
-  .stat-card.c-yellow::before{background:var(--yellow);}
-  .stat-card.c-red::before{background:var(--red);}
-  .stat-card.c-blue::before{background:var(--blue);}
-  .stat-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
-  .stat-value{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;letter-spacing:-1px;margin-bottom:4px;}
-  .stat-sub{font-size:10px;color:var(--muted);}
+interface StatCard {
+  title: string;
+  value: number | string;
+  change?: number;
+  icon: React.ReactNode;
+  color: string;
+}
 
-  /* IMPORT */
-  .import-zone{border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center;
-    cursor:pointer;transition:all 0.25s;margin-bottom:18px;background:var(--surface);position:relative;}
-  .import-zone:hover,.import-zone.drag-over{border-color:var(--accent);background:rgba(0,229,176,0.04);}
-  .import-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
-  .import-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
-  .import-sub{font-size:11px;color:var(--muted);margin-top:2px;}
-  .import-badge{display:none;margin-top:7px;padding:4px 12px;background:rgba(0,229,176,0.1);
-    border-radius:20px;color:var(--accent);font-size:11px;display:none;}
-
-  /* FILTERS */
-  .filter-row{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
-  .search-bar{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);
-    border-radius:7px;padding:7px 12px;transition:border-color 0.2s;}
-  .search-bar:focus-within{border-color:var(--accent);}
-  .search-bar input{background:none;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;width:210px;}
-  .search-bar input::placeholder{color:var(--muted);}
-  .chip{padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border);
-    color:var(--muted);transition:all 0.2s;background:transparent;font-family:'DM Mono',monospace;}
-  .chip:hover{color:var(--text);border-color:rgba(255,255,255,0.2);}
-  .chip.active{border-color:var(--accent);color:var(--accent);background:rgba(0,229,176,0.07);}
-
-  /* CARD / TABLE */
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
-  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-  .card-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;}
-  .badge{padding:3px 10px;border-radius:20px;font-size:10px;}
-  .table-wrap{overflow-x:auto;}
-  table{width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;}
-  th{text-align:left;padding:8px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;
-    color:var(--muted);border-bottom:1px solid var(--border);font-weight:400;white-space:nowrap;}
-  td{padding:11px 10px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle;}
-  tr:hover td{background:rgba(255,255,255,0.02);}
-  tr:last-child td{border-bottom:none;}
-  .ref-id{font-family:'DM Mono',monospace;color:var(--accent);font-size:11px;white-space:nowrap;font-weight:600;}
-
-  /* DELAY */
-  .delay-chip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:4px;white-space:nowrap;}
-  .d-ok{color:var(--green);background:rgba(34,197,94,0.1);}
-  .d-warn{color:var(--yellow);background:rgba(245,158,11,0.1);}
-  .d-late{color:var(--red);background:rgba(239,68,68,0.1);}
-
-  /* STATUS */
-  .status-badge{padding:3px 9px;border-radius:4px;font-size:10px;font-weight:500;
-    display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
-  .status-badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0;}
-  .s-encours{background:rgba(59,130,246,0.12);color:var(--blue);}
-  .s-encours::before{background:var(--blue);animation:blink 1.5s infinite;}
-  .s-recu{background:rgba(34,197,94,0.12);color:var(--green);}
-  .s-recu::before{background:var(--green);}
-  .s-attente{background:rgba(245,158,11,0.12);color:var(--yellow);}
-  .s-attente::before{background:var(--yellow);}
-  .s-retard{background:rgba(239,68,68,0.12);color:var(--red);}
-  .s-retard::before{background:var(--red);}
-  .s-partiel{background:rgba(108,99,255,0.12);color:var(--accent3);}
-  .s-partiel::before{background:var(--accent3);}
-  .s-annule{background:rgba(156,163,175,0.12);color:#9ca3af;}
-  .s-annule::before{background:#9ca3af;}
-  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-
-  /* EDITABLE */
-  .editable-date{background:var(--surface2);border:1px solid var(--border);border-radius:5px;
-    padding:4px 7px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text);
-    outline:none;transition:border-color 0.2s;width:135px;}
-  .editable-date:focus{border-color:var(--accent);}
-  .situation-select{background:var(--surface2);border:1px solid var(--border);border-radius:5px;
-    padding:4px 7px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text);
-    outline:none;cursor:pointer;transition:border-color 0.2s;width:160px;}
-  .situation-select:focus{border-color:var(--accent);}
-  .situation-select option{background:var(--surface);}
-
-  /* MODAL */
-  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;
-    align-items:center;justify-content:center;backdrop-filter:blur(4px);}
-  .modal-overlay.open{display:flex;}
-  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;
-    width:540px;max-width:95vw;animation:modalIn 0.25s ease;}
-  @keyframes modalIn{from{opacity:0;transform:translateY(16px) scale(0.97)}to{opacity:1;transform:none}}
-  .modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:20px;letter-spacing:-0.5px;}
-  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .form-group{display:flex;flex-direction:column;gap:5px;}
-  .form-group.full{grid-column:1/-1;}
-  .form-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
-  .form-input,.form-select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;
-    padding:9px 12px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text);outline:none;transition:border-color 0.2s;}
-  .form-input:focus,.form-select:focus{border-color:var(--accent);}
-  .form-select option{background:var(--surface);}
-  .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;}
-
-  .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--accent);
-    border-radius:8px;padding:12px 18px;font-size:12px;color:var(--accent);z-index:2000;
-    display:none;animation:toastIn 0.3s ease;}
-  @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-
-  ::-webkit-scrollbar{width:5px;height:5px;}
-  ::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
-
-  @media(max-width:768px){
-    .sidebar{width:60px;}
-    .logo-text,.logo-sub,.nav-item span,.nav-section,.sidebar-bottom{display:none;}
-    .main{margin-left:60px;padding:16px;}
-    .stats-grid{grid-template-columns:repeat(2,1fr);}
-  }
-</style>
-</head>
-<body>
-
-<aside class="sidebar">
-  <div class="logo">
-    <div class="logo-text">OrderFlow</div>
-    <div class="logo-sub">Suivi Commandes</div>
-  </div>
-  <div class="nav-section">Menu</div>
-  <div class="nav-item active"><span class="nav-icon">⬡</span><span>Dashboard</span></div>
-  <div class="nav-item"><span class="nav-icon">◫</span><span>Dossiers</span></div>
-  <div class="nav-item"><span class="nav-icon">◉</span><span>Équipe</span></div>
-  <div class="sidebar-bottom">
-    <div class="user-selector" onclick="openUserModal()">
-      <div class="user-avatar" id="sidebarAvatar" style="background:rgba(0,229,176,0.15);color:var(--accent)">IS</div>
-      <div>
-        <div class="user-name" id="sidebarName">Ihsen Souayah</div>
-        <div class="user-role" id="sidebarRole">Manager</div>
-      </div>
-    </div>
-  </div>
-</aside>
-
-<main class="main">
-
-  <div class="header">
-    <div>
-      <div class="page-title">Suivi <span>Dossiers</span></div>
-      <div style="font-size:11px;color:var(--muted);margin-top:3px" id="headerDate"></div>
-    </div>
-    <div class="header-actions">
-      <button class="btn btn-outline" onclick="exportCSV()">↓ Exporter CSV</button>
-      <button class="btn btn-primary" onclick="openModal()">+ Nouveau Dossier</button>
-    </div>
-  </div>
-
-  <div class="stats-grid">
-    <div class="stat-card c-accent">
-      <div class="stat-label">Total Dossiers</div>
-      <div class="stat-value" id="kpiTotal">0</div>
-      <div class="stat-sub" id="kpiTotalSub">—</div>
-    </div>
-    <div class="stat-card c-yellow">
-      <div class="stat-label">Délai Moyen</div>
-      <div class="stat-value" id="kpiDelai">0j</div>
-      <div class="stat-sub">depuis validation expert</div>
-    </div>
-    <div class="stat-card c-red">
-      <div class="stat-label">Pièces en Retard</div>
-      <div class="stat-value" id="kpiRetard">0</div>
-      <div class="stat-sub" id="kpiRetardSub">délai &gt; 14 jours</div>
-    </div>
-    <div class="stat-card c-blue">
-      <div class="stat-label">Pièces Reçues</div>
-      <div class="stat-value" id="kpiRecus">0</div>
-      <div class="stat-sub" id="kpiRecusSub">—</div>
-    </div>
-  </div>
-
-  <!-- IMPORT -->
-  <div class="import-zone" id="importZone">
-    <input type="file" id="importFile" accept=".xlsx,.xls,.csv" onchange="handleFileImport(event)">
-    <div style="font-size:22px;margin-bottom:5px">⬆</div>
-    <div class="import-title">Importer export Odoo (.xlsx)</div>
-    <div class="import-sub">Glissez votre fichier ici ou cliquez pour choisir</div>
-    <div id="importBadge" style="display:none;margin-top:8px;padding:4px 14px;background:rgba(0,229,176,0.1);border-radius:20px;color:var(--accent);font-size:11px;display:none"></div>
-  </div>
-
-  <!-- TABLE -->
-  <div class="card">
-    <div class="card-header">
-      <div class="card-title">Commandes & Réservation Pièces de Rechange</div>
-      <span class="badge" style="background:rgba(0,229,176,0.1);color:var(--accent)" id="orderCount">0 dossiers</span>
-    </div>
-
-    <div class="filter-row">
-      <div class="search-bar">
-        <span style="color:var(--muted)">⌕</span>
-        <input type="text" id="searchInput" placeholder="Référence, véhicule, client, expert..." oninput="renderTable()">
-      </div>
-      <button class="chip active" onclick="setFilter('all',this)">Tous</button>
-      <button class="chip" onclick="setFilter('s-attente',this)">En attente</button>
-      <button class="chip" onclick="setFilter('s-encours',this)">En cours</button>
-      <button class="chip" onclick="setFilter('s-partiel',this)">Partiel</button>
-      <button class="chip" onclick="setFilter('s-recu',this)">Reçus</button>
-      <button class="chip" onclick="setFilter('s-retard',this)">En retard</button>
-    </div>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Référence interne</th>
-            <th>Client</th>
-            <th>Véhicule</th>
-            <th>Tâche courante</th>
-            <th>Expert</th>
-            <th>Chargé Achat</th>
-            <th>Date Valid. Expert</th>
-            <th>Délai (j)</th>
-            <th>Situation Pièces</th>
-            <th>Date Récep. Estimée</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-</main>
-
-<!-- MODAL NOUVEAU DOSSIER -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
-    <div class="modal-title">Nouveau Dossier</div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label class="form-label">Référence interne</label>
-        <input class="form-input" id="fRef" placeholder="DS0000/2026">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Client (Assureur)</label>
-        <input class="form-input" id="fClient" placeholder="STAR ASSURANCES">
-      </div>
-      <div class="form-group full">
-        <label class="form-label">Véhicule</label>
-        <input class="form-input" id="fVehicule" placeholder="PEUGEOT/208/1234 TU 56">
-      </div>
-      <div class="form-group full">
-        <label class="form-label">Tâche courante</label>
-        <input class="form-input" id="fTache" value="Commande et Réservation Pièces de rechange">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Expert</label>
-        <input class="form-input" id="fExpert" placeholder="Nom de l'expert">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Chargé Achat</label>
-        <select class="form-select" id="fAcheteur"></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Date Validation Expert</label>
-        <input class="form-input" type="date" id="fDate">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Situation Pièces</label>
-        <select class="form-select" id="fSituation">
-          <option value="s-attente">En attente commande</option>
-          <option value="s-encours">Commande en cours</option>
-          <option value="s-partiel">Réception partielle</option>
-          <option value="s-recu">Pièces reçues</option>
-          <option value="s-retard">En retard</option>
-          <option value="s-annule">Annulé</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Date Récep. Estimée</label>
-        <input class="form-input" type="date" id="fReception">
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="saveOrder()">Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- USER MODAL -->
-<div class="modal-overlay" id="userModalOverlay">
-  <div class="modal" style="width:360px;">
-    <div class="modal-title">Changer d'utilisateur</div>
-    <div id="userList" style="display:flex;flex-direction:column;gap:8px;"></div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeUserModal()">Fermer</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const TEAM = [
-  {id:1,  name:"Ihsen Souayah", role:"Manager",           color:"#00e5b0"},
-  {id:2,  name:"Achref Zehiri", role:"Responsable Achat", color:"#ff6b35"},
-  {id:3,  name:"Olfa",          role:"Chef d'équipe",     color:"#6c63ff"},
-  {id:4,  name:"Ines",          role:"Chargée d'achat",   color:"#f59e0b"},
-  {id:5,  name:"Feriel",        role:"Chargée d'achat",   color:"#3b82f6"},
-  {id:6,  name:"Iheb",          role:"Chargé Achat",      color:"#ec4899"},
-  {id:7,  name:"Houssem",       role:"Chargé Achat",      color:"#22c55e"},
-  {id:8,  name:"Nada",          role:"Chargée Achat",     color:"#f43f5e"},
-  {id:9,  name:"Emna",          role:"Chargée Achat",     color:"#a78bfa"},
-  {id:10, name:"Amine",         role:"Chargé Achat",      color:"#34d399"},
-  {id:11, name:"Nour el Houda", role:"Chargée Achat",     color:"#fbbf24"},
-];
-
-const SITUATIONS = {
-  's-attente':'En attente commande',
-  's-encours':'Commande en cours',
-  's-partiel':'Réception partielle',
-  's-recu':   'Pièces reçues',
-  's-retard': 'En retard',
-  's-annule': 'Annulé',
+// Helper functions
+const getWeekNumber = (date: Date): number => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
-let orders = [];
-let currentFilter = 'all';
-let currentUser = TEAM[0];
+const getWeekName = (date: Date): string => {
+  const weekNum = getWeekNumber(date);
+  const month = date.toLocaleString('fr-FR', { month: 'long' });
+  const year = date.getFullYear();
+  return `Semaine ${weekNum} - ${month.charAt(0).toUpperCase() + month.slice(1)} ${year}`;
+};
 
-// ── INIT ──────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('headerDate').textContent =
-    new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('fAcheteur').innerHTML =
-    TEAM.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
-  render();
-  setupDragDrop();
-});
+const getWeekRange = (date: Date): { start: string; end: string } => {
+  // Find the Monday of the week
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(date.setDate(diff));
+  
+  // Find the Sunday of the week
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  return {
+    start: monday.toLocaleDateString('fr-FR'),
+    end: sunday.toLocaleDateString('fr-FR')
+  };
+};
 
-// ── RENDER ────────────────────────────────────────────────────────────────
-function render() { renderKPIs(); renderTable(); }
-
-function renderKPIs() {
-  const total = orders.length;
-  const delays = orders.map(o=>calcDelai(o.dateValidation)).filter(d=>d!==null);
-  const avg = delays.length ? Math.round(delays.reduce((a,b)=>a+b,0)/delays.length) : 0;
-  const retard = orders.filter(o=>{
-    const d=calcDelai(o.dateValidation);
-    return d!==null && d>14 && o.situation!=='s-recu' && o.situation!=='s-annule';
-  }).length;
-  const recus = orders.filter(o=>o.situation==='s-recu').length;
-  const clients = [...new Set(orders.map(o=>o.client).filter(Boolean))].length;
-
-  document.getElementById('kpiTotal').textContent = total;
-  document.getElementById('kpiTotalSub').textContent = `${clients} client${clients>1?'s':''}`;
-  document.getElementById('kpiDelai').textContent = avg+'j';
-  document.getElementById('kpiRetard').textContent = retard;
-  document.getElementById('kpiRetardSub').textContent = total?`${((retard/total)*100).toFixed(0)}% du total`:'—';
-  document.getElementById('kpiRecus').textContent = recus;
-  document.getElementById('kpiRecusSub').textContent = total?`${((recus/total)*100).toFixed(0)}% du total`:'—';
-}
-
-function renderTable() {
-  const search = document.getElementById('searchInput').value.toLowerCase().trim();
-  const filtered = orders.filter(o=>{
-    if(currentFilter!=='all' && o.situation!==currentFilter) return false;
-    if(search && ![o.ref,o.client,o.vehicule,o.expert,o.acheteurNom,o.tache]
-      .some(v=>v&&v.toLowerCase().includes(search))) return false;
-    return true;
-  });
-
-  document.getElementById('orderCount').textContent = filtered.length+' dossiers';
-  const tbody = document.getElementById('tableBody');
-
-  if(!filtered.length){
-    tbody.innerHTML=`<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:36px;font-size:13px">
-      ${!orders.length?'⬆&nbsp; Importez un fichier Odoo pour commencer':'Aucun dossier trouvé'}
-    </td></tr>`;
-    return;
+const extractVehicleBrand = (vehicle: string): string => {
+  if (!vehicle) return '';
+  // Extract brand from formats like "VOLKSWAGEN/POLO 4/3039 TU 97" or "RENAULT/RENAULT SYMBOLE/2480 TU 190"
+  const parts = vehicle.split('/');
+  if (parts.length > 0) {
+    return parts[0].trim();
   }
+  return vehicle.split(' ')[0] || vehicle;
+};
 
-  tbody.innerHTML = filtered.map(o=>{
-    const ri = orders.indexOf(o);
-    const delai = calcDelai(o.dateValidation);
-    const dc = delai===null?'':delai>14?'d-late':delai>7?'d-warn':'d-ok';
-    const dt = delai!==null?delai+'j':'—';
-    const sc = o.situation||'s-attente';
-    const color = getColor(o.acheteurNom);
-    return `<tr>
-      <td><span class="ref-id">${o.ref||'—'}</span></td>
-      <td style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.client||''}">${o.client||'—'}</td>
-      <td style="font-size:11px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.vehicule||''}">${o.vehicule||'—'}</td>
-      <td style="font-size:10px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.tache||'—'}</td>
-      <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.expert||''}">${o.expert||'—'}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:5px;">
-          <div style="width:22px;height:22px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0">${ini(o.acheteurNom)}</div>
-          <span style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.acheteurNom||''}">${o.acheteurNom||'—'}</span>
-        </div>
-      </td>
-      <td style="font-size:11px;white-space:nowrap">${fmtDate(o.dateValidation)}</td>
-      <td><span class="delay-chip ${dc}">${dt}</span></td>
-      <td>
-        <select class="situation-select ${sc}" onchange="updateSit(${ri},this.value)">
-          ${Object.entries(SITUATIONS).map(([v,l])=>`<option value="${v}"${o.situation===v?' selected':''}>${l}</option>`).join('')}
-        </select>
-      </td>
-      <td>
-        <input type="date" class="editable-date" value="${o.dateReception||''}"
-          onchange="updateRec(${ri},this.value)" title="Date estimée de réception">
-      </td>
-      <td>
-        <button onclick="del(${ri})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 6px;border-radius:4px;transition:color 0.2s"
-          onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--muted)'">×</button>
-      </td>
-    </tr>`;
-  }).join('');
-}
+const calculateDelay = (validationDate: string): number => {
+  if (!validationDate) return 0;
+  const validation = new Date(validationDate);
+  const today = new Date();
+  const diffTime = Math.abs(today.getTime() - validation.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
 
-// ── HELPERS ───────────────────────────────────────────────────────────────
-function calcDelai(d){
-  if(!d) return null;
-  const today=new Date(); today.setHours(0,0,0,0);
-  const dt=new Date(d); dt.setHours(0,0,0,0);
-  if(isNaN(dt)) return null;
-  return Math.floor((today-dt)/86400000);
-}
+const determinePartsStatus = (delay: number): Order['partsStatus'] => {
+  if (delay <= 5) return 'received';
+  if (delay <= 10) return 'pending';
+  if (delay <= 14) return 'delayed';
+  return 'critical';
+};
 
-function fmtDate(s){
-  if(!s) return '—';
-  const d=new Date(s);
-  return isNaN(d)?s:d.toLocaleDateString('fr-TN');
-}
+const determinePriority = (delay: number): Order['priority'] => {
+  if (delay <= 5) return 'low';
+  if (delay <= 10) return 'medium';
+  if (delay <= 14) return 'high';
+  return 'urgent';
+};
 
-function ini(name){
-  if(!name) return '?';
-  return name.split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2);
-}
+// Mock Data - simulating uploaded data
+const mockOrders: Order[] = [
+  { id: '1', reference: 'DS1441/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/POLO 4/3039 TU 97', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-22 09:33:35', delay: 8, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '2', reference: 'DS1442/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/BORA/8867 TU 98', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-24 10:15:11', delay: 6, partsStatus: 'pending', estimatedDate: '2026-05-06', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '3', reference: 'DS1444/2026', client: 'STAR ASSURANCES', vehicle: 'TOYOTA/AGYA/9069 TU 237', vehicleBrand: 'TOYOTA', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Olfa Zribi', validationDate: '2026-04-21 12:47:02', delay: 9, partsStatus: 'pending', estimatedDate: '2026-05-04', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '4', reference: 'DS1423/2026', client: 'STAR ASSURANCES', vehicle: 'CITROEN/BERLINGO/9924 TU 243', vehicleBrand: 'CITROEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Houssem Eddine BEN ROUHA', validationDate: '2026-04-23 08:48:10', delay: 7, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '5', reference: 'DS1427/2026', client: 'STAR ASSURANCES', vehicle: 'PEUGEOT/206/7973 TU 112', vehicleBrand: 'PEUGEOT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Achref Zehiri', validationDate: '2026-04-21 15:22:52', delay: 9, partsStatus: 'pending', estimatedDate: '2026-05-04', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '6', reference: 'DS1429/2026', client: 'STAR ASSURANCES', vehicle: 'GEELY/GC6/3408 TU 227', vehicleBrand: 'GEELY', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Nada Aydi', validationDate: '2026-04-24 00:00:00', delay: 6, partsStatus: 'pending', estimatedDate: '2026-05-06', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '7', reference: 'DS1388/2026', client: 'STAR ASSURANCES', vehicle: 'PEUGEOT/308/6865 TU 170', vehicleBrand: 'PEUGEOT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Houssem Eddine BEN ROUHA', validationDate: '2026-04-22 16:09:14', delay: 8, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '8', reference: 'DS1394/2026', client: 'STAR ASSURANCES', vehicle: 'RENAULT/RENAULT SYMBOLE/2480 TU 190', vehicleBrand: 'RENAULT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Emna Elaloui', validationDate: '2026-04-23 14:52:43', delay: 7, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '9', reference: 'DS1396/2026', client: 'STAR ASSURANCES', vehicle: 'SSANGYONG/ACTYON/5916 TU 153', vehicleBrand: 'SSANGYONG', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Marwa Yaferni', validationDate: '2026-04-22 14:52:23', delay: 8, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '10', reference: 'DS1359/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/PASSAT/7926 TU 175', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-21 10:15:33', delay: 9, partsStatus: 'pending', estimatedDate: '2026-05-04', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+  { id: '11', reference: 'DS1325/2026', client: 'STAR ASSURANCES', vehicle: 'SEAT/SEAT/984 TU 242', vehicleBrand: 'SEAT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-17 09:41:30', delay: 13, partsStatus: 'delayed', estimatedDate: '2026-05-02', priority: 'high', week: 'Semaine 16 - Avril 2026', importDate: '2026-04-21' },
+  { id: '12', reference: 'DS1332/2026', client: 'STAR ASSURANCES', vehicle: 'FIAT/FIAT/ PUNTO/6902 TU 130', vehicleBrand: 'FIAT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Nada Aydi', validationDate: '2026-04-20 16:04:03', delay: 10, partsStatus: 'pending', estimatedDate: '2026-05-03', priority: 'medium', week: 'Semaine 16 - Avril 2026', importDate: '2026-04-21' },
+  { id: '13', reference: 'DS1293/2026', client: 'MAE ASSURANCES', vehicle: 'NISSAN/JUKE/6994 TU 259', vehicleBrand: 'NISSAN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Ons Ouni', validationDate: '2026-04-22 09:05:09', delay: 8, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+];
 
-function getColor(name){
-  if(!name) return '#6b7280';
-  const m=TEAM.find(t=>name.toLowerCase().includes(t.name.split(' ')[0].toLowerCase())
-    ||t.name.toLowerCase().includes(name.split(' ')[0].toLowerCase()));
-  return m?m.color:'#6b7280';
-}
+function App() {
+  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<keyof Order>('delay');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedWeek, setSelectedWeek] = useState<string>('all');
+  const [uploadHistory, setUploadHistory] = useState<WeekData[]>([
+    { name: 'Semaine 17 - Avril 2026', startDate: '21/04/2026', endDate: '27/04/2026', orderCount: 10 },
+    { name: 'Semaine 16 - Avril 2026', startDate: '14/04/2026', endDate: '20/04/2026', orderCount: 3 },
+    { name: 'Semaine 15 - Avril 2026', startDate: '07/04/2026', endDate: '13/04/2026', orderCount: 8 },
+    { name: 'Semaine 14 - Avril 2026', startDate: '31/03/2026', endDate: '06/04/2026', orderCount: 12 },
+  ]);
+  const [lastUploadDate, setLastUploadDate] = useState<string>('28/04/2026');
 
-function excelToDate(v){
-  if(!v) return '';
-  if(v instanceof Date) return v.toISOString().split('T')[0];
-  if(typeof v==='number') return new Date(Math.round((v-25569)*86400000)).toISOString().split('T')[0];
-  if(typeof v==='string'){
-    const d=new Date(v);
-    return isNaN(d)?'':d.toISOString().split('T')[0];
-  }
-  return '';
-}
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const filtered = selectedWeek === 'all' ? orders : orders.filter(o => o.week === selectedWeek);
+    const total = filtered.length;
+    const received = filtered.filter(o => o.partsStatus === 'received').length;
+    const delayed = filtered.filter(o => o.partsStatus === 'delayed' || o.partsStatus === 'critical').length;
+    const avgDelay = filtered.reduce((acc, o) => acc + o.delay, 0) / total || 0;
+    const critical = filtered.filter(o => o.partsStatus === 'critical').length;
+    
+    return { total, received, delayed, avgDelay, critical };
+  }, [orders, selectedWeek]);
 
-// ── ACTIONS ───────────────────────────────────────────────────────────────
-function updateSit(i,v){ orders[i].situation=v; renderKPIs(); showToast('✓ Situation mise à jour'); }
-function updateRec(i,v){ orders[i].dateReception=v; showToast('✓ Date enregistrée'); }
-function del(i){
-  const ref=orders[i].ref;
-  if(!confirm(`Supprimer ${ref} ?`)) return;
-  orders.splice(i,1); render(); showToast(`✕ ${ref} supprimé`);
-}
+  // Filter and sort orders
+  const filteredOrders = useMemo(() => {
+    return orders
+      .filter(order => {
+        const matchesSearch = order.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.vehicleBrand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.lastUpdateBy.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'all' || order.partsStatus === statusFilter;
+        const matchesPriority = priorityFilter === 'all' || order.priority === priorityFilter;
+        const matchesWeek = selectedWeek === 'all' || order.week === selectedWeek;
+        return matchesSearch && matchesStatus && matchesPriority && matchesWeek;
+      })
+      .sort((a, b) => {
+        const aVal = a[sortField];
+        const bVal = b[sortField];
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+        return sortDirection === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+      });
+  }, [orders, searchTerm, statusFilter, priorityFilter, sortField, sortDirection, selectedWeek]);
 
-function setFilter(f,el){
-  currentFilter=f;
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
-  renderTable();
-}
+  // Handle sort
+  const handleSort = (field: keyof Order) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
 
-// ── MODAL ─────────────────────────────────────────────────────────────────
-function openModal(){ document.getElementById('modalOverlay').classList.add('open'); }
-function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
+  // Handle file drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
 
-function saveOrder(){
-  const ref=document.getElementById('fRef').value.trim();
-  if(!ref){alert('Référence obligatoire');return;}
-  const achId=parseInt(document.getElementById('fAcheteur').value);
-  orders.unshift({
-    ref, client:document.getElementById('fClient').value.trim(),
-    vehicule:document.getElementById('fVehicule').value.trim(),
-    tache:document.getElementById('fTache').value.trim(),
-    expert:document.getElementById('fExpert').value.trim(),
-    acheteurNom:TEAM.find(m=>m.id===achId)?.name||'',
-    dateValidation:document.getElementById('fDate').value,
-    situation:document.getElementById('fSituation').value,
-    dateReception:document.getElementById('fReception').value,
-  });
-  closeModal(); render(); showToast(`✓ ${ref} ajouté`);
-  ['fRef','fClient','fVehicule','fExpert'].forEach(id=>document.getElementById(id).value='');
-}
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
 
-// ── IMPORT ODOO ───────────────────────────────────────────────────────────
-function setupDragDrop(){
-  const z=document.getElementById('importZone');
-  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('drag-over');});
-  z.addEventListener('dragleave',()=>z.classList.remove('drag-over'));
-  z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('drag-over');
-    if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);});
-}
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      processExcelFile(files[0]);
+    }
+  };
 
-function handleFileImport(e){ if(e.target.files[0]) processFile(e.target.files[0]); }
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      processExcelFile(files[0]);
+    }
+  };
 
-function processFile(file){
-  const reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-
-      // Get raw data with header row detection
-      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      // Find header row (contains "Référence")
-      let hIdx=raw.findIndex(r=>r.some(c=>/r[ée]f[ée]rence/i.test(String(c))));
-      if(hIdx===-1) hIdx=0;
-      const headers=raw[hIdx].map(h=>String(h).trim());
-      const dataRows=raw.slice(hIdx+1);
-
-      // Map columns
-      const ci=(pattern)=>headers.findIndex(h=>pattern.test(h));
-      const iRef    = ci(/r[ée]f[ée]rence/i);
-      const iClient = ci(/client/i);
-      const iVeh    = ci(/v[ée]hicule/i);
-      const iTache  = ci(/t[âa]che/i);
-      const iExpert = ci(/^expert$/i)!==-1?ci(/^expert$/i):ci(/expert/i);
-      const iAchat  = ci(/charg|mise.jour/i);
-      const iDate   = ci(/date/i);
-
-      const imported=dataRows
-        .filter(r=>r[iRef]&&String(r[iRef]).trim().length>2)
-        .map(r=>{
-          const ref=String(r[iRef]||'').trim();
-          const existing=orders.find(o=>o.ref===ref);
+  const processExcelFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const data = event.target?.result;
+      if (data) {
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Transform Excel data to Order format
+        const newOrders: Order[] = jsonData.map((row: any, index: number) => {
+          const validationDate = row['Date Validation Expert'] || row['date_validation_expert'] || new Date().toISOString();
+          const delay = calculateDelay(validationDate);
+          const vehicle = row['Véhicule'] || row['vehicule'] || row['Vehicle'] || '';
+          
           return {
-            ref,
-            client:     String(r[iClient]||'').trim(),
-            vehicule:   String(r[iVeh]   ||'').trim(),
-            tache:      String(r[iTache] ||'').trim(),
-            expert:     iExpert>=0?String(r[iExpert]||'').trim():'',
-            acheteurNom:iAchat>=0?String(r[iAchat]  ||'').trim():'',
-            dateValidation: excelToDate(r[iDate]),
-            situation:  existing?.situation    ||'s-attente',
-            dateReception:existing?.dateReception||'',
+            id: `new-${Date.now()}-${index}`,
+            reference: row['Référence interne'] || row['reference_interne'] || row['Reference'] || `REF-${Date.now()}-${index}`,
+            client: row['Client'] || row['client'] || row['Client'] || 'Client inconnu',
+            vehicle: vehicle,
+            vehicleBrand: extractVehicleBrand(vehicle),
+            task: row['Tâche courante'] || row['tache_courante'] || row['Task'] || 'Tâche non spécifiée',
+            lastUpdateBy: row['Dernière mise à jour par'] || row['derniere_mise_a_jour_par'] || row['LastUpdateBy'] || 'Inconnu',
+            validationDate: validationDate,
+            delay: delay,
+            partsStatus: determinePartsStatus(delay),
+            estimatedDate: new Date(new Date().getTime() + delay * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            priority: determinePriority(delay),
+            week: getWeekName(new Date()),
+            importDate: new Date().toISOString().split('T')[0]
           };
         });
 
-      if(!imported.length){showToast('⚠ Aucun dossier valide trouvé');return;}
+        // Update upload history
+        const currentWeek = getWeekName(new Date());
+        const weekRange = getWeekRange(new Date());
+        setUploadHistory(prev => [
+          { 
+            name: currentWeek, 
+            startDate: weekRange.start, 
+            endDate: weekRange.end, 
+            orderCount: newOrders.length 
+          },
+          ...prev
+        ]);
+        setLastUploadDate(new Date().toLocaleDateString('fr-FR'));
+        
+        // Add new orders
+        setOrders(prev => [...newOrders, ...prev]);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
 
-      orders=imported;
-      const badge=document.getElementById('importBadge');
-      badge.textContent=`✓ ${imported.length} dossiers importés — ${file.name}`;
-      badge.style.display='block';
-      render();
-      showToast(`✓ ${imported.length} dossiers importés !`);
-    }catch(err){
-      console.error(err);
-      showToast('⚠ Erreur : '+err.message);
+  // Get status color
+  const getStatusColor = (status: Order['partsStatus']) => {
+    switch (status) {
+      case 'received': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'pending': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'delayed': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
     }
   };
-  reader.readAsArrayBuffer(file);
+
+  const getPriorityColor = (priority: Order['priority']) => {
+    switch (priority) {
+      case 'low': return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'urgent': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+    }
+  };
+
+  const statCards: StatCard[] = [
+    { title: 'Total Dossiers', value: stats.total, change: 12, icon: <FileSpreadsheet className="w-6 h-6" />, color: 'blue' },
+    { title: 'Pièces Reçues', value: stats.received, change: 8, icon: <CheckCircle className="w-6 h-6" />, color: 'green' },
+    { title: 'En Retard', value: stats.delayed, change: -5, icon: <AlertCircle className="w-6 h-6" />, color: 'orange' },
+    { title: 'Délai Moyen', value: `${stats.avgDelay.toFixed(1)}j`, change: -2, icon: <Clock className="w-6 h-6" />, color: 'purple' },
+  ];
+
+  return (
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">OrderFlow</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Suivi Commandes & Pièces</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button className="relative p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <Bell className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                  3
+                </span>
+              </button>
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+              <button className="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <Settings className="w-5 h-5" />
+              </button>
+              <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
+                SM
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {statCards.map((stat, index) => (
+            <div
+              key={index}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{stat.title}</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stat.value}</p>
+                  {stat.change !== undefined && (
+                    <div className={`flex items-center mt-2 text-sm ${stat.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {stat.change >= 0 ? <ArrowUpRight className="w-4 h-4 mr-1" /> : <ArrowDownRight className="w-4 h-4 mr-1" />}
+                      <span>{Math.abs(stat.change)}% vs semaine dernière</span>
+                    </div>
+                  )}
+                </div>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  stat.color === 'blue' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400' :
+                  stat.color === 'green' ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' :
+                  stat.color === 'orange' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400' :
+                  'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400'
+                }`}>
+                  {stat.icon}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Upload Zone */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* File Upload */}
+          <div className="lg:col-span-2">
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
+                isDragging
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-[1.02]'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'
+              }`}
+            >
+              <div className="flex flex-col items-center">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-all duration-300 ${
+                  isDragging ? 'bg-blue-500 scale-110' : 'bg-gray-100 dark:bg-gray-700'
+                }`}>
+                  <Upload className={`w-8 h-8 ${isDragging ? 'text-white' : 'text-gray-400'}`} />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Importer l'état des dossiers (Odoo .xlsx)
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  Glissez votre fichier Excel ici ou cliquez pour choisir
+                </p>
+                <label className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center space-x-2 cursor-pointer">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Sélectionner un fichier</span>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                  Dernière mise à jour : {lastUploadDate}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Upload History */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
+              <History className="w-5 h-5 text-blue-600" />
+              <span>Historique des imports</span>
+            </h3>
+            <div className="space-y-3">
+              {uploadHistory.slice(0, 4).map((week, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedWeek(week.name)}
+                  className={`w-full p-3 rounded-xl text-left transition-all duration-200 ${
+                    selectedWeek === week.name
+                      ? 'bg-blue-100 dark:bg-blue-900 border-2 border-blue-500'
+                      : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border-2 border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">{week.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{week.startDate} - {week.endDate}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{week.orderCount}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">dossiers</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setSelectedWeek('all')}
+              className={`w-full mt-3 p-3 rounded-xl text-center transition-all duration-200 ${
+                selectedWeek === 'all'
+                  ? 'bg-blue-100 dark:bg-blue-900 border-2 border-blue-500 text-blue-700 dark:text-blue-300 font-medium'
+                  : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              Voir tous les dossiers
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher (référence, client, véhicule, chargé d'achat)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="received">Reçues</option>
+                  <option value="pending">En attente</option>
+                  <option value="delayed">En retard</option>
+                  <option value="critical">Critique</option>
+                </select>
+                <select
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                  className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                >
+                  <option value="all">Toutes priorités</option>
+                  <option value="low">Basse</option>
+                  <option value="medium">Moyenne</option>
+                  <option value="high">Haute</option>
+                  <option value="urgent">Urgente</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2">
+                <Download className="w-4 h-4" />
+                <span>Exporter</span>
+              </button>
+              <button className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors flex items-center space-x-2">
+                <Plus className="w-4 h-4" />
+                <span>Nouveau dossier</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Orders Table */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Commandes & Réservation Pièces de Rechange
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {filteredOrders.length} dossiers {selectedWeek !== 'all' ? `pour ${selectedWeek}` : ''}
+              </p>
+            </div>
+            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+              <RefreshCw className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  {[
+                    { key: 'reference', label: 'Référence' },
+                    { key: 'client', label: 'Client' },
+                    { key: 'vehicleBrand', label: 'Véhicule (Marque)' },
+                    { key: 'task', label: 'Tâche' },
+                    { key: 'lastUpdateBy', label: 'Dernière mise à jour par' },
+                    { key: 'validationDate', label: 'Date Valid. Expert' },
+                    { key: 'delay', label: 'Délai (j)' },
+                    { key: 'partsStatus', label: 'Situation' },
+                  ].map((col) => (
+                    <th
+                      key={col.key}
+                      onClick={() => handleSort(col.key as keyof Order)}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>{col.label}</span>
+                        {sortField === col.key && (
+                          sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredOrders.map((order, index) => (
+                  <tr
+                    key={order.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedOrder(order);
+                      setIsModalOpen(true);
+                    }}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{order.reference}</span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900 dark:text-white">{order.client}</span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{order.vehicleBrand}</span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap max-w-xs">
+                      <span className="text-sm text-gray-900 dark:text-white truncate block">{order.task}</span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-7 h-7 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                          {order.lastUpdateBy.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                        </div>
+                        <span className="text-sm text-gray-900 dark:text-white">{order.lastUpdateBy}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-gray-900 dark:text-white">{order.validationDate.split(' ')[0]}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-sm font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : order.delay > 5 ? 'text-yellow-600' : 'text-green-600'}`}>
+                          {order.delay}j
+                        </span>
+                        {order.delay > 14 && <AlertCircle className="w-4 h-4 text-red-500" />}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(order.partsStatus)}`}>
+                        {order.partsStatus === 'received' && '✓ Reçues'}
+                        {order.partsStatus === 'pending' && ' En attente'}
+                        {order.partsStatus === 'delayed' && '⚠ En retard'}
+                        {order.partsStatus === 'critical' && '🔴 Critique'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        <button className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-lg transition-colors">
+                          <Eye className="w-4 h-4 text-blue-600" />
+                        </button>
+                        <button className="p-2 hover:bg-green-100 dark:hover:bg-green-900 rounded-lg transition-colors">
+                          <Edit className="w-4 h-4 text-green-600" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Affichage de 1 à {filteredOrders.length} sur {filteredOrders.length} résultats
+            </p>
+            <div className="flex space-x-2">
+              <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50" disabled>
+                Précédent
+              </button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">1</button>
+              <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                2
+              </button>
+              <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                Suivant
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Analytics Section */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Status Distribution */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
+              <PieChart className="w-5 h-5 text-blue-600" />
+              <span>Répartition par statut</span>
+            </h3>
+            <div className="space-y-4">
+              {[
+                { status: 'Reçues', count: orders.filter(o => o.partsStatus === 'received').length, color: 'bg-green-500', percentage: (orders.filter(o => o.partsStatus === 'received').length / orders.length) * 100 },
+                { status: 'En attente', count: orders.filter(o => o.partsStatus === 'pending').length, color: 'bg-blue-500', percentage: (orders.filter(o => o.partsStatus === 'pending').length / orders.length) * 100 },
+                { status: 'En retard', count: orders.filter(o => o.partsStatus === 'delayed').length, color: 'bg-orange-500', percentage: (orders.filter(o => o.partsStatus === 'delayed').length / orders.length) * 100 },
+                { status: 'Critique', count: orders.filter(o => o.partsStatus === 'critical').length, color: 'bg-red-500', percentage: (orders.filter(o => o.partsStatus === 'critical').length / orders.length) * 100 },
+              ].map((item) => (
+                <div key={item.status}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600 dark:text-gray-400">{item.status}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{item.count} ({item.percentage.toFixed(0)}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                    <div
+                      className={`${item.color} h-3 rounded-full transition-all duration-500`}
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Delay Distribution */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
+              <BarChart3 className="w-5 h-5 text-purple-600" />
+              <span>Délais d'achat</span>
+            </h3>
+            <div className="flex items-end justify-around h-48 px-4">
+              {[
+                { label: '≤5j', count: orders.filter(o => o.delay <= 5).length, color: 'bg-green-500' },
+                { label: '6-10j', count: orders.filter(o => o.delay > 5 && o.delay <= 10).length, color: 'bg-yellow-500' },
+                { label: '11-14j', count: orders.filter(o => o.delay > 10 && o.delay <= 14).length, color: 'bg-orange-500' },
+                { label: '>14j', count: orders.filter(o => o.delay > 14).length, color: 'bg-red-500' },
+              ].map((item) => (
+                <div key={item.label} className="flex flex-col items-center">
+                  <div className="text-sm font-bold text-gray-900 dark:text-white mb-2">{item.count}</div>
+                  <div
+                    className={`${item.color} w-14 rounded-t-lg transition-all duration-500 hover:opacity-80`}
+                    style={{ height: `${Math.max((item.count / orders.length) * 150, 20)}px` }}
+                  />
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center font-medium">{item.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Chargés d'achat Stats */}
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
+            <TrendingUp className="w-5 h-5 text-green-600" />
+            <span>Performance par chargé d'achat</span>
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...new Set(orders.map(o => o.lastUpdateBy))].slice(0, 8).map((manager) => {
+              const managerOrders = orders.filter(o => o.lastUpdateBy === manager);
+              const avgDelay = managerOrders.reduce((acc, o) => acc + o.delay, 0) / managerOrders.length;
+              return (
+                <div key={manager} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
+                      {manager.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{manager}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{managerOrders.length} dossiers</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Délai moyen</span>
+                    <span className={`font-bold ${avgDelay > 14 ? 'text-red-600' : avgDelay > 10 ? 'text-orange-600' : 'text-green-600'}`}>
+                      {avgDelay.toFixed(1)}j
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </main>
+
+      {/* Modal */}
+      {isModalOpen && selectedOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setIsModalOpen(false)}
+            />
+            <div className="relative inline-block w-full max-w-2xl p-6 my-8 text-left align-middle transition-all transform bg-white dark:bg-gray-800 shadow-xl rounded-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Détails du dossier
+                </h3>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Référence</label>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedOrder.reference}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Client</label>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedOrder.client}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Véhicule (Marque)</label>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedOrder.vehicleBrand}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Véhicule (Complet)</label>
+                  <p className="font-medium text-gray-900 dark:text-white text-sm">{selectedOrder.vehicle}</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Tâche</label>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedOrder.task}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Dernière mise à jour par</label>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedOrder.lastUpdateBy}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Date Validation Expert</label>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedOrder.validationDate}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Délai d'achat (jours)</label>
+                  <p className={`font-bold text-lg ${selectedOrder.delay > 14 ? 'text-red-600' : selectedOrder.delay > 10 ? 'text-orange-600' : 'text-green-600'}`}>
+                    {selectedOrder.delay} jours
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Statut Pièces</label>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(selectedOrder.partsStatus)}`}>
+                    {selectedOrder.partsStatus}
+                  </span>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Priorité</label>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getPriorityColor(selectedOrder.priority)}`}>
+                    {selectedOrder.priority}
+                  </span>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Semaine</label>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedOrder.week}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Date Import</label>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedOrder.importDate}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Fermer
+                </button>
+                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2">
+                  <Edit className="w-4 h-4" />
+                  <span>Modifier</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
-// ── EXPORT CSV ────────────────────────────────────────────────────────────
-function exportCSV(){
-  const h=['Référence interne','Client','Véhicule','Tâche courante','Expert','Chargé Achat',
-           'Date Valid. Expert','Délai (j)','Situation Pièces','Date Récep. Estimée'];
-  const rows=orders.map(o=>[
-    o.ref,`"${o.client}"`,`"${o.vehicule}"`,`"${o.tache}"`,`"${o.expert}"`,`"${o.acheteurNom}"`,
-    o.dateValidation,calcDelai(o.dateValidation)??'',
-    SITUATIONS[o.situation]||o.situation,o.dateReception
-  ]);
-  const csv=[h,...rows].map(r=>r.join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
-  a.download='suivi_commandes.csv';a.click();
-  showToast('✓ Export CSV téléchargé');
-}
-
-// ── USER MODAL ────────────────────────────────────────────────────────────
-function openUserModal(){
-  document.getElementById('userList').innerHTML=TEAM.map(m=>`
-    <div onclick="selectUser(${m.id})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
-      cursor:pointer;border:1px solid ${currentUser.id===m.id?m.color:'var(--border)'};
-      background:${currentUser.id===m.id?m.color+'12':'var(--surface2)'};transition:all 0.2s;">
-      <div style="width:32px;height:32px;border-radius:50%;background:${m.color}20;color:${m.color};display:flex;align-items:center;
-        justify-content:center;font-size:11px;font-weight:700;font-family:'Syne',sans-serif">${ini(m.name)}</div>
-      <div style="flex:1"><div style="font-size:13px">${m.name}</div><div style="font-size:10px;color:var(--muted)">${m.role}</div></div>
-      ${currentUser.id===m.id?`<span style="color:${m.color}">✓</span>`:''}
-    </div>`).join('');
-  document.getElementById('userModalOverlay').classList.add('open');
-}
-function closeUserModal(){ document.getElementById('userModalOverlay').classList.remove('open'); }
-function selectUser(id){
-  currentUser=TEAM.find(m=>m.id===id);
-  document.getElementById('sidebarName').textContent=currentUser.name;
-  document.getElementById('sidebarRole').textContent=currentUser.role;
-  document.getElementById('sidebarAvatar').textContent=ini(currentUser.name);
-  document.getElementById('sidebarAvatar').style.background=currentUser.color+'20';
-  document.getElementById('sidebarAvatar').style.color=currentUser.color;
-  closeUserModal(); showToast(`Connecté : ${currentUser.name}`);
-}
-
-// ── TOAST ─────────────────────────────────────────────────────────────────
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.style.display='block';
-  clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',2800);
-}
-
-document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
-document.getElementById('userModalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeUserModal();});
-</script>
-</body>
-</html>
+export default App;
