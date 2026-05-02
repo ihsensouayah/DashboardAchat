@@ -79,6 +79,12 @@
         .notification-exit {
             animation: fadeIn 0.3s ease-out reverse forwards;
         }
+        .buyer-badge {
+            transition: all 0.2s;
+        }
+        .buyer-badge:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -93,7 +99,7 @@
                         </div>
                         <div>
                             <h1 class="text-xl font-bold text-gray-900 dark:text-white">OrderFlow</h1>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Suivi Commandes & Pièces</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Suivi Achats & Pièces</p>
                         </div>
                     </div>
                 </div>
@@ -107,6 +113,10 @@
                     <button onclick="navigateTo('orders')" id="nav-orders" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
                         <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>
                         Commandes
+                    </button>
+                    <button onclick="navigateTo('buyers')" id="nav-buyers" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+                        <i data-lucide="users" class="w-4 h-4 inline mr-1"></i>
+                        Acheteurs
                     </button>
                     <button onclick="navigateTo('analytics')" id="nav-analytics" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
                         <i data-lucide="bar-chart-3" class="w-4 h-4 inline mr-1"></i>
@@ -126,8 +136,8 @@
                     <button class="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors">
                         <i data-lucide="settings" class="w-5 h-5"></i>
                     </button>
-                    <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm cursor-pointer" title="Utilisateur connecté">
-                        SM
+                    <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm cursor-pointer" title="IHSEN SOUAYAH - Manager">
+                        IS
                     </div>
                 </div>
             </div>
@@ -161,7 +171,7 @@
                             <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statTotal">0</p>
                             <div class="flex items-center mt-2 text-sm text-green-600">
                                 <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1"></i>
-                                <span>12% vs semaine dernière</span>
+                                <span>Cette semaine</span>
                             </div>
                         </div>
                         <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400">
@@ -173,15 +183,15 @@
                 <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer" onclick="navigateTo('orders')">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Pièces Reçues</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statReceived">0</p>
-                            <div class="flex items-center mt-2 text-sm text-green-600">
-                                <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1"></i>
-                                <span>8% vs semaine dernière</span>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">En Cours d'Achat</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statInProgress">0</p>
+                            <div class="flex items-center mt-2 text-sm text-blue-600">
+                                <i data-lucide="clock" class="w-4 h-4 mr-1"></i>
+                                <span>Actifs</span>
                             </div>
                         </div>
-                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400">
-                            <i data-lucide="check-circle" class="w-6 h-6"></i>
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400">
+                            <i data-lucide="refresh-cw" class="w-6 h-6"></i>
                         </div>
                     </div>
                 </div>
@@ -189,15 +199,15 @@
                 <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer" onclick="navigateTo('orders')">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">En Retard</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statDelayed">0</p>
-                            <div class="flex items-center mt-2 text-sm text-red-600">
-                                <i data-lucide="arrow-down-right" class="w-4 h-4 mr-1"></i>
-                                <span>5% vs semaine dernière</span>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Commandes Fermes</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statFirm">0</p>
+                            <div class="flex items-center mt-2 text-sm text-purple-600">
+                                <i data-lucide="check-circle" class="w-4 h-4 mr-1"></i>
+                                <span>Confirmées</span>
                             </div>
                         </div>
-                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400">
-                            <i data-lucide="alert-circle" class="w-6 h-6"></i>
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400">
+                            <i data-lucide="shield-check" class="w-6 h-6"></i>
                         </div>
                     </div>
                 </div>
@@ -205,17 +215,31 @@
                 <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer" onclick="navigateTo('analytics')">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Délai Moyen</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statAvgDelay">0j</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Achats Cloturés</p>
+                            <p class="text-3xl font-bold text-green-600 dark:text-green-400 mt-1" id="statClosed">0</p>
                             <div class="flex items-center mt-2 text-sm text-green-600">
-                                <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1"></i>
-                                <span>2% vs semaine dernière</span>
+                                <i data-lucide="trending-up" class="w-4 h-4 mr-1"></i>
+                                <span>Cette semaine</span>
                             </div>
                         </div>
-                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400">
-                            <i data-lucide="clock" class="w-6 h-6"></i>
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400">
+                            <i data-lucide="circle-check" class="w-6 h-6"></i>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Weekly Closed by Buyer -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
+                        <i data-lucide="trophy" class="w-5 h-5 text-yellow-600"></i>
+                        <span>Achats Cloturés Cette Semaine par Acheteur</span>
+                    </h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1" id="currentWeekLabel">Semaine en cours</p>
+                </div>
+                <div id="weeklyClosedByBuyer" class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <!-- Buyer closed stats will be inserted here -->
                 </div>
             </div>
 
@@ -233,6 +257,9 @@
                             </h3>
                             <p class="text-gray-500 dark:text-gray-400 mb-4">
                                 Glissez votre fichier Excel ici ou cliquez pour choisir
+                            </p>
+                            <p class="text-xs text-blue-600 dark:text-blue-400 mb-4 bg-blue-50 dark:bg-blue-900/30 px-3 py-2 rounded-lg">
+                                💡 Les nouveaux imports ajoutent uniquement les nouvelles lignes à la semaine en cours
                             </p>
                             <label class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center space-x-2 cursor-pointer">
                                 <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
@@ -285,7 +312,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Référence</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Marque</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Chargé d'achat</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acheteur</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Délai</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Statut</th>
                             </tr>
@@ -306,23 +333,19 @@
                     <div class="flex flex-col sm:flex-row gap-4 flex-1">
                         <div class="relative flex-1 max-w-md">
                             <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
-                            <input type="text" id="searchInput" placeholder="Rechercher (référence, client, véhicule, chargé d'achat)..." 
+                            <input type="text" id="searchInput" placeholder="Rechercher (référence, client, véhicule, acheteur)..." 
                                 class="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
                         </div>
                         <div class="flex gap-2">
                             <select id="statusFilter" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
                                 <option value="all">Tous les statuts</option>
-                                <option value="received">Reçues</option>
-                                <option value="pending">En attente</option>
-                                <option value="delayed">En retard</option>
-                                <option value="critical">Critique</option>
+                                <option value="in_progress">En cours d'achat</option>
+                                <option value="firm">Commande ferme</option>
+                                <option value="closed">Achat cloturé</option>
                             </select>
-                            <select id="priorityFilter" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
-                                <option value="all">Toutes priorités</option>
-                                <option value="low">Basse</option>
-                                <option value="medium">Moyenne</option>
-                                <option value="high">Haute</option>
-                                <option value="urgent">Urgente</option>
+                            <select id="buyerFilter" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
+                                <option value="all">Tous les acheteurs</option>
+                                <!-- Will be populated dynamically -->
                             </select>
                         </div>
                     </div>
@@ -376,10 +399,7 @@
                                     </div>
                                 </th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Tâche
-                                </th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Chargé d'achat
+                                    Acheteur
                                 </th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('delay')">
                                     <div class="flex items-center space-x-1">
@@ -422,6 +442,38 @@
             </div>
         </div>
 
+        <!-- ==================== BUYERS VIEW ==================== -->
+        <div id="view-buyers" class="view-section">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Équipe Achats</h2>
+                <p class="text-gray-500 dark:text-gray-400 mt-1">Gestion des acheteurs et performance</p>
+            </div>
+
+            <!-- Buyers Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Will be populated dynamically -->
+                <div id="buyersGrid" class="contents"></div>
+            </div>
+
+            <!-- Buyers needing validation -->
+            <div class="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-6 border border-orange-200 dark:border-orange-800 mb-8">
+                <div class="flex items-start space-x-4">
+                    <div class="w-10 h-10 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="circle-alert" class="w-5 h-5 text-orange-600 dark:text-orange-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-gray-900 dark:text-white mb-2">Acheteurs à valider</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                            Ces noms n'ont pas pu être associés automatiquement. Veuillez les assigner manuellement.
+                        </p>
+                        <div id="unmatchedBuyers" class="space-y-2">
+                            <!-- Unmatched buyers will be listed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ==================== ANALYTICS VIEW ==================== -->
         <div id="view-analytics" class="view-section">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -448,14 +500,14 @@
                 </div>
             </div>
 
-            <!-- Manager Stats -->
+            <!-- Buyer Performance -->
             <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-8">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
-                    <i data-lucide="trending-up" class="w-5 h-5 text-green-600"></i>
-                    <span>Performance par chargé d'achat</span>
+                    <i data-lucide="trophy" class="w-5 h-5 text-yellow-600"></i>
+                    <span>Performance par Acheteur</span>
                 </h3>
-                <div id="managerStats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <!-- Manager cards will be inserted here -->
+                <div id="buyerPerformance" class="space-y-4">
+                    <!-- Buyer performance will be inserted here -->
                 </div>
             </div>
 
@@ -524,13 +576,21 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">depuis validation expert</p>
                         </div>
 
-                        <!-- Priority Info -->
+                        <!-- Buyer Info -->
                         <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
                             <div class="flex items-center space-x-2 mb-3">
-                                <i data-lucide="flag" class="w-5 h-5 text-orange-600"></i>
-                                <h3 class="font-semibold text-gray-900 dark:text-white">Priorité</h3>
+                                <i data-lucide="user" class="w-5 h-5 text-pink-600"></i>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Acheteur</h3>
                             </div>
-                            <span id="detailPriority" class="px-3 py-1 rounded-full text-sm font-medium"></span>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white font-medium" id="detailBuyerAvatar">
+                                    --
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-900 dark:text-white" id="detailBuyer">--</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400" id="detailBuyerRole">--</p>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Task -->
@@ -540,20 +600,6 @@
                                 <h3 class="font-semibold text-gray-900 dark:text-white">Tâche courante</h3>
                             </div>
                             <p class="text-gray-900 dark:text-white" id="detailTask">--</p>
-                        </div>
-
-                        <!-- Purchase Manager -->
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-                            <div class="flex items-center space-x-2 mb-3">
-                                <i data-lucide="user" class="w-5 h-5 text-pink-600"></i>
-                                <h3 class="font-semibold text-gray-900 dark:text-white">Chargé d'achat</h3>
-                            </div>
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white font-medium">
-                                    <span id="detailManagerInitials">--</span>
-                                </div>
-                                <span class="font-medium text-gray-900 dark:text-white" id="detailManager">--</span>
-                            </div>
                         </div>
 
                         <!-- Validation Date -->
@@ -627,13 +673,26 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Chargé d'achat *</label>
-                            <input type="text" id="formManager" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Acheteur *</label>
+                            <select id="formBuyer" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                                <option value="">Sélectionner un acheteur</option>
+                                <!-- Will be populated dynamically -->
+                            </select>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Si le nom n'est pas dans la liste, laissez vide pour validation manuelle</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Validation Expert *</label>
                             <input type="datetime-local" id="formValidationDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
                         </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Statut *</label>
+                        <select id="formStatus" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                            <option value="in_progress">En cours d'achat</option>
+                            <option value="firm">Commande ferme</option>
+                            <option value="closed">Achat cloturé</option>
+                        </select>
                     </div>
 
                     <div class="flex justify-end space-x-3 mt-6">
@@ -685,10 +744,10 @@
                     <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                         <i data-lucide="package" class="w-4 h-4 text-white"></i>
                     </div>
-                    <span class="text-sm text-gray-600 dark:text-gray-400">OrderFlow © 2026 - Suivi Commandes & Pièces</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">OrderFlow © 2026 - Suivi Achats & Pièces</span>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span class="text-xs text-gray-500 dark:text-gray-400">Version 2.0.0</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Version 3.0.0</span>
                     <span class="text-xs text-gray-500 dark:text-gray-400">•</span>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Déployé sur GitHub Pages</span>
                 </div>
@@ -698,33 +757,34 @@
 
     <script>
         // ============================================
+        // LISTE DES ACHETEURS OFFICIELS
+        // ============================================
+        const OFFICIAL_BUYERS = [
+            { id: 'ihsen', name: 'IHSEN SOUAYAH', role: 'Manager', initials: 'IS' },
+            { id: 'achref', name: 'Achref Zehiri', role: 'Responsable Achat', initials: 'AZ' },
+            { id: 'olfa', name: 'OLFA', role: 'Chef d\'équipe', initials: 'OL' },
+            { id: 'ines', name: 'INES', role: 'Chargée d\'achat', initials: 'IN' },
+            { id: 'feriel', name: 'FERIEL', role: 'Chargée d\'achat', initials: 'FE' },
+            { id: 'iheb', name: 'IHEB DRAOUI', role: 'Chargé Achat', initials: 'ID' },
+            { id: 'houssem', name: 'Houssem ben rouha', role: 'Chargé Achat', initials: 'HB' },
+            { id: 'nada', name: 'Nada', role: 'Chargée Achat', initials: 'NA' },
+            { id: 'emna', name: 'Emna', role: 'Chargée Achat', initials: 'EM' },
+            { id: 'amine', name: 'Amine', role: 'Chargé Achat', initials: 'AM' },
+            { id: 'nour', name: 'Nour el houda', role: 'Chargée Achat', initials: 'NH' }
+        ];
+
+        // ============================================
         // DONNÉES
         // ============================================
-        let orders = [
-            { id: '1', reference: 'DS1441/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/POLO 4/3039 TU 97', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-22 09:33:35', delay: 8, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '2', reference: 'DS1442/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/BORA/8867 TU 98', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-24 10:15:11', delay: 6, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '3', reference: 'DS1444/2026', client: 'STAR ASSURANCES', vehicle: 'TOYOTA/AGYA/9069 TU 237', vehicleBrand: 'TOYOTA', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Olfa Zribi', validationDate: '2026-04-21 12:47:02', delay: 9, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '4', reference: 'DS1423/2026', client: 'STAR ASSURANCES', vehicle: 'CITROEN/BERLINGO/9924 TU 243', vehicleBrand: 'CITROEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Houssem Eddine BEN ROUHA', validationDate: '2026-04-23 08:48:10', delay: 7, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '5', reference: 'DS1427/2026', client: 'STAR ASSURANCES', vehicle: 'PEUGEOT/206/7973 TU 112', vehicleBrand: 'PEUGEOT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Achref Zehiri', validationDate: '2026-04-21 15:22:52', delay: 9, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '6', reference: 'DS1325/2026', client: 'STAR ASSURANCES', vehicle: 'SEAT/SEAT/984 TU 242', vehicleBrand: 'SEAT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-17 09:41:30', delay: 13, partsStatus: 'delayed', priority: 'high', week: 'Semaine 16 - Avril 2026', importDate: '2026-04-21' },
-            { id: '7', reference: 'DS1293/2026', client: 'MAE ASSURANCES', vehicle: 'NISSAN/JUKE/6994 TU 259', vehicleBrand: 'NISSAN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Ons Ouni', validationDate: '2026-04-22 09:05:09', delay: 8, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-        ];
-
-        let uploadHistory = [
-            { name: 'Semaine 17 - Avril 2026', startDate: '21/04/2026', endDate: '27/04/2026', orderCount: 5 },
-            { name: 'Semaine 16 - Avril 2026', startDate: '14/04/2026', endDate: '20/04/2026', orderCount: 2 },
-        ];
-
-        let notifications = [
-            { id: 1, type: 'info', message: 'Bienvenue sur OrderFlow !', time: 'À l\'instant' },
-            { id: 2, type: 'warning', message: '2 dossiers en retard (>10 jours)', time: 'Il y a 1 heure' },
-            { id: 3, type: 'success', message: 'Import Excel réussi - 5 dossiers', time: 'Il y a 2 heures' },
-        ];
+        let orders = [];
+        let uploadHistory = [];
+        let unmatchedBuyersList = [];
+        let notifications = [];
 
         let selectedWeek = 'all';
         let searchTerm = '';
         let statusFilter = 'all';
-        let priorityFilter = 'all';
+        let buyerFilter = 'all';
         let sortField = 'delay';
         let sortDirection = 'desc';
         let isDarkMode = false;
@@ -733,18 +793,155 @@
         let orderToDelete = null;
 
         // ============================================
+        // FONCTIONS ACHETEURS
+        // ============================================
+        function matchBuyer(nameFromExcel) {
+            if (!nameFromExcel) return null;
+            
+            const normalizedName = nameFromExcel.toLowerCase().trim();
+            
+            // Chercher une correspondance exacte ou partielle
+            for (const buyer of OFFICIAL_BUYERS) {
+                const buyerNameLower = buyer.name.toLowerCase();
+                const buyerParts = buyerNameLower.split(' ');
+                
+                // Vérifier si le nom correspond (partiel ou complet)
+                if (normalizedName.includes(buyerParts[0]) || 
+                    buyerParts.some(part => normalizedName.includes(part) && part.length > 2) ||
+                    normalizedName.includes(buyerNameLower)) {
+                    return buyer;
+                }
+            }
+            
+            // Pas de correspondance trouvée
+            return null;
+        }
+
+        function getBuyerById(buyerId) {
+            return OFFICIAL_BUYERS.find(b => b.id === buyerId) || null;
+        }
+
+        function populateBuyerSelect() {
+            const select = document.getElementById('formBuyer');
+            const filterSelect = document.getElementById('buyerFilter');
+            
+            // Form select
+            select.innerHTML = '<option value="">Sélectionner un acheteur</option>' +
+                OFFICIAL_BUYERS.map(b => `<option value="${b.id}">${b.name} - ${b.role}</option>`).join('');
+            
+            // Filter select
+            filterSelect.innerHTML = '<option value="all">Tous les acheteurs</option>' +
+                OFFICIAL_BUYERS.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+        }
+
+        function renderBuyersView() {
+            const grid = document.getElementById('buyersGrid');
+            
+            grid.innerHTML = OFFICIAL_BUYERS.map(buyer => {
+                const buyerOrders = orders.filter(o => o.buyerId === buyer.id);
+                const closedThisWeek = buyerOrders.filter(o => o.partsStatus === 'closed' && o.week === getCurrentWeekName()).length;
+                const inProgress = buyerOrders.filter(o => o.partsStatus === 'in_progress').length;
+                const firm = buyerOrders.filter(o => o.partsStatus === 'firm').length;
+                
+                return `
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 buyer-badge">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                                ${buyer.initials}
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">${buyer.name}</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">${buyer.role}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2">
+                                <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">${closedThisWeek}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Cloturés</p>
+                            </div>
+                            <div class="bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-2">
+                                <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">${inProgress}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">En cours</p>
+                            </div>
+                            <div class="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-2">
+                                <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">${firm}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Fermes</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total dossiers: <span class="font-medium text-gray-900 dark:text-white">${buyerOrders.length}</span></p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Render unmatched buyers
+            renderUnmatchedBuyers();
+        }
+
+        function renderUnmatchedBuyers() {
+            const container = document.getElementById('unmatchedBuyers');
+            
+            if (unmatchedBuyersList.length === 0) {
+                container.innerHTML = '<p class="text-sm text-green-600 dark:text-green-400 flex items-center space-x-2"><i data-lucide="check-circle" class="w-4 h-4"></i><span>Tous les acheteurs sont validés</span></p>';
+                return;
+            }
+            
+            container.innerHTML = unmatchedBuyersList.map(name => `
+                <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <div class="flex items-center space-x-3">
+                        <i data-lucide="user-x" class="w-5 h-5 text-orange-600"></i>
+                        <span class="font-medium text-gray-900 dark:text-white">${name}</span>
+                    </div>
+                    <button onclick="assignBuyer('${name}')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg transition-colors">
+                        Assigner
+                    </button>
+                </div>
+            `).join('');
+            
+            lucide.createIcons();
+        }
+
+        function assignBuyer(unmatchedName) {
+            // Open modal to select buyer
+            const buyerId = prompt(`Nom non reconnu : "${unmatchedName}"\n\nEntrez l'ID de l'acheteur :\n${OFFICIAL_BUYERS.map(b => `${b.id} - ${b.name}`).join('\n')}`);
+            
+            if (buyerId) {
+                const buyer = getBuyerById(buyerId);
+                if (buyer) {
+                    // Update orders with this unmatched name
+                    orders = orders.map(o => {
+                        if (o.lastUpdateBy === unmatchedName) {
+                            return { ...o, buyerId: buyer.id, buyerName: buyer.name };
+                        }
+                        return o;
+                    });
+                    
+                    // Remove from unmatched list
+                    unmatchedBuyersList = unmatchedBuyersList.filter(n => n !== unmatchedName);
+                    
+                    saveData();
+                    renderBuyersView();
+                    renderOrdersTable();
+                    showToast(`Acheteur assigné : ${buyer.name}`, 'success');
+                } else {
+                    showToast('ID acheteur invalide', 'error');
+                }
+            }
+        }
+
+        // ============================================
         // NAVIGATION
         // ============================================
         function navigateTo(view) {
-            // Hide all views
             document.querySelectorAll('.view-section').forEach(el => {
                 el.classList.remove('active');
             });
             
-            // Show selected view
             document.getElementById(`view-${view}`).classList.add('active');
             
-            // Update nav buttons
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-100', 'text-blue-700', 'dark:bg-blue-900', 'dark:text-blue-200');
                 btn.classList.add('text-gray-600', 'hover:bg-gray-100', 'dark:text-gray-300', 'dark:hover:bg-gray-700');
@@ -757,12 +954,12 @@
             }
             
             currentView = view;
-            
-            // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            
-            // Refresh icons
             lucide.createIcons();
+            
+            if (view === 'buyers') {
+                renderBuyersView();
+            }
         }
 
         // ============================================
@@ -771,11 +968,7 @@
         function updateNotificationBadge() {
             const badge = document.getElementById('notificationBadge');
             badge.textContent = notifications.length;
-            if (notifications.length > 0) {
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
+            badge.classList.toggle('hidden', notifications.length === 0);
         }
 
         function toggleNotifications() {
@@ -863,6 +1056,10 @@
             return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
         }
 
+        function getCurrentWeekName() {
+            return getWeekName(new Date());
+        }
+
         function getWeekName(date) {
             const weekNum = getWeekNumber(date);
             const month = date.toLocaleString('fr-FR', { month: 'long' });
@@ -888,44 +1085,21 @@
             return diffDays;
         }
 
-        function determinePartsStatus(delay) {
-            if (delay <= 5) return 'received';
-            if (delay <= 10) return 'pending';
-            if (delay <= 14) return 'delayed';
-            return 'critical';
-        }
-
-        function determinePriority(delay) {
-            if (delay <= 5) return 'low';
-            if (delay <= 10) return 'medium';
-            if (delay <= 14) return 'high';
-            return 'urgent';
-        }
-
         function getStatusColor(status) {
             switch (status) {
-                case 'received': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-                case 'pending': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-                case 'delayed': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-                case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-            }
-        }
-
-        function getPriorityColor(priority) {
-            switch (priority) {
-                case 'low': return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-                case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-                case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-                case 'urgent': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+                case 'in_progress': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+                case 'firm': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+                case 'closed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+                default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
             }
         }
 
         function getStatusLabel(status) {
             switch (status) {
-                case 'received': return '✓ Reçues';
-                case 'pending': return '⏳ En attente';
-                case 'delayed': return '⚠ En retard';
-                case 'critical': return '🔴 Critique';
+                case 'in_progress': return 'En cours d\'achat';
+                case 'firm': return 'Commande ferme';
+                case 'closed': return 'Achat cloturé';
+                default: return status;
             }
         }
 
@@ -938,11 +1112,11 @@
                     const matchesSearch = order.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         order.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         order.vehicleBrand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        order.lastUpdateBy.toLowerCase().includes(searchTerm.toLowerCase());
+                        (order.buyerName && order.buyerName.toLowerCase().includes(searchTerm.toLowerCase()));
                     const matchesStatus = statusFilter === 'all' || order.partsStatus === statusFilter;
-                    const matchesPriority = priorityFilter === 'all' || order.priority === priorityFilter;
+                    const matchesBuyer = buyerFilter === 'all' || order.buyerId === buyerFilter;
                     const matchesWeek = selectedWeek === 'all' || order.week === selectedWeek;
-                    return matchesSearch && matchesStatus && matchesPriority && matchesWeek;
+                    return matchesSearch && matchesStatus && matchesBuyer && matchesWeek;
                 })
                 .sort((a, b) => {
                     const aVal = a[sortField];
@@ -969,15 +1143,56 @@
         // AFFICHAGE
         // ============================================
         function renderStats() {
-            const total = orders.length;
-            const received = orders.filter(o => o.partsStatus === 'received').length;
-            const delayed = orders.filter(o => o.partsStatus === 'delayed' || o.partsStatus === 'critical').length;
-            const avgDelay = orders.reduce((acc, o) => acc + o.delay, 0) / total || 0;
+            const currentWeek = getCurrentWeekName();
+            const currentWeekOrders = orders.filter(o => o.week === currentWeek);
+            
+            const total = currentWeekOrders.length;
+            const inProgress = currentWeekOrders.filter(o => o.partsStatus === 'in_progress').length;
+            const firm = currentWeekOrders.filter(o => o.partsStatus === 'firm').length;
+            const closed = currentWeekOrders.filter(o => o.partsStatus === 'closed').length;
 
             document.getElementById('statTotal').textContent = total;
-            document.getElementById('statReceived').textContent = received;
-            document.getElementById('statDelayed').textContent = delayed;
-            document.getElementById('statAvgDelay').textContent = avgDelay.toFixed(1) + 'j';
+            document.getElementById('statInProgress').textContent = inProgress;
+            document.getElementById('statFirm').textContent = firm;
+            document.getElementById('statClosed').textContent = closed;
+            document.getElementById('currentWeekLabel').textContent = currentWeek;
+        }
+
+        function renderWeeklyClosedByBuyer() {
+            const container = document.getElementById('weeklyClosedByBuyer');
+            const currentWeek = getCurrentWeekName();
+            
+            const buyerStats = OFFICIAL_BUYERS.map(buyer => {
+                const closedCount = orders.filter(o => 
+                    o.buyerId === buyer.id && 
+                    o.partsStatus === 'closed' && 
+                    o.week === currentWeek
+                ).length;
+                return { ...buyer, closedCount };
+            }).filter(b => b.closedCount > 0).sort((a, b) => b.closedCount - a.closedCount);
+            
+            if (buyerStats.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 col-span-full text-center py-8">Aucun achat cloturé cette semaine</p>';
+                return;
+            }
+            
+            container.innerHTML = buyerStats.map(buyer => `
+                <div class="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                            ${buyer.initials}
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-900 dark:text-white">${buyer.name}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">${buyer.role}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-bold text-green-600 dark:text-green-400">${buyer.closedCount}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">cloturés</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
         }
 
         function renderUploadHistory() {
@@ -1006,90 +1221,107 @@
             const tbody = document.getElementById('recentOrdersBody');
             const recentOrders = orders.slice(0, 5);
             
-            tbody.innerHTML = recentOrders.map(order => `
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer" onclick="viewOrderDetail('${order.id}')">
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="text-sm font-medium text-blue-600 dark:text-blue-400">${order.reference}</span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="text-sm text-gray-900 dark:text-white">${order.client}</span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="text-sm font-medium text-gray-900 dark:text-white">${order.vehicleBrand}</span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="flex items-center space-x-2">
-                            <div class="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                                ${order.lastUpdateBy.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                            </div>
-                            <span class="text-sm text-gray-900 dark:text-white">${order.lastUpdateBy}</span>
-                        </div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="text-sm font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : 'text-green-600'}">
-                            ${order.delay}j
-                        </span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.partsStatus)}">
-                            ${getStatusLabel(order.partsStatus)}
-                        </span>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = recentOrders.map(order => {
+                const buyer = getBuyerById(order.buyerId);
+                return `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer" onclick="viewOrderDetail('${order.id}')">
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm font-medium text-blue-600 dark:text-blue-400">${order.reference}</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm text-gray-900 dark:text-white">${order.client}</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${order.vehicleBrand}</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            ${buyer ? `
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                        ${buyer.initials}
+                                    </div>
+                                    <span class="text-sm text-gray-900 dark:text-white">${buyer.name}</span>
+                                </div>
+                            ` : `
+                                <span class="text-xs text-orange-600 dark:text-orange-400 flex items-center space-x-1">
+                                    <i data-lucide="circle-alert" class="w-3 h-3"></i>
+                                    <span>À valider</span>
+                                </span>
+                            `}
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : 'text-green-600'}">
+                                ${order.delay}j
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.partsStatus)}">
+                                ${getStatusLabel(order.partsStatus)}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function renderOrdersTable() {
             const filteredOrders = getFilteredOrders();
             const tbody = document.getElementById('ordersTableBody');
             
-            tbody.innerHTML = filteredOrders.map(order => `
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer" onclick="viewOrderDetail('${order.id}')">
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="text-sm font-medium text-blue-600 dark:text-blue-400">${order.reference}</span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="text-sm text-gray-900 dark:text-white">${order.client}</span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="text-sm font-medium text-gray-900 dark:text-white">${order.vehicleBrand}</span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap max-w-xs">
-                        <span class="text-sm text-gray-900 dark:text-white truncate block" title="${order.task}">${order.task}</span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="flex items-center space-x-2">
-                            <div class="w-7 h-7 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                                ${order.lastUpdateBy.split(' ').map(n => n[0]).join('').substring(0, 2)}
+            tbody.innerHTML = filteredOrders.map(order => {
+                const buyer = getBuyerById(order.buyerId);
+                return `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer" onclick="viewOrderDetail('${order.id}')">
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm font-medium text-blue-600 dark:text-blue-400">${order.reference}</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm text-gray-900 dark:text-white">${order.client}</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${order.vehicleBrand}</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            ${buyer ? `
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-7 h-7 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                        ${buyer.initials}
+                                    </div>
+                                    <span class="text-sm text-gray-900 dark:text-white">${buyer.name}</span>
+                                </div>
+                            ` : `
+                                <span class="text-xs text-orange-600 dark:text-orange-400 flex items-center space-x-1">
+                                    <i data-lucide="circle-alert" class="w-3 h-3"></i>
+                                    <span>${order.lastUpdateBy || 'À assigner'}</span>
+                                </span>
+                            `}
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : order.delay > 5 ? 'text-yellow-600' : 'text-green-600'}">
+                                ${order.delay}j
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.partsStatus)}">
+                                ${getStatusLabel(order.partsStatus)}
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-right">
+                            <div class="flex items-center justify-end space-x-2">
+                                <button class="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-lg transition-colors" onclick="event.stopPropagation(); viewOrderDetail('${order.id}')">
+                                    <i data-lucide="eye" class="w-4 h-4 text-blue-600"></i>
+                                </button>
+                                <button class="p-2 hover:bg-green-100 dark:hover:bg-green-900 rounded-lg transition-colors" onclick="event.stopPropagation(); editOrder('${order.id}')">
+                                    <i data-lucide="edit" class="w-4 h-4 text-green-600"></i>
+                                </button>
+                                <button class="p-2 hover:bg-red-100 dark:hover:bg-red-900 rounded-lg transition-colors" onclick="event.stopPropagation(); deleteOrder('${order.id}')">
+                                    <i data-lucide="trash-2" class="w-4 h-4 text-red-600"></i>
+                                </button>
                             </div>
-                            <span class="text-sm text-gray-900 dark:text-white">${order.lastUpdateBy}</span>
-                        </div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="text-sm font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : order.delay > 5 ? 'text-yellow-600' : 'text-green-600'}">
-                            ${order.delay}j
-                        </span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.partsStatus)}">
-                            ${getStatusLabel(order.partsStatus)}
-                        </span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-right">
-                        <div class="flex items-center justify-end space-x-2">
-                            <button class="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-lg transition-colors" onclick="event.stopPropagation(); viewOrderDetail('${order.id}')">
-                                <i data-lucide="eye" class="w-4 h-4 text-blue-600"></i>
-                            </button>
-                            <button class="p-2 hover:bg-green-100 dark:hover:bg-green-900 rounded-lg transition-colors" onclick="event.stopPropagation(); editOrder('${order.id}')">
-                                <i data-lucide="edit" class="w-4 h-4 text-green-600"></i>
-                            </button>
-                            <button class="p-2 hover:bg-red-100 dark:hover:bg-red-900 rounded-lg transition-colors" onclick="event.stopPropagation(); deleteOrder('${order.id}')">
-                                <i data-lucide="trash-2" class="w-4 h-4 text-red-600"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
+                        </td>
+                    </tr>
+                `;
+            }).join('');
 
             document.getElementById('ordersCount').textContent = `${filteredOrders.length} dossiers`;
             document.getElementById('paginationText').textContent = `Affichage de 1 à ${filteredOrders.length} sur ${filteredOrders.length} résultats`;
@@ -1101,10 +1333,9 @@
             // Status Distribution
             const statusContainer = document.getElementById('statusDistribution');
             const statuses = [
-                { status: 'Reçues', count: orders.filter(o => o.partsStatus === 'received').length, color: 'bg-green-500' },
-                { status: 'En attente', count: orders.filter(o => o.partsStatus === 'pending').length, color: 'bg-blue-500' },
-                { status: 'En retard', count: orders.filter(o => o.partsStatus === 'delayed').length, color: 'bg-orange-500' },
-                { status: 'Critique', count: orders.filter(o => o.partsStatus === 'critical').length, color: 'bg-red-500' },
+                { status: 'En cours d\'achat', count: orders.filter(o => o.partsStatus === 'in_progress').length, color: 'bg-blue-500' },
+                { status: 'Commande ferme', count: orders.filter(o => o.partsStatus === 'firm').length, color: 'bg-purple-500' },
+                { status: 'Achat cloturé', count: orders.filter(o => o.partsStatus === 'closed').length, color: 'bg-green-500' },
             ];
 
             statusContainer.innerHTML = statuses.map(item => {
@@ -1142,35 +1373,38 @@
                 `;
             }).join('');
 
-            // Manager Stats
-            const managerContainer = document.getElementById('managerStats');
-            const managers = [...new Set(orders.map(o => o.lastUpdateBy))].slice(0, 8);
+            // Buyer Performance
+            const buyerContainer = document.getElementById('buyerPerformance');
+            const buyerStats = OFFICIAL_BUYERS.map(buyer => {
+                const buyerOrders = orders.filter(o => o.buyerId === buyer.id);
+                const closed = buyerOrders.filter(o => o.partsStatus === 'closed').length;
+                const avgDelay = buyerOrders.length > 0 ? buyerOrders.reduce((acc, o) => acc + o.delay, 0) / buyerOrders.length : 0;
+                return { ...buyer, total: buyerOrders.length, closed, avgDelay };
+            }).filter(b => b.total > 0).sort((a, b) => b.closed - a.closed);
 
-            managerContainer.innerHTML = managers.map(manager => {
-                const managerOrders = orders.filter(o => o.lastUpdateBy === manager);
-                const avgDelay = managerOrders.reduce((acc, o) => acc + o.delay, 0) / managerOrders.length;
-                const initials = manager.split(' ').map(n => n[0]).join('').substring(0, 2);
-                
-                return `
-                    <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                        <div class="flex items-center space-x-3 mb-3">
-                            <div class="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
-                                ${initials}
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="font-medium text-gray-900 dark:text-white text-sm truncate">${manager}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">${managerOrders.length} dossiers</p>
-                            </div>
+            buyerContainer.innerHTML = buyerStats.map(buyer => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white font-medium">
+                            ${buyer.initials}
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-500 dark:text-gray-400">Délai moyen</span>
-                            <span class="font-bold ${avgDelay > 14 ? 'text-red-600' : avgDelay > 10 ? 'text-orange-600' : 'text-green-600'}">
-                                ${avgDelay.toFixed(1)}j
-                            </span>
+                        <div>
+                            <p class="font-medium text-gray-900 dark:text-white">${buyer.name}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">${buyer.total} dossiers</p>
                         </div>
                     </div>
-                `;
-            }).join('');
+                    <div class="flex items-center space-x-6">
+                        <div class="text-center">
+                            <p class="text-lg font-bold text-green-600 dark:text-green-400">${buyer.closed}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Cloturés</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-lg font-bold ${buyer.avgDelay > 14 ? 'text-red-600' : 'text-gray-900 dark:text-white'}">${buyer.avgDelay.toFixed(1)}j</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Délai moyen</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
 
             // Weekly Trend
             const weeklyContainer = document.getElementById('weeklyTrend');
@@ -1196,33 +1430,34 @@
             if (!order) return;
 
             currentOrderId = orderId;
+            const buyer = getBuyerById(order.buyerId);
 
-            // Fill detail view
             document.getElementById('detailReference').textContent = order.reference;
             document.getElementById('detailClient').textContent = order.client;
             document.getElementById('detailVehicleBrand').textContent = order.vehicleBrand;
             document.getElementById('detailVehicle').textContent = order.vehicle;
             document.getElementById('detailTask').textContent = order.task;
-            document.getElementById('detailManager').textContent = order.lastUpdateBy;
-            document.getElementById('detailManagerInitials').textContent = order.lastUpdateBy.split(' ').map(n => n[0]).join('').substring(0, 2);
             document.getElementById('detailValidationDate').textContent = order.validationDate;
             document.getElementById('detailWeek').textContent = order.week;
             document.getElementById('detailImportDate').textContent = order.importDate;
 
-            // Delay with color
             const delayEl = document.getElementById('detailDelay');
             delayEl.textContent = order.delay + ' jours';
             delayEl.className = `text-3xl font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : 'text-green-600'}`;
 
-            // Status
             const statusEl = document.getElementById('detailStatus');
             statusEl.textContent = getStatusLabel(order.partsStatus);
             statusEl.className = `px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.partsStatus)}`;
 
-            // Priority
-            const priorityEl = document.getElementById('detailPriority');
-            priorityEl.textContent = order.priority;
-            priorityEl.className = `px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(order.priority)}`;
+            if (buyer) {
+                document.getElementById('detailBuyer').textContent = buyer.name;
+                document.getElementById('detailBuyerRole').textContent = buyer.role;
+                document.getElementById('detailBuyerAvatar').textContent = buyer.initials;
+            } else {
+                document.getElementById('detailBuyer').textContent = order.lastUpdateBy || 'Non assigné';
+                document.getElementById('detailBuyerRole').textContent = 'À valider';
+                document.getElementById('detailBuyerAvatar').textContent = '?';
+            }
 
             navigateTo('detail');
         }
@@ -1234,6 +1469,7 @@
             document.getElementById('modalTitle').textContent = 'Ajouter un dossier';
             document.getElementById('orderForm').reset();
             document.getElementById('editOrderId').value = '';
+            populateBuyerSelect();
             document.getElementById('orderModal').classList.remove('hidden');
             lucide.createIcons();
         }
@@ -1250,9 +1486,11 @@
             document.getElementById('formVehicle').value = order.vehicle;
             document.getElementById('formVehicleBrand').value = order.vehicleBrand;
             document.getElementById('formTask').value = order.task;
-            document.getElementById('formManager').value = order.lastUpdateBy;
+            document.getElementById('formBuyer').value = order.buyerId || '';
             document.getElementById('formValidationDate').value = order.validationDate.replace(' ', 'T');
+            document.getElementById('formStatus').value = order.partsStatus;
             
+            populateBuyerSelect();
             document.getElementById('orderModal').classList.remove('hidden');
             lucide.createIcons();
         }
@@ -1308,9 +1546,10 @@
             const vehicle = document.getElementById('formVehicle').value;
             const validationDate = document.getElementById('formValidationDate').value;
             const delay = calculateDelay(validationDate);
+            const buyerId = document.getElementById('formBuyer').value;
+            const buyer = getBuyerById(buyerId);
 
             if (editId) {
-                // Update existing order
                 const index = orders.findIndex(o => o.id === editId);
                 if (index !== -1) {
                     orders[index] = {
@@ -1320,17 +1559,16 @@
                         vehicle: vehicle,
                         vehicleBrand: document.getElementById('formVehicleBrand').value || extractVehicleBrand(vehicle),
                         task: document.getElementById('formTask').value,
-                        lastUpdateBy: document.getElementById('formManager').value,
+                        buyerId: buyerId,
+                        buyerName: buyer ? buyer.name : '',
                         validationDate: validationDate.replace('T', ' '),
                         delay: delay,
-                        partsStatus: determinePartsStatus(delay),
-                        priority: determinePriority(delay)
+                        partsStatus: document.getElementById('formStatus').value
                     };
                     showToast('Dossier modifié avec succès', 'success');
                     addNotification('Dossier modifié: ' + orders[index].reference, 'info');
                 }
             } else {
-                // Add new order
                 const newOrder = {
                     id: `new-${Date.now()}`,
                     reference: document.getElementById('formReference').value,
@@ -1338,12 +1576,12 @@
                     vehicle: vehicle,
                     vehicleBrand: document.getElementById('formVehicleBrand').value || extractVehicleBrand(vehicle),
                     task: document.getElementById('formTask').value,
-                    lastUpdateBy: document.getElementById('formManager').value,
+                    buyerId: buyerId,
+                    buyerName: buyer ? buyer.name : '',
                     validationDate: validationDate.replace('T', ' '),
                     delay: delay,
-                    partsStatus: determinePartsStatus(delay),
-                    priority: determinePriority(delay),
-                    week: getWeekName(new Date()),
+                    partsStatus: document.getElementById('formStatus').value,
+                    week: getCurrentWeekName(),
                     importDate: new Date().toISOString().split('T')[0]
                 };
                 orders.unshift(newOrder);
@@ -1361,19 +1599,22 @@
         // ============================================
         function exportToExcel() {
             const filteredOrders = getFilteredOrders();
-            const exportData = filteredOrders.map(order => ({
-                'Référence': order.reference,
-                'Client': order.client,
-                'Véhicule': order.vehicle,
-                'Marque': order.vehicleBrand,
-                'Tâche': order.task,
-                'Chargé d\'achat': order.lastUpdateBy,
-                'Date Validation': order.validationDate,
-                'Délai (jours)': order.delay,
-                'Statut': order.partsStatus,
-                'Priorité': order.priority,
-                'Semaine': order.week
-            }));
+            const exportData = filteredOrders.map(order => {
+                const buyer = getBuyerById(order.buyerId);
+                return {
+                    'Référence': order.reference,
+                    'Client': order.client,
+                    'Véhicule': order.vehicle,
+                    'Marque': order.vehicleBrand,
+                    'Tâche': order.task,
+                    'Acheteur': buyer ? buyer.name : (order.lastUpdateBy || 'Non assigné'),
+                    'Role Acheteur': buyer ? buyer.role : '',
+                    'Date Validation': order.validationDate,
+                    'Délai (jours)': order.delay,
+                    'Statut': getStatusLabel(order.partsStatus),
+                    'Semaine': order.week
+                };
+            });
 
             const ws = XLSX.utils.json_to_sheet(exportData);
             const wb = XLSX.utils.book_new();
@@ -1425,45 +1666,77 @@
                 const worksheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-                const newOrders = jsonData.map((row, index) => {
+                const currentWeek = getCurrentWeekName();
+                const newOrders = [];
+                const newUnmatchedBuyers = new Set();
+
+                jsonData.forEach((row, index) => {
                     const validationDate = row['Date Validation Expert'] || row['date_validation_expert'] || new Date().toISOString();
                     const delay = calculateDelay(validationDate);
                     const vehicle = row['Véhicule'] || row['vehicule'] || row['Vehicle'] || '';
+                    const lastUpdateBy = row['Dernière mise à jour par'] || row['derniere_mise_a_jour_par'] || row['LastUpdateBy'] || '';
                     
-                    return {
-                        id: `new-${Date.now()}-${index}`,
-                        reference: row['Référence interne'] || row['reference_interne'] || row['Reference'] || `REF-${Date.now()}-${index}`,
-                        client: row['Client'] || row['client'] || 'Client inconnu',
-                        vehicle: vehicle,
-                        vehicleBrand: extractVehicleBrand(vehicle),
-                        task: row['Tâche courante'] || row['tache_courante'] || row['Task'] || 'Tâche non spécifiée',
-                        lastUpdateBy: row['Dernière mise à jour par'] || row['derniere_mise_a_jour_par'] || row['LastUpdateBy'] || 'Inconnu',
-                        validationDate: validationDate,
-                        delay: delay,
-                        partsStatus: determinePartsStatus(delay),
-                        priority: determinePriority(delay),
-                        week: getWeekName(new Date()),
-                        importDate: new Date().toISOString().split('T')[0]
-                    };
+                    // Match buyer
+                    const matchedBuyer = matchBuyer(lastUpdateBy);
+                    
+                    if (lastUpdateBy && !matchedBuyer) {
+                        newUnmatchedBuyers.add(lastUpdateBy);
+                    }
+
+                    // Check if order already exists (by reference)
+                    const existingOrder = orders.find(o => o.reference === (row['Référence interne'] || row['reference_interne']));
+                    
+                    if (!existingOrder) {
+                        newOrders.push({
+                            id: `new-${Date.now()}-${index}`,
+                            reference: row['Référence interne'] || row['reference_interne'] || `REF-${Date.now()}-${index}`,
+                            client: row['Client'] || row['client'] || 'Client inconnu',
+                            vehicle: vehicle,
+                            vehicleBrand: extractVehicleBrand(vehicle),
+                            task: row['Tâche courante'] || row['tache_courante'] || row['Task'] || 'Tâche non spécifiée',
+                            lastUpdateBy: lastUpdateBy,
+                            buyerId: matchedBuyer ? matchedBuyer.id : '',
+                            buyerName: matchedBuyer ? matchedBuyer.name : '',
+                            validationDate: validationDate,
+                            delay: delay,
+                            partsStatus: 'in_progress',
+                            week: currentWeek,
+                            importDate: new Date().toISOString().split('T')[0]
+                        });
+                    }
                 });
 
-                const currentWeek = getWeekName(new Date());
-                uploadHistory.unshift({ 
-                    name: currentWeek, 
-                    startDate: new Date().toLocaleDateString('fr-FR'), 
-                    endDate: new Date().toLocaleDateString('fr-FR'), 
-                    orderCount: newOrders.length 
-                });
+                // Add only new orders (don't replace existing)
+                orders = [...newOrders, ...orders];
+                
+                // Update unmatched buyers list
+                unmatchedBuyersList = [...new Set([...unmatchedBuyersList, ...newUnmatchedBuyers])];
+
+                // Update upload history - add to current week if exists, or create new
+                const existingWeekIndex = uploadHistory.findIndex(h => h.name === currentWeek);
+                if (existingWeekIndex >= 0) {
+                    uploadHistory[existingWeekIndex].orderCount += newOrders.length;
+                } else {
+                    uploadHistory.unshift({ 
+                        name: currentWeek, 
+                        startDate: new Date().toLocaleDateString('fr-FR'), 
+                        endDate: new Date().toLocaleDateString('fr-FR'), 
+                        orderCount: newOrders.length 
+                    });
+                }
 
                 document.getElementById('lastUploadDate').textContent = new Date().toLocaleDateString('fr-FR');
-                orders = [...newOrders, ...orders];
                 
                 saveData();
                 renderAll();
                 
-                const msg = `${newOrders.length} dossiers importés avec succès !`;
+                const msg = `${newOrders.length} nouveaux dossiers ajoutés à ${currentWeek}`;
                 showToast(msg, 'success');
                 addNotification(msg, 'success');
+                
+                if (newUnmatchedBuyers.size > 0) {
+                    addNotification(`${newUnmatchedBuyers.size} acheteur(s) à valider`, 'warning');
+                }
             };
             reader.readAsBinaryString(file);
         }
@@ -1472,21 +1745,26 @@
         // LOCAL STORAGE
         // ============================================
         function saveData() {
-            localStorage.setItem('orderFlow_orders', JSON.stringify(orders));
-            localStorage.setItem('orderFlow_history', JSON.stringify(uploadHistory));
-            localStorage.setItem('orderFlow_lastUpload', document.getElementById('lastUploadDate').textContent);
+            localStorage.setItem('orderFlow_orders_v3', JSON.stringify(orders));
+            localStorage.setItem('orderFlow_history_v3', JSON.stringify(uploadHistory));
+            localStorage.setItem('orderFlow_unmatched_v3', JSON.stringify(unmatchedBuyersList));
+            localStorage.setItem('orderFlow_lastUpload_v3', document.getElementById('lastUploadDate').textContent);
         }
 
         function loadData() {
-            const savedOrders = localStorage.getItem('orderFlow_orders');
-            const savedHistory = localStorage.getItem('orderFlow_history');
-            const savedLastUpload = localStorage.getItem('orderFlow_lastUpload');
+            const savedOrders = localStorage.getItem('orderFlow_orders_v3');
+            const savedHistory = localStorage.getItem('orderFlow_history_v3');
+            const savedUnmatched = localStorage.getItem('orderFlow_unmatched_v3');
+            const savedLastUpload = localStorage.getItem('orderFlow_lastUpload_v3');
 
             if (savedOrders) {
                 orders = JSON.parse(savedOrders);
             }
             if (savedHistory) {
                 uploadHistory = JSON.parse(savedHistory);
+            }
+            if (savedUnmatched) {
+                unmatchedBuyersList = JSON.parse(savedUnmatched);
             }
             if (savedLastUpload) {
                 document.getElementById('lastUploadDate').textContent = savedLastUpload;
@@ -1495,11 +1773,13 @@
 
         function renderAll() {
             renderStats();
+            renderWeeklyClosedByBuyer();
             renderUploadHistory();
             renderRecentOrders();
             renderOrdersTable();
             renderAnalytics();
             updateNotificationBadge();
+            populateBuyerSelect();
         }
 
         function selectWeek(weekName) {
@@ -1525,10 +1805,9 @@
             renderAll();
             lucide.createIcons();
             
-            // Add welcome notification if first time
-            if (!localStorage.getItem('orderFlow_visited')) {
-                showToast('Bienvenue sur OrderFlow !', 'success');
-                localStorage.setItem('orderFlow_visited', 'true');
+            if (!localStorage.getItem('orderFlow_visited_v3')) {
+                showToast('Bienvenue sur OrderFlow v3 !', 'success');
+                localStorage.setItem('orderFlow_visited_v3', 'true');
             }
         });
     </script>
