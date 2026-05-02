@@ -199,7 +199,7 @@
                     <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="clock" class="w-5 h-5 text-purple-600"></i><h3 class="font-semibold">Délai d'achat</h3></div><p class="text-3xl font-bold" id="detailDelay">--</p><p class="text-sm text-gray-500">depuis validation expert</p></div>
                     <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="user" class="w-5 h-5 text-pink-600"></i><h3 class="font-semibold">Acheteur</h3></div><div class="flex items-center space-x-3"><div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white" id="detailBuyerAvatar">--</div><div><p class="font-medium" id="detailBuyer">--</p><p class="text-xs text-gray-500" id="detailBuyerRole">--</p></div></div></div>
                     <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 md:col-span-2 lg:col-span-3"><div class="flex items-center space-x-2 mb-3"><i data-lucide="clipboard-list" class="w-5 h-5 text-green-600"></i><h3 class="font-semibold">Tâche courante</h3></div><p id="detailTask">--</p></div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="calendar-check" class="w-5 h-5 text-indigo-600"></i><h3 class="font-semibold">Date Validation Expert</h3></div><p id="detailValidationDate">--</p></div>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="calendar-check" class="w-5 h-5 text-indigo-600"></i><h3 class="font-semibold">Date Validation Expert</h3></div><p id="detailValidationDate" class="text-lg font-medium">--</p><p class="text-xs text-gray-500 mt-1">Format: JJ/MM/AAAA</p></div>
                     <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="file-up" class="w-5 h-5 text-cyan-600"></i><h3 class="font-semibold">Import</h3></div><p class="text-sm text-gray-500">Semaine: <span id="detailWeek">--</span></p><p class="text-sm text-gray-500">Importé le: <span id="detailImportDate">--</span></p></div>
                 </div>
             </div>
@@ -213,7 +213,7 @@
 
     <div id="deleteModal" class="fixed inset-0 z-50 hidden"><div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeDeleteModal()"></div><div class="flex items-center justify-center min-h-screen p-4"><div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6"><div class="flex items-center space-x-3 mb-4"><div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center"><i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i></div><h3 class="text-lg font-semibold">Confirmer suppression</h3></div><p class="text-gray-600 mb-6">Êtes-vous sûr ? Cette action est irréversible.</p><div class="flex justify-end space-x-3"><button onclick="closeDeleteModal()" class="px-4 py-2 border rounded-lg">Annuler</button><button onclick="confirmDelete()" class="px-4 py-2 bg-red-600 text-white rounded-lg">Supprimer</button></div></div></div></div>
 
-    <footer class="bg-white dark:bg-gray-800 border-t mt-12"><div class="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center"><span class="text-sm text-gray-600">OrderFlow © 2026</span><span class="text-xs text-gray-500">Version 3.3.0</span></div></footer>
+    <footer class="bg-white dark:bg-gray-800 border-t mt-12"><div class="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center"><span class="text-sm text-gray-600">OrderFlow © 2026</span><span class="text-xs text-gray-500">Version 3.4.0 - Correction dates & modification</span></div></footer>
 
     <script>
         const OFFICIAL_BUYERS = [
@@ -252,18 +252,40 @@
             f.innerHTML = '<option value="all">Tous</option>' + OFFICIAL_BUYERS.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
         }
 
-        function calculateDelay(dateStr) {
+        function calculateDelay(dateStr, endDateStr = null) {
             if (!dateStr) return 0;
             let d;
             if (typeof dateStr === 'number') { d = new Date(1899, 11, 30); d.setTime(d.getTime() + dateStr * 86400000); }
             else { d = new Date(String(dateStr).replace(' ', 'T')); if (isNaN(d.getTime())) { const m = String(dateStr).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if (m) d = new Date(m[3], m[2]-1, m[1]); } if (isNaN(d.getTime()) && /^\d+\.?\d*$/.test(String(dateStr))) { const n = parseFloat(dateStr); d = new Date(1899, 11, 30); d.setTime(d.getTime() + n * 86400000); } }
             if (isNaN(d.getTime()) || d.getFullYear() < 2000) return 0;
-            const today = new Date(); today.setHours(0,0,0,0); d.setHours(0,0,0,0);
-            return Math.floor((today.getTime() - d.getTime()) / 86400000);
+            
+            let end = endDateStr ? new Date(endDateStr) : new Date();
+            if (isNaN(end.getTime())) end = new Date();
+            end.setHours(0,0,0,0);
+            d.setHours(0,0,0,0);
+            return Math.floor((end.getTime() - d.getTime()) / 86400000);
+        }
+
+        function formatDateJJMMAAAA(dateStr) {
+            if (!dateStr) return '--/--/----';
+            let d;
+            if (typeof dateStr === 'number') { d = new Date(1899, 11, 30); d.setTime(d.getTime() + dateStr * 86400000); }
+            else { d = new Date(String(dateStr).replace(' ', 'T')); if (isNaN(d.getTime())) { const m = String(dateStr).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if (m) d = new Date(m[3], m[2]-1, m[1]); } if (isNaN(d.getTime()) && /^\d+\.?\d*$/.test(String(dateStr))) { const n = parseFloat(dateStr); d = new Date(1899, 11, 30); d.setTime(d.getTime() + n * 86400000); } }
+            if (isNaN(d.getTime()) || d.getFullYear() < 2000) return '--/--/----';
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
         }
 
         function recalculateAllDelays() {
-            orders = orders.map(o => o.partsStatus === 'firm' ? {...o, delay: 0} : {...o, delay: calculateDelay(o.validationDate)});
+            orders = orders.map(o => {
+                if (o.partsStatus === 'firm') return {...o, delay: 0};
+                if (o.partsStatus === 'closed' && o.closedDate) {
+                    return {...o, delay: calculateDelay(o.validationDate, o.closedDate)};
+                }
+                return {...o, delay: calculateDelay(o.validationDate)};
+            });
             saveData();
         }
 
@@ -278,9 +300,13 @@
         function updateOrderStatus(id, newStatus) {
             const o = orders.find(x => x.id === id);
             if (!o) return;
+            const oldStatus = o.partsStatus;
             o.partsStatus = newStatus;
             if (newStatus === 'firm') o.firmDate = new Date().toISOString();
+            if (newStatus === 'closed' && oldStatus !== 'closed') o.closedDate = new Date().toISOString();
+            if (newStatus === 'in_progress' && oldStatus === 'closed') delete o.closedDate;
             saveData();
+            recalculateAllDelays();
             renderAll();
             showToast('Statut mis à jour', 'success');
         }
@@ -389,19 +415,65 @@
             document.getElementById('detailVehicleBrand').textContent = o.vehicleBrand;
             document.getElementById('detailVehicle').textContent = o.vehicle;
             document.getElementById('detailTask').textContent = o.task;
-            document.getElementById('detailValidationDate').textContent = o.validationDate;
+            document.getElementById('detailValidationDate').textContent = formatDateJJMMAAAA(o.validationDate);
             document.getElementById('detailWeek').textContent = o.week;
             document.getElementById('detailImportDate').textContent = o.importDate;
-            const de = document.getElementById('detailDelay'); de.textContent = o.delay + ' jours'; de.className = 'text-3xl font-bold ' + (o.delay > 14 ? 'text-red-600' : o.delay > 10 ? 'text-orange-600' : 'text-green-600');
-            const se = document.getElementById('detailStatus'); se.textContent = getStatusLabel(o.partsStatus); se.className = 'px-3 py-1 rounded-full text-xs ' + getStatusColor(o.partsStatus);
-            if (b) { document.getElementById('detailBuyer').textContent = b.name; document.getElementById('detailBuyerRole').textContent = b.role; document.getElementById('detailBuyerAvatar').textContent = b.initials; }
-            else { document.getElementById('detailBuyer').textContent = o.lastUpdateBy || 'Non assigné'; document.getElementById('detailBuyerRole').textContent = 'À valider'; document.getElementById('detailBuyerAvatar').textContent = '?'; }
+            
+            const de = document.getElementById('detailDelay'); 
+            de.textContent = o.delay + ' jours'; 
+            de.className = 'text-3xl font-bold ' + (o.delay > 14 ? 'text-red-600' : o.delay > 10 ? 'text-orange-600' : 'text-green-600');
+            
+            const se = document.getElementById('detailStatus'); 
+            se.textContent = getStatusLabel(o.partsStatus); 
+            se.className = 'px-3 py-1 rounded-full text-xs ' + getStatusColor(o.partsStatus);
+            
+            if (b) { 
+                document.getElementById('detailBuyer').textContent = b.name; 
+                document.getElementById('detailBuyerRole').textContent = b.role; 
+                document.getElementById('detailBuyerAvatar').textContent = b.initials; 
+            } else { 
+                document.getElementById('detailBuyer').textContent = o.lastUpdateBy || 'Non assigné'; 
+                document.getElementById('detailBuyerRole').textContent = 'À valider'; 
+                document.getElementById('detailBuyerAvatar').textContent = '?'; 
+            }
+            
             navigateTo('detail');
         }
 
         function openAddModal() { document.getElementById('modalTitle').textContent = 'Ajouter un dossier'; document.getElementById('orderForm').reset(); document.getElementById('editOrderId').value = ''; populateBuyerSelect(); document.getElementById('orderModal').classList.remove('hidden'); setTimeout(() => lucide.createIcons(), 100); }
-        function editOrder(id) { const o = orders.find(x => x.id === id); if (!o) return; currentOrderId = id; document.getElementById('modalTitle').textContent = 'Modifier'; document.getElementById('editOrderId').value = o.id; document.getElementById('formReference').value = o.reference; document.getElementById('formClient').value = o.client; document.getElementById('formVehicle').value = o.vehicle; document.getElementById('formVehicleBrand').value = o.vehicleBrand; document.getElementById('formTask').value = o.task; document.getElementById('formBuyer').value = o.buyerId || ''; document.getElementById('formValidationDate').value = o.validationDate.replace(' ', 'T'); document.getElementById('formStatus').value = o.partsStatus; populateBuyerSelect(); document.getElementById('orderModal').classList.remove('hidden'); setTimeout(() => lucide.createIcons(), 100); }
-        function editCurrentOrder() { if (currentOrderId) editOrder(currentOrderId); }
+        function editOrder(id) { 
+            const o = orders.find(x => x.id === id); 
+            if (!o) return; 
+            currentOrderId = id; 
+            document.getElementById('modalTitle').textContent = 'Modifier le dossier'; 
+            document.getElementById('editOrderId').value = o.id; 
+            document.getElementById('formReference').value = o.reference; 
+            document.getElementById('formClient').value = o.client; 
+            document.getElementById('formVehicle').value = o.vehicle; 
+            document.getElementById('formVehicleBrand').value = o.vehicleBrand; 
+            document.getElementById('formTask').value = o.task; 
+            document.getElementById('formBuyer').value = o.buyerId || ''; 
+            // Format date for datetime-local input
+            let vd = o.validationDate;
+            if (typeof vd === 'string' && vd.includes(' ')) vd = vd.replace(' ', 'T');
+            else if (typeof vd === 'number') {
+                const d = new Date(1899, 11, 30);
+                d.setTime(d.getTime() + vd * 86400000);
+                vd = d.toISOString().split('T')[0] + 'T00:00';
+            }
+            document.getElementById('formValidationDate').value = vd.split('.')[0];
+            document.getElementById('formStatus').value = o.partsStatus; 
+            populateBuyerSelect(); 
+            document.getElementById('orderModal').classList.remove('hidden'); 
+            setTimeout(() => lucide.createIcons(), 100); 
+        }
+        function editCurrentOrder() { 
+            if (currentOrderId) { 
+                editOrder(currentOrderId); 
+            } else { 
+                showToast('Aucun dossier sélectionné', 'error'); 
+            } 
+        }
         function closeModal() { document.getElementById('orderModal').classList.add('hidden'); }
         function deleteOrder(id) { orderToDelete = id; document.getElementById('deleteModal').classList.remove('hidden'); setTimeout(() => lucide.createIcons(), 100); }
         function deleteCurrentOrder() { if (currentOrderId) deleteOrder(currentOrderId); }
@@ -434,11 +506,24 @@
                 const cw = getCurrentWeekName(), newOrders = [], newUnmatched = new Set();
                 jsonData.forEach((row, idx) => {
                     const ref = row['Référence interne'] || row['reference_interne'] || 'REF-'+Date.now()+'-'+idx, client = row['Client'] || 'Client inconnu', veh = row['Véhicule'] || row['vehicule'] || '', task = row['Tâche courante'] || row['tache_courante'] || 'Tâche non spécifiée', lub = row['Dernière mise à jour par'] || row['derniere_mise_a_jour_par'] || '', vd = row['Date Validation Expert'] || row['date_validation_expert'];
-                    let vdate = vd || new Date().toISOString();
-                    if (typeof vdate === 'string' && /^\d+\.?\d*$/.test(vdate.trim())) vdate = parseFloat(vdate.trim());
+                    let vdate = vd;
+                    // Convert Excel serial date to ISO string for storage
+                    if (typeof vd === 'number') {
+                        const d = new Date(1899, 11, 30);
+                        d.setTime(d.getTime() + vd * 86400000);
+                        vdate = d.toISOString();
+                    } else if (typeof vd === 'string') {
+                        if (/^\d+\.?\d*$/.test(vd.trim())) {
+                            const n = parseFloat(vd.trim());
+                            const d = new Date(1899, 11, 30);
+                            d.setTime(d.getTime() + n * 86400000);
+                            vdate = d.toISOString();
+                        }
+                    }
+                    if (!vdate) vdate = new Date().toISOString();
                     const del = calculateDelay(vdate), mb = matchBuyer(lub);
                     if (lub && !mb) newUnmatched.add(lub);
-                    if (!orders.find(o => o.reference === ref)) newOrders.push({id: 'new-'+Date.now()+'-'+idx, reference: ref, client, vehicle: veh, vehicleBrand: extractVehicleBrand(veh), task, lastUpdateBy: lub, buyerId: mb ? mb.id : '', buyerName: mb ? mb.name : '', validationDate: String(vdate), delay: del, partsStatus: 'in_progress', week: cw, importDate: new Date().toISOString().split('T')[0]});
+                    if (!orders.find(o => o.reference === ref)) newOrders.push({id: 'new-'+Date.now()+'-'+idx, reference: ref, client, vehicle: veh, vehicleBrand: extractVehicleBrand(veh), task, lastUpdateBy: lub, buyerId: mb ? mb.id : '', buyerName: mb ? mb.name : '', validationDate: vdate, delay: del, partsStatus: 'in_progress', week: cw, importDate: new Date().toISOString().split('T')[0]});
                 });
                 orders = [...newOrders, ...orders];
                 unmatchedBuyersList = [...new Set([...unmatchedBuyersList, ...newUnmatched])];
@@ -455,7 +540,24 @@
         }
 
         function saveData() { localStorage.setItem('orderFlow_orders_v3', JSON.stringify(orders)); localStorage.setItem('orderFlow_history_v3', JSON.stringify(uploadHistory)); localStorage.setItem('orderFlow_unmatched_v3', JSON.stringify(unmatchedBuyersList)); const lu = document.getElementById('lastUploadDate'); if (lu) localStorage.setItem('orderFlow_lastUpload', lu.textContent); }
-        function loadData() { const so = localStorage.getItem('orderFlow_orders_v3'); if (so) { orders = JSON.parse(so); orders = orders.map(o => ({...o, delay: o.partsStatus === 'firm' ? 0 : calculateDelay(o.validationDate)})); } const sh = localStorage.getItem('orderFlow_history_v3'); if (sh) uploadHistory = JSON.parse(sh); const su = localStorage.getItem('orderFlow_unmatched_v3'); if (su) unmatchedBuyersList = JSON.parse(su); const sl = localStorage.getItem('orderFlow_lastUpload'); const lu = document.getElementById('lastUploadDate'); if (sl && lu) lu.textContent = sl; }
+        function loadData() { 
+            const so = localStorage.getItem('orderFlow_orders_v3'); 
+            if (so) { 
+                orders = JSON.parse(so); 
+                orders = orders.map(o => {
+                    if (o.partsStatus === 'firm') return {...o, delay: 0};
+                    if (o.partsStatus === 'closed' && o.closedDate) return {...o, delay: calculateDelay(o.validationDate, o.closedDate)};
+                    return {...o, delay: calculateDelay(o.validationDate)};
+                }); 
+            } 
+            const sh = localStorage.getItem('orderFlow_history_v3'); 
+            if (sh) uploadHistory = JSON.parse(sh); 
+            const su = localStorage.getItem('orderFlow_unmatched_v3'); 
+            if (su) unmatchedBuyersList = JSON.parse(su); 
+            const sl = localStorage.getItem('orderFlow_lastUpload'); 
+            const lu = document.getElementById('lastUploadDate'); 
+            if (sl && lu) lu.textContent = sl; 
+        }
         function renderAll() { renderStats(); renderWeeklyClosedByBuyer(); renderUploadHistory(); renderRecentOrders(); renderOrdersTable(); renderAnalytics(); updateNotificationBadge(); populateBuyerSelect(); }
         function selectWeek(name) { selectedWeek = name; renderUploadHistory(); renderOrdersTable(); }
         function toggleDarkMode() { isDarkMode = !isDarkMode; document.documentElement.classList.toggle('dark'); document.getElementById('darkModeToggle').innerHTML = isDarkMode ? '<i data-lucide="sun" class="w-5 h-5"></i>' : '<i data-lucide="moon" class="w-5 h-5"></i>'; setTimeout(() => lucide.createIcons(), 100); }
