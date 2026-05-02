@@ -23,6 +23,9 @@
         .dark ::-webkit-scrollbar-track { background: #1f2937; }
         .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
         .notification-enter { animation: slideIn 0.3s ease-out forwards; }
+        /* Ensure select dropdowns appear above modal content */
+        select { position: relative; z-index: 60; }
+        select:focus { z-index: 70; }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900">
@@ -207,13 +210,34 @@
     </main>
 
     <!-- Modals -->
-    <div id="orderModal" class="fixed inset-0 z-50 hidden"><div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeModal()"></div><div class="flex items-center justify-center min-h-screen p-4"><div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full p-6" onclick="event.stopPropagation()"><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-semibold" id="modalTitle">Ajouter un dossier</h3><button onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button></div><form id="orderForm" class="space-y-4" onclick="event.stopPropagation()"><input type="hidden" id="editOrderId"><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Référence *</label><input type="text" id="formReference" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div><div><label class="block text-sm font-medium mb-1">Client *</label><input type="text" id="formClient" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Véhicule *</label><input type="text" id="formVehicle" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div><div><label class="block text-sm font-medium mb-1">Marque *</label><input type="text" id="formVehicleBrand" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div></div><div><label class="block text-sm font-medium mb-1">Tâche *</label><input type="text" id="formTask" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Acheteur *</label><select id="formBuyer" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 bg-white focus:ring-2 focus:ring-blue-500 cursor-pointer" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()"><option value="">-- Sélectionner un acheteur --</option></select><p class="text-xs text-blue-600 mt-1">👆 Cliquez ici pour ouvrir la liste des acheteurs</p></div><div><label class="block text-sm font-medium mb-1">Date Validation *</label><input type="datetime-local" id="formValidationDate" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div></div><div><label class="block text-sm font-medium mb-1">Statut *</label><select id="formStatus" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"><option value="in_progress">En cours d'achat</option><option value="closed">Achat terminé</option><option value="firm">Commande ferme</option></select></div><div class="flex justify-end space-x-3"><button type="button" onclick="closeModal()" class="px-4 py-2 border rounded-lg">Annuler</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Enregistrer</button></div></form></div></div></div>
+    <div id="orderModal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75" id="modalBackdrop"></div>
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full p-6 relative">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-semibold" id="modalTitle">Ajouter un dossier</h3>
+                    <button type="button" onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <form id="orderForm" class="space-y-4"><input type="hidden" id="editOrderId"><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Référence *</label><input type="text" id="formReference" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div><div><label class="block text-sm font-medium mb-1">Client *</label><input type="text" id="formClient" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Véhicule *</label><input type="text" id="formVehicle" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div><div><label class="block text-sm font-medium mb-1">Marque *</label><input type="text" id="formVehicleBrand" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div></div><div><label class="block text-sm font-medium mb-1">Tâche *</label><input type="text" id="formTask" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div><div class="grid grid-cols-2 gap-4">
+<div>
+    <label class="block text-sm font-medium mb-1">Acheteur *</label>
+    <div class="relative">
+        <select id="formBuyer" required class="w-full px-4 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer text-gray-900 dark:text-white">
+            <option value="">-- Sélectionner un acheteur --</option>
+        </select>
+        <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </div>
+    </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Sélectionnez l'acheteur dans la liste</p>
+</div>
+<div><label class="block text-sm font-medium mb-1">Date Validation *</label><input type="datetime-local" id="formValidationDate" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"></div></div><div><label class="block text-sm font-medium mb-1">Statut *</label><select id="formStatus" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700"><option value="in_progress">En cours d'achat</option><option value="closed">Achat terminé</option><option value="firm">Commande ferme</option></select></div><div class="flex justify-end space-x-3"><button type="button" onclick="closeModal()" class="px-4 py-2 border rounded-lg">Annuler</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Enregistrer</button></div></form></div></div></div>
 
     <div id="assignBuyerModal" class="fixed inset-0 z-50 hidden"><div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeAssignBuyerModal()"></div><div class="flex items-center justify-center min-h-screen p-4"><div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6"><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-semibold">Assigner un acheteur</h3><button onclick="closeAssignBuyerModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button></div><p class="text-gray-600 mb-4">Nom : <span id="assignBuyerName" class="font-bold"></span></p><div id="assignBuyerList" class="space-y-2 mb-6"></div></div></div></div>
 
     <div id="deleteModal" class="fixed inset-0 z-50 hidden"><div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeDeleteModal()"></div><div class="flex items-center justify-center min-h-screen p-4"><div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6"><div class="flex items-center space-x-3 mb-4"><div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center"><i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i></div><h3 class="text-lg font-semibold">Confirmer suppression</h3></div><p class="text-gray-600 mb-6">Êtes-vous sûr ? Cette action est irréversible.</p><div class="flex justify-end space-x-3"><button onclick="closeDeleteModal()" class="px-4 py-2 border rounded-lg">Annuler</button><button onclick="confirmDelete()" class="px-4 py-2 bg-red-600 text-white rounded-lg">Supprimer</button></div></div></div></div>
 
-    <footer class="bg-white dark:bg-gray-800 border-t mt-12"><div class="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center"><span class="text-sm text-gray-600">OrderFlow © 2026</span><span class="text-xs text-gray-500">Version 3.6.0 - Liste acheteurs & modal corrigées</span></div></footer>
+    <footer class="bg-white dark:bg-gray-800 border-t mt-12"><div class="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center"><span class="text-sm text-gray-600">OrderFlow © 2026</span><span class="text-xs text-gray-500">Version 3.7.0 - Select dropdown corrigé</span></div></footer>
 
     <script>
         const OFFICIAL_BUYERS = [
@@ -460,23 +484,19 @@
             }
             document.getElementById('formValidationDate').value = vd.split('.')[0];
             document.getElementById('formStatus').value = o.partsStatus; 
-            // IMPORTANT: Populate buyer list FIRST, then set the value
-            populateBuyerSelect(); 
-            // Wait for select to be populated, then set value
+            // Populate buyer list and set value
+            populateBuyerSelect();
+            document.getElementById('orderModal').classList.remove('hidden');
+            
+            // Set buyer value after modal is shown
             setTimeout(() => {
                 const buyerSelect = document.getElementById('formBuyer');
-                buyerSelect.value = o.buyerId || '';
-                console.log('=== EDIT FORM DEBUG ===');
-                console.log('Order buyerId:', o.buyerId);
-                console.log('Form buyer value:', buyerSelect.value);
-                console.log('Available options:', buyerSelect.options.length);
-            }, 100);
-            document.getElementById('orderModal').classList.remove('hidden'); 
+                if (buyerSelect) {
+                    buyerSelect.value = o.buyerId || '';
+                }
+            }, 150);
+            
             setTimeout(() => lucide.createIcons(), 100);
-            // Show helper message
-            setTimeout(() => {
-                showToast('💡 Cliquez sur le champ "Acheteur" pour voir la liste et modifier', 'info');
-            }, 500);
         }
         function editCurrentOrder() { 
             if (currentOrderId) { 
@@ -485,7 +505,21 @@
                 showToast('Aucun dossier sélectionné', 'error'); 
             } 
         }
-        function closeModal() { document.getElementById('orderModal').classList.add('hidden'); }
+        function closeModal() { 
+            document.getElementById('orderModal').classList.add('hidden'); 
+        }
+        
+        // Backdrop click handler - only close if clicking directly on backdrop
+        document.addEventListener('DOMContentLoaded', function() {
+            const backdrop = document.getElementById('modalBackdrop');
+            if (backdrop) {
+                backdrop.addEventListener('click', function(e) {
+                    if (e.target === backdrop) {
+                        closeModal();
+                    }
+                });
+            }
+        });
         function deleteOrder(id) { orderToDelete = id; document.getElementById('deleteModal').classList.remove('hidden'); setTimeout(() => lucide.createIcons(), 100); }
         function deleteCurrentOrder() { if (currentOrderId) deleteOrder(currentOrderId); }
         function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); orderToDelete = null; }
