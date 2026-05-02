@@ -30,13 +30,27 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
         .animate-fade-in {
             animation: fadeIn 0.3s ease-out forwards;
+        }
+        .animate-slide-in {
+            animation: slideIn 0.3s ease-out forwards;
         }
         .drag-active {
             border-color: #3b82f6 !important;
             background-color: rgba(59, 130, 246, 0.1) !important;
             transform: scale(1.02);
+        }
+        .view-section {
+            display: none;
+        }
+        .view-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
         }
         ::-webkit-scrollbar {
             width: 8px;
@@ -59,6 +73,12 @@
         .dark ::-webkit-scrollbar-thumb {
             background: #4b5563;
         }
+        .notification-enter {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        .notification-exit {
+            animation: fadeIn 0.3s ease-out reverse forwards;
+        }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -67,7 +87,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 cursor-pointer" onclick="navigateTo('dashboard')">
                         <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                             <i data-lucide="package" class="w-6 h-6 text-white"></i>
                         </div>
@@ -78,18 +98,35 @@
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-3">
-                    <button class="relative p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                        <i data-lucide="bell" class="w-5 h-5"></i>
-                        <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">3</span>
+                <!-- Navigation -->
+                <nav class="hidden md:flex space-x-1">
+                    <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4 inline mr-1"></i>
+                        Dashboard
                     </button>
-                    <button id="darkModeToggle" class="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <button onclick="navigateTo('orders')" id="nav-orders" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+                        <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>
+                        Commandes
+                    </button>
+                    <button onclick="navigateTo('analytics')" id="nav-analytics" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4 inline mr-1"></i>
+                        Analytics
+                    </button>
+                </nav>
+
+                <div class="flex items-center space-x-3">
+                    <!-- Notifications -->
+                    <button onclick="toggleNotifications()" class="relative p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                        <i data-lucide="bell" class="w-5 h-5"></i>
+                        <span id="notificationBadge" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">0</span>
+                    </button>
+                    <button onclick="toggleDarkMode()" id="darkModeToggle" class="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors">
                         <i data-lucide="moon" class="w-5 h-5"></i>
                     </button>
                     <button class="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors">
                         <i data-lucide="settings" class="w-5 h-5"></i>
                     </button>
-                    <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
+                    <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm cursor-pointer" title="Utilisateur connecté">
                         SM
                     </div>
                 </div>
@@ -97,330 +134,543 @@
         </div>
     </header>
 
+    <!-- Notifications Panel -->
+    <div id="notificationsPanel" class="fixed top-20 right-4 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 hidden">
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 class="font-semibold text-gray-900 dark:text-white">Notifications</h3>
+            <button onclick="clearNotifications()" class="text-xs text-blue-600 hover:text-blue-700">Tout effacer</button>
+        </div>
+        <div id="notificationsList" class="max-h-96 overflow-y-auto p-2">
+            <!-- Notifications will be inserted here -->
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-20 right-4 z-50 space-y-2"></div>
+
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Dossiers</p>
-                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statTotal">0</p>
-                        <div class="flex items-center mt-2 text-sm text-green-600">
-                            <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1"></i>
-                            <span>12% vs semaine dernière</span>
+        
+        <!-- ==================== DASHBOARD VIEW ==================== -->
+        <div id="view-dashboard" class="view-section active">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer" onclick="navigateTo('orders')">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total Dossiers</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statTotal">0</p>
+                            <div class="flex items-center mt-2 text-sm text-green-600">
+                                <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1"></i>
+                                <span>12% vs semaine dernière</span>
+                            </div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400">
+                            <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
                         </div>
                     </div>
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400">
-                        <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer" onclick="navigateTo('orders')">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Pièces Reçues</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statReceived">0</p>
+                            <div class="flex items-center mt-2 text-sm text-green-600">
+                                <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1"></i>
+                                <span>8% vs semaine dernière</span>
+                            </div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400">
+                            <i data-lucide="check-circle" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer" onclick="navigateTo('orders')">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">En Retard</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statDelayed">0</p>
+                            <div class="flex items-center mt-2 text-sm text-red-600">
+                                <i data-lucide="arrow-down-right" class="w-4 h-4 mr-1"></i>
+                                <span>5% vs semaine dernière</span>
+                            </div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400">
+                            <i data-lucide="alert-circle" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer" onclick="navigateTo('analytics')">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Délai Moyen</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statAvgDelay">0j</p>
+                            <div class="flex items-center mt-2 text-sm text-green-600">
+                                <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1"></i>
+                                <span>2% vs semaine dernière</span>
+                            </div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400">
+                            <i data-lucide="clock" class="w-6 h-6"></i>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Pièces Reçues</p>
-                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statReceived">0</p>
-                        <div class="flex items-center mt-2 text-sm text-green-600">
-                            <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1"></i>
-                            <span>8% vs semaine dernière</span>
+            <!-- Upload Zone & History -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- File Upload -->
+                <div class="lg:col-span-2">
+                    <div id="dropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center transition-all duration-300 hover:border-blue-400 dark:hover:border-blue-500">
+                        <div class="flex flex-col items-center">
+                            <div class="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-gray-100 dark:bg-gray-700 transition-all duration-300">
+                                <i data-lucide="upload" class="w-8 h-8 text-gray-400"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                                Importer l'état des dossiers (Odoo .xlsx)
+                            </h3>
+                            <p class="text-gray-500 dark:text-gray-400 mb-4">
+                                Glissez votre fichier Excel ici ou cliquez pour choisir
+                            </p>
+                            <label class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center space-x-2 cursor-pointer">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                                <span>Sélectionner un fichier</span>
+                                <input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden">
+                            </label>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                                Dernière mise à jour : <span id="lastUploadDate">--/--/----</span>
+                            </p>
                         </div>
                     </div>
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400">
-                        <i data-lucide="check-circle" class="w-6 h-6"></i>
+                </div>
+
+                <!-- Upload History -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
+                        <i data-lucide="history" class="w-5 h-5 text-blue-600"></i>
+                        <span>Historique des imports</span>
+                    </h3>
+                    <div id="uploadHistory" class="space-y-3">
+                        <!-- History items will be inserted here -->
                     </div>
+                    <button id="showAllWeeks" class="w-full mt-3 p-3 rounded-xl text-center transition-all duration-200 bg-blue-100 dark:bg-blue-900 border-2 border-blue-500 text-blue-700 dark:text-blue-300 font-medium">
+                        Voir tous les dossiers
+                    </button>
                 </div>
             </div>
 
-            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                <div class="flex items-center justify-between">
+            <!-- Recent Orders Preview -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">En Retard</p>
-                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statDelayed">0</p>
-                        <div class="flex items-center mt-2 text-sm text-red-600">
-                            <i data-lucide="arrow-down-right" class="w-4 h-4 mr-1"></i>
-                            <span>5% vs semaine dernière</span>
-                        </div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            Dossiers Récents
+                        </h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Cliquez pour voir les détails
+                        </p>
                     </div>
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400">
-                        <i data-lucide="alert-circle" class="w-6 h-6"></i>
-                    </div>
+                    <button onclick="navigateTo('orders')" class="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center space-x-1">
+                        <span>Voir tout</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
                 </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Délai Moyen</p>
-                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" id="statAvgDelay">0j</p>
-                        <div class="flex items-center mt-2 text-sm text-green-600">
-                            <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1"></i>
-                            <span>2% vs semaine dernière</span>
-                        </div>
-                    </div>
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400">
-                        <i data-lucide="clock" class="w-6 h-6"></i>
-                    </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Référence</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Marque</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Chargé d'achat</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Délai</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentOrdersBody" class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <!-- Recent orders will be inserted here -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- Upload Zone & History -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <!-- File Upload -->
-            <div class="lg:col-span-2">
-                <div id="dropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center transition-all duration-300 hover:border-blue-400 dark:hover:border-blue-500">
-                    <div class="flex flex-col items-center">
-                        <div class="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-gray-100 dark:bg-gray-700 transition-all duration-300">
-                            <i data-lucide="upload" class="w-8 h-8 text-gray-400"></i>
+        <!-- ==================== ORDERS VIEW ==================== -->
+        <div id="view-orders" class="view-section">
+            <!-- Filters -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div class="flex flex-col sm:flex-row gap-4 flex-1">
+                        <div class="relative flex-1 max-w-md">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                            <input type="text" id="searchInput" placeholder="Rechercher (référence, client, véhicule, chargé d'achat)..." 
+                                class="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
                         </div>
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                            Importer l'état des dossiers (Odoo .xlsx)
-                        </h3>
-                        <p class="text-gray-500 dark:text-gray-400 mb-4">
-                            Glissez votre fichier Excel ici ou cliquez pour choisir
-                        </p>
-                        <label class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center space-x-2 cursor-pointer">
-                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-                            <span>Sélectionner un fichier</span>
-                            <input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden">
-                        </label>
-                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">
-                            Dernière mise à jour : <span id="lastUploadDate">--/--/----</span>
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Upload History -->
-            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
-                    <i data-lucide="history" class="w-5 h-5 text-blue-600"></i>
-                    <span>Historique des imports</span>
-                </h3>
-                <div id="uploadHistory" class="space-y-3">
-                    <!-- History items will be inserted here -->
-                </div>
-                <button id="showAllWeeks" class="w-full mt-3 p-3 rounded-xl text-center transition-all duration-200 bg-blue-100 dark:bg-blue-900 border-2 border-blue-500 text-blue-700 dark:text-blue-300 font-medium">
-                    Voir tous les dossiers
-                </button>
-            </div>
-        </div>
-
-        <!-- Filters -->
-        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div class="flex flex-col sm:flex-row gap-4 flex-1">
-                    <div class="relative flex-1 max-w-md">
-                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
-                        <input type="text" id="searchInput" placeholder="Rechercher (référence, client, véhicule, chargé d'achat)..." 
-                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
+                        <div class="flex gap-2">
+                            <select id="statusFilter" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
+                                <option value="all">Tous les statuts</option>
+                                <option value="received">Reçues</option>
+                                <option value="pending">En attente</option>
+                                <option value="delayed">En retard</option>
+                                <option value="critical">Critique</option>
+                            </select>
+                            <select id="priorityFilter" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
+                                <option value="all">Toutes priorités</option>
+                                <option value="low">Basse</option>
+                                <option value="medium">Moyenne</option>
+                                <option value="high">Haute</option>
+                                <option value="urgent">Urgente</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="flex gap-2">
-                        <select id="statusFilter" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
-                            <option value="all">Tous les statuts</option>
-                            <option value="received">Reçues</option>
-                            <option value="pending">En attente</option>
-                            <option value="delayed">En retard</option>
-                            <option value="critical">Critique</option>
-                        </select>
-                        <select id="priorityFilter" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all">
-                            <option value="all">Toutes priorités</option>
-                            <option value="low">Basse</option>
-                            <option value="medium">Moyenne</option>
-                            <option value="high">Haute</option>
-                            <option value="urgent">Urgente</option>
-                        </select>
+                        <button onclick="exportToExcel()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Exporter</span>
+                        </button>
+                        <button onclick="openAddModal()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors flex items-center space-x-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span>Ajouter</span>
+                        </button>
                     </div>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="exportToExcel()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2">
-                        <i data-lucide="download" class="w-4 h-4"></i>
-                        <span>Exporter</span>
+            </div>
+
+            <!-- Orders Table -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            Toutes les Commandes
+                        </h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1" id="ordersCount">0 dossiers</p>
+                    </div>
+                    <button onclick="refreshData()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                        <i data-lucide="refresh-cw" class="w-5 h-5 text-gray-500"></i>
                     </button>
-                    <button class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors flex items-center space-x-2">
-                        <i data-lucide="plus" class="w-4 h-4"></i>
-                        <span>Nouveau dossier</span>
-                    </button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('reference')">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Référence</span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                    </div>
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('client')">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Client</span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                    </div>
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('vehicleBrand')">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Marque</span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                    </div>
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Tâche
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Chargé d'achat
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('delay')">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Délai (j)</span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                    </div>
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Statut
+                                </th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody" class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <!-- Orders will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <p class="text-sm text-gray-500 dark:text-gray-400" id="paginationText">
+                        Affichage de 1 à 0 sur 0 résultats
+                    </p>
+                    <div class="flex space-x-2">
+                        <button class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50" disabled>
+                            Précédent
+                        </button>
+                        <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">1</button>
+                        <button class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            2
+                        </button>
+                        <button class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            Suivant
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Orders Table -->
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <div>
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                        Commandes & Réservation Pièces de Rechange
-                    </h2>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1" id="ordersCount">0 dossiers</p>
+        <!-- ==================== ANALYTICS VIEW ==================== -->
+        <div id="view-analytics" class="view-section">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Status Distribution -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
+                        <i data-lucide="pie-chart" class="w-5 h-5 text-blue-600"></i>
+                        <span>Répartition par statut</span>
+                    </h3>
+                    <div id="statusDistribution" class="space-y-4">
+                        <!-- Status bars will be inserted here -->
+                    </div>
                 </div>
-                <button onclick="refreshData()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                    <i data-lucide="refresh-cw" class="w-5 h-5 text-gray-500"></i>
+
+                <!-- Delay Distribution -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5 text-purple-600"></i>
+                        <span>Délais d'achat</span>
+                    </h3>
+                    <div id="delayDistribution" class="flex items-end justify-around h-48 px-4">
+                        <!-- Delay bars will be inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manager Stats -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
+                    <i data-lucide="trending-up" class="w-5 h-5 text-green-600"></i>
+                    <span>Performance par chargé d'achat</span>
+                </h3>
+                <div id="managerStats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Manager cards will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Weekly Trend -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
+                    <i data-lucide="activity" class="w-5 h-5 text-red-600"></i>
+                    <span>Évolution hebdomadaire</span>
+                </h3>
+                <div id="weeklyTrend" class="space-y-3">
+                    <!-- Weekly trend will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== DETAIL VIEW ==================== -->
+        <div id="view-detail" class="view-section">
+            <div class="mb-6">
+                <button onclick="navigateTo('orders')" class="flex items-center space-x-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    <span>Retour aux commandes</span>
                 </button>
             </div>
-            
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('reference')">
-                                <div class="flex items-center space-x-1">
-                                    <span>Référence</span>
-                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                                </div>
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('client')">
-                                <div class="flex items-center space-x-1">
-                                    <span>Client</span>
-                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                                </div>
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('vehicleBrand')">
-                                <div class="flex items-center space-x-1">
-                                    <span>Véhicule (Marque)</span>
-                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                                </div>
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Tâche
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('lastUpdateBy')">
-                                <div class="flex items-center space-x-1">
-                                    <span>Dernière mise à jour par</span>
-                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                                </div>
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('validationDate')">
-                                <div class="flex items-center space-x-1">
-                                    <span>Date Valid. Expert</span>
-                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                                </div>
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('delay')">
-                                <div class="flex items-center space-x-1">
-                                    <span>Délai (j)</span>
-                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                                </div>
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick="handleSort('partsStatus')">
-                                <div class="flex items-center space-x-1">
-                                    <span>Situation</span>
-                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                                </div>
-                            </th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="ordersTableBody" class="divide-y divide-gray-200 dark:divide-gray-700">
-                        <!-- Orders will be inserted here -->
-                    </tbody>
-                </table>
-            </div>
 
-            <!-- Pagination -->
-            <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <p class="text-sm text-gray-500 dark:text-gray-400" id="paginationText">
-                    Affichage de 1 à 0 sur 0 résultats
-                </p>
-                <div class="flex space-x-2">
-                    <button class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50" disabled>
-                        Précédent
-                    </button>
-                    <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">1</button>
-                    <button class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        2
-                    </button>
-                    <button class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        Suivant
-                    </button>
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <!-- Header with actions -->
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <div>
+                        <div class="flex items-center space-x-3">
+                            <h1 class="text-2xl font-bold text-gray-900 dark:text-white" id="detailReference">--</h1>
+                            <span id="detailStatus" class="px-3 py-1 rounded-full text-xs font-medium"></span>
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1" id="detailClient">--</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="editCurrentOrder()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2">
+                            <i data-lucide="edit" class="w-4 h-4"></i>
+                            <span>Modifier</span>
+                        </button>
+                        <button onclick="deleteCurrentOrder()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center space-x-2">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            <span>Supprimer</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Vehicle Info -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <i data-lucide="car" class="w-5 h-5 text-blue-600"></i>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Véhicule</h3>
+                            </div>
+                            <p class="text-2xl font-bold text-gray-900 dark:text-white" id="detailVehicleBrand">--</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1" id="detailVehicle">--</p>
+                        </div>
+
+                        <!-- Delay Info -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <i data-lucide="clock" class="w-5 h-5 text-purple-600"></i>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Délai d'achat</h3>
+                            </div>
+                            <p class="text-3xl font-bold" id="detailDelay">--</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">depuis validation expert</p>
+                        </div>
+
+                        <!-- Priority Info -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <i data-lucide="flag" class="w-5 h-5 text-orange-600"></i>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Priorité</h3>
+                            </div>
+                            <span id="detailPriority" class="px-3 py-1 rounded-full text-sm font-medium"></span>
+                        </div>
+
+                        <!-- Task -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 md:col-span-2 lg:col-span-3">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <i data-lucide="clipboard-list" class="w-5 h-5 text-green-600"></i>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Tâche courante</h3>
+                            </div>
+                            <p class="text-gray-900 dark:text-white" id="detailTask">--</p>
+                        </div>
+
+                        <!-- Purchase Manager -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <i data-lucide="user" class="w-5 h-5 text-pink-600"></i>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Chargé d'achat</h3>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white font-medium">
+                                    <span id="detailManagerInitials">--</span>
+                                </div>
+                                <span class="font-medium text-gray-900 dark:text-white" id="detailManager">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Validation Date -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <i data-lucide="calendar-check" class="w-5 h-5 text-indigo-600"></i>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Date Validation Expert</h3>
+                            </div>
+                            <p class="text-gray-900 dark:text-white" id="detailValidationDate">--</p>
+                        </div>
+
+                        <!-- Import Info -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <i data-lucide="file-up" class="w-5 h-5 text-cyan-600"></i>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Informations Import</h3>
+                            </div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Semaine: <span class="text-gray-900 dark:text-white font-medium" id="detailWeek">--</span></p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Importé le: <span class="text-gray-900 dark:text-white font-medium" id="detailImportDate">--</span></p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Analytics Section -->
-        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Status Distribution -->
-            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
-                    <i data-lucide="pie-chart" class="w-5 h-5 text-blue-600"></i>
-                    <span>Répartition par statut</span>
-                </h3>
-                <div id="statusDistribution" class="space-y-4">
-                    <!-- Status bars will be inserted here -->
-                </div>
-            </div>
-
-            <!-- Delay Distribution -->
-            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
-                    <i data-lucide="bar-chart-3" class="w-5 h-5 text-purple-600"></i>
-                    <span>Délais d'achat</span>
-                </h3>
-                <div id="delayDistribution" class="flex items-end justify-around h-48 px-4">
-                    <!-- Delay bars will be inserted here -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Chargés d'achat Stats -->
-        <div class="mt-8 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center space-x-2">
-                <i data-lucide="trending-up" class="w-5 h-5 text-green-600"></i>
-                <span>Performance par chargé d'achat</span>
-            </h3>
-            <div id="managerStats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Manager cards will be inserted here -->
-            </div>
-        </div>
-
-        <!-- Info Section -->
-        <div class="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
-            <div class="flex items-start space-x-4">
-                <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i data-lucide="info" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
-                </div>
-                <div>
-                    <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Comment utiliser ce dashboard</h4>
-                    <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
-                        <li>📁 <strong>Importez</strong> votre fichier Excel Odoo chaque début de semaine</li>
-                        <li>📊 <strong>Consultez</strong> les délais d'achat calculés automatiquement</li>
-                        <li>🔍 <strong>Filtrez</strong> par statut, priorité ou semaine</li>
-                        <li>📈 <strong>Analysez</strong> la performance par chargé d'achat</li>
-                        <li>💾 <strong>Exportez</strong> les données quand nécessaire</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
     </main>
 
-    <!-- Modal -->
+    <!-- Add/Edit Order Modal -->
     <div id="orderModal" class="fixed inset-0 z-50 overflow-y-auto hidden">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-            <div id="modalBackdrop" class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"></div>
+            <div id="modalBackdrop" class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="closeModal()"></div>
             <div class="relative inline-block w-full max-w-2xl p-6 my-8 text-left align-middle transition-all transform bg-white dark:bg-gray-800 shadow-xl rounded-2xl">
                 <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-                        Détails du dossier
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white" id="modalTitle">
+                        Ajouter un dossier
                     </h3>
-                    <button id="closeModal" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <button onclick="closeModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                         <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
                     </button>
                 </div>
 
-                <div id="modalContent" class="grid grid-cols-2 gap-6">
-                    <!-- Modal content will be inserted here -->
-                </div>
+                <form id="orderForm" class="space-y-4">
+                    <input type="hidden" id="editOrderId">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Référence *</label>
+                            <input type="text" id="formReference" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client *</label>
+                            <input type="text" id="formClient" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                        </div>
+                    </div>
 
-                <div class="mt-6 flex justify-end space-x-3">
-                    <button id="closeModalBtn" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        Fermer
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Véhicule (complet) *</label>
+                            <input type="text" id="formVehicle" required placeholder="ex: VOLKSWAGEN/POLO 4/3039 TU 97" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Marque *</label>
+                            <input type="text" id="formVehicleBrand" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tâche courante *</label>
+                        <input type="text" id="formTask" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Chargé d'achat *</label>
+                            <input type="text" id="formManager" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Validation Expert *</label>
+                            <input type="datetime-local" id="formValidationDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            Annuler
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            <span>Enregistrer</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 z-50 overflow-y-auto hidden">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="closeDeleteModal()"></div>
+            <div class="relative inline-block w-full max-w-md p-6 my-8 text-left align-middle transition-all transform bg-white dark:bg-gray-800 shadow-xl rounded-2xl">
+                <div class="flex items-center space-x-3 mb-4">
+                    <div class="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Confirmer la suppression</h3>
+                </div>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    Êtes-vous sûr de vouloir supprimer ce dossier ? Cette action est irréversible.
+                </p>
+                <div class="flex justify-end space-x-3">
+                    <button onclick="closeDeleteModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        Annuler
                     </button>
-                    <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2">
-                        <i data-lucide="edit" class="w-4 h-4"></i>
-                        <span>Modifier</span>
+                    <button onclick="confirmDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center space-x-2">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        <span>Supprimer</span>
                     </button>
                 </div>
             </div>
@@ -438,7 +688,7 @@
                     <span class="text-sm text-gray-600 dark:text-gray-400">OrderFlow © 2026 - Suivi Commandes & Pièces</span>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span class="text-xs text-gray-500 dark:text-gray-400">Version 1.0.0</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Version 2.0.0</span>
                     <span class="text-xs text-gray-500 dark:text-gray-400">•</span>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Déployé sur GitHub Pages</span>
                 </div>
@@ -448,29 +698,27 @@
 
     <script>
         // ============================================
-        // DONNÉES - À personnaliser selon vos besoins
+        // DONNÉES
         // ============================================
         let orders = [
-            { id: '1', reference: 'DS1441/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/POLO 4/3039 TU 97', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-22 09:33:35', delay: 8, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '2', reference: 'DS1442/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/BORA/8867 TU 98', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-24 10:15:11', delay: 6, partsStatus: 'pending', estimatedDate: '2026-05-06', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '3', reference: 'DS1444/2026', client: 'STAR ASSURANCES', vehicle: 'TOYOTA/AGYA/9069 TU 237', vehicleBrand: 'TOYOTA', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Olfa Zribi', validationDate: '2026-04-21 12:47:02', delay: 9, partsStatus: 'pending', estimatedDate: '2026-05-04', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '4', reference: 'DS1423/2026', client: 'STAR ASSURANCES', vehicle: 'CITROEN/BERLINGO/9924 TU 243', vehicleBrand: 'CITROEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Houssem Eddine BEN ROUHA', validationDate: '2026-04-23 08:48:10', delay: 7, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '5', reference: 'DS1427/2026', client: 'STAR ASSURANCES', vehicle: 'PEUGEOT/206/7973 TU 112', vehicleBrand: 'PEUGEOT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Achref Zehiri', validationDate: '2026-04-21 15:22:52', delay: 9, partsStatus: 'pending', estimatedDate: '2026-05-04', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '6', reference: 'DS1429/2026', client: 'STAR ASSURANCES', vehicle: 'GEELY/GC6/3408 TU 227', vehicleBrand: 'GEELY', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Nada Aydi', validationDate: '2026-04-24 00:00:00', delay: 6, partsStatus: 'pending', estimatedDate: '2026-05-06', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '7', reference: 'DS1388/2026', client: 'STAR ASSURANCES', vehicle: 'PEUGEOT/308/6865 TU 170', vehicleBrand: 'PEUGEOT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Houssem Eddine BEN ROUHA', validationDate: '2026-04-22 16:09:14', delay: 8, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '8', reference: 'DS1394/2026', client: 'STAR ASSURANCES', vehicle: 'RENAULT/RENAULT SYMBOLE/2480 TU 190', vehicleBrand: 'RENAULT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Emna Elaloui', validationDate: '2026-04-23 14:52:43', delay: 7, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '9', reference: 'DS1396/2026', client: 'STAR ASSURANCES', vehicle: 'SSANGYONG/ACTYON/5916 TU 153', vehicleBrand: 'SSANGYONG', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Marwa Yaferni', validationDate: '2026-04-22 14:52:23', delay: 8, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '10', reference: 'DS1359/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/PASSAT/7926 TU 175', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-21 10:15:33', delay: 9, partsStatus: 'pending', estimatedDate: '2026-05-04', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
-            { id: '11', reference: 'DS1325/2026', client: 'STAR ASSURANCES', vehicle: 'SEAT/SEAT/984 TU 242', vehicleBrand: 'SEAT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-17 09:41:30', delay: 13, partsStatus: 'delayed', estimatedDate: '2026-05-02', priority: 'high', week: 'Semaine 16 - Avril 2026', importDate: '2026-04-21' },
-            { id: '12', reference: 'DS1332/2026', client: 'STAR ASSURANCES', vehicle: 'FIAT/FIAT/ PUNTO/6902 TU 130', vehicleBrand: 'FIAT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Nada Aydi', validationDate: '2026-04-20 16:04:03', delay: 10, partsStatus: 'pending', estimatedDate: '2026-05-03', priority: 'medium', week: 'Semaine 16 - Avril 2026', importDate: '2026-04-21' },
-            { id: '13', reference: 'DS1293/2026', client: 'MAE ASSURANCES', vehicle: 'NISSAN/JUKE/6994 TU 259', vehicleBrand: 'NISSAN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Ons Ouni', validationDate: '2026-04-22 09:05:09', delay: 8, partsStatus: 'pending', estimatedDate: '2026-05-05', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+            { id: '1', reference: 'DS1441/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/POLO 4/3039 TU 97', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-22 09:33:35', delay: 8, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+            { id: '2', reference: 'DS1442/2026', client: 'STAR ASSURANCES', vehicle: 'VOLKSWAGEN/BORA/8867 TU 98', vehicleBrand: 'VOLKSWAGEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-24 10:15:11', delay: 6, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+            { id: '3', reference: 'DS1444/2026', client: 'STAR ASSURANCES', vehicle: 'TOYOTA/AGYA/9069 TU 237', vehicleBrand: 'TOYOTA', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Olfa Zribi', validationDate: '2026-04-21 12:47:02', delay: 9, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+            { id: '4', reference: 'DS1423/2026', client: 'STAR ASSURANCES', vehicle: 'CITROEN/BERLINGO/9924 TU 243', vehicleBrand: 'CITROEN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Houssem Eddine BEN ROUHA', validationDate: '2026-04-23 08:48:10', delay: 7, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+            { id: '5', reference: 'DS1427/2026', client: 'STAR ASSURANCES', vehicle: 'PEUGEOT/206/7973 TU 112', vehicleBrand: 'PEUGEOT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Achref Zehiri', validationDate: '2026-04-21 15:22:52', delay: 9, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
+            { id: '6', reference: 'DS1325/2026', client: 'STAR ASSURANCES', vehicle: 'SEAT/SEAT/984 TU 242', vehicleBrand: 'SEAT', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Iheb Draoui', validationDate: '2026-04-17 09:41:30', delay: 13, partsStatus: 'delayed', priority: 'high', week: 'Semaine 16 - Avril 2026', importDate: '2026-04-21' },
+            { id: '7', reference: 'DS1293/2026', client: 'MAE ASSURANCES', vehicle: 'NISSAN/JUKE/6994 TU 259', vehicleBrand: 'NISSAN', task: 'Commande et Réservation Pièces de rechange', lastUpdateBy: 'Ons Ouni', validationDate: '2026-04-22 09:05:09', delay: 8, partsStatus: 'pending', priority: 'medium', week: 'Semaine 17 - Avril 2026', importDate: '2026-04-28' },
         ];
 
         let uploadHistory = [
-            { name: 'Semaine 17 - Avril 2026', startDate: '21/04/2026', endDate: '27/04/2026', orderCount: 10 },
-            { name: 'Semaine 16 - Avril 2026', startDate: '14/04/2026', endDate: '20/04/2026', orderCount: 3 },
-            { name: 'Semaine 15 - Avril 2026', startDate: '07/04/2026', endDate: '13/04/2026', orderCount: 8 },
-            { name: 'Semaine 14 - Avril 2026', startDate: '31/03/2026', endDate: '06/04/2026', orderCount: 12 },
+            { name: 'Semaine 17 - Avril 2026', startDate: '21/04/2026', endDate: '27/04/2026', orderCount: 5 },
+            { name: 'Semaine 16 - Avril 2026', startDate: '14/04/2026', endDate: '20/04/2026', orderCount: 2 },
+        ];
+
+        let notifications = [
+            { id: 1, type: 'info', message: 'Bienvenue sur OrderFlow !', time: 'À l\'instant' },
+            { id: 2, type: 'warning', message: '2 dossiers en retard (>10 jours)', time: 'Il y a 1 heure' },
+            { id: 3, type: 'success', message: 'Import Excel réussi - 5 dossiers', time: 'Il y a 2 heures' },
         ];
 
         let selectedWeek = 'all';
@@ -480,6 +728,129 @@
         let sortField = 'delay';
         let sortDirection = 'desc';
         let isDarkMode = false;
+        let currentView = 'dashboard';
+        let currentOrderId = null;
+        let orderToDelete = null;
+
+        // ============================================
+        // NAVIGATION
+        // ============================================
+        function navigateTo(view) {
+            // Hide all views
+            document.querySelectorAll('.view-section').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Show selected view
+            document.getElementById(`view-${view}`).classList.add('active');
+            
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-100', 'text-blue-700', 'dark:bg-blue-900', 'dark:text-blue-200');
+                btn.classList.add('text-gray-600', 'hover:bg-gray-100', 'dark:text-gray-300', 'dark:hover:bg-gray-700');
+            });
+            
+            const navBtn = document.getElementById(`nav-${view}`);
+            if (navBtn) {
+                navBtn.classList.remove('text-gray-600', 'hover:bg-gray-100', 'dark:text-gray-300', 'dark:hover:bg-gray-700');
+                navBtn.classList.add('bg-blue-100', 'text-blue-700', 'dark:bg-blue-900', 'dark:text-blue-200');
+            }
+            
+            currentView = view;
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            // Refresh icons
+            lucide.createIcons();
+        }
+
+        // ============================================
+        // NOTIFICATIONS
+        // ============================================
+        function updateNotificationBadge() {
+            const badge = document.getElementById('notificationBadge');
+            badge.textContent = notifications.length;
+            if (notifications.length > 0) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function toggleNotifications() {
+            const panel = document.getElementById('notificationsPanel');
+            panel.classList.toggle('hidden');
+            renderNotifications();
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notificationsList');
+            if (notifications.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-4">Aucune notification</p>';
+                return;
+            }
+            
+            list.innerHTML = notifications.map(notif => `
+                <div class="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors notification-enter">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-2 h-2 rounded-full mt-2 ${
+                            notif.type === 'success' ? 'bg-green-500' :
+                            notif.type === 'warning' ? 'bg-orange-500' :
+                            notif.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                        }"></div>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-900 dark:text-white">${notif.message}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${notif.time}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function clearNotifications() {
+            notifications = [];
+            updateNotificationBadge();
+            renderNotifications();
+            showToast('Notifications effacées', 'success');
+        }
+
+        function addNotification(message, type = 'info') {
+            notifications.unshift({
+                id: Date.now(),
+                type,
+                message,
+                time: 'À l\'instant'
+            });
+            updateNotificationBadge();
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `px-4 py-3 rounded-lg shadow-lg text-white notification-enter ${
+                type === 'success' ? 'bg-green-600' :
+                type === 'error' ? 'bg-red-600' :
+                type === 'warning' ? 'bg-orange-600' : 'bg-blue-600'
+            }`;
+            toast.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="${
+                        type === 'success' ? 'check-circle' :
+                        type === 'error' ? 'alert-circle' :
+                        type === 'warning' ? 'alert-triangle' : 'info'
+                    }" class="w-4 h-4"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            container.appendChild(toast);
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                toast.classList.add('notification-exit');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
 
         // ============================================
         // FONCTIONS UTILITAIRES
@@ -559,7 +930,7 @@
         }
 
         // ============================================
-        // FONCTIONS DE FILTRAGE ET TRI
+        // FILTRAGE ET TRI
         // ============================================
         function getFilteredOrders() {
             return orders
@@ -591,17 +962,17 @@
                 sortDirection = 'desc';
             }
             renderOrdersTable();
+            renderRecentOrders();
         }
 
         // ============================================
-        // FONCTIONS D'AFFICHAGE
+        // AFFICHAGE
         // ============================================
         function renderStats() {
-            const filtered = selectedWeek === 'all' ? orders : orders.filter(o => o.week === selectedWeek);
-            const total = filtered.length;
-            const received = filtered.filter(o => o.partsStatus === 'received').length;
-            const delayed = filtered.filter(o => o.partsStatus === 'delayed' || o.partsStatus === 'critical').length;
-            const avgDelay = filtered.reduce((acc, o) => acc + o.delay, 0) / total || 0;
+            const total = orders.length;
+            const received = orders.filter(o => o.partsStatus === 'received').length;
+            const delayed = orders.filter(o => o.partsStatus === 'delayed' || o.partsStatus === 'critical').length;
+            const avgDelay = orders.reduce((acc, o) => acc + o.delay, 0) / total || 0;
 
             document.getElementById('statTotal').textContent = total;
             document.getElementById('statReceived').textContent = received;
@@ -611,7 +982,7 @@
 
         function renderUploadHistory() {
             const container = document.getElementById('uploadHistory');
-            container.innerHTML = uploadHistory.slice(0, 4).map((week, index) => `
+            container.innerHTML = uploadHistory.slice(0, 4).map((week) => `
                 <button onclick="selectWeek('${week.name}')" class="w-full p-3 rounded-xl text-left transition-all duration-200 ${
                     selectedWeek === week.name
                         ? 'bg-blue-100 dark:bg-blue-900 border-2 border-blue-500'
@@ -631,14 +1002,49 @@
             `).join('');
         }
 
+        function renderRecentOrders() {
+            const tbody = document.getElementById('recentOrdersBody');
+            const recentOrders = orders.slice(0, 5);
+            
+            tbody.innerHTML = recentOrders.map(order => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer" onclick="viewOrderDetail('${order.id}')">
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="text-sm font-medium text-blue-600 dark:text-blue-400">${order.reference}</span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="text-sm text-gray-900 dark:text-white">${order.client}</span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="text-sm font-medium text-gray-900 dark:text-white">${order.vehicleBrand}</span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                ${order.lastUpdateBy.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                            </div>
+                            <span class="text-sm text-gray-900 dark:text-white">${order.lastUpdateBy}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="text-sm font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : 'text-green-600'}">
+                            ${order.delay}j
+                        </span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.partsStatus)}">
+                            ${getStatusLabel(order.partsStatus)}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
         function renderOrdersTable() {
             const filteredOrders = getFilteredOrders();
             const tbody = document.getElementById('ordersTableBody');
             
-            tbody.innerHTML = filteredOrders.map((order, index) => `
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer animate-fade-in" 
-                    style="animation-delay: ${index * 50}ms"
-                    onclick="openModal('${order.id}')">
+            tbody.innerHTML = filteredOrders.map(order => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer" onclick="viewOrderDetail('${order.id}')">
                     <td class="px-4 py-4 whitespace-nowrap">
                         <span class="text-sm font-medium text-blue-600 dark:text-blue-400">${order.reference}</span>
                     </td>
@@ -660,45 +1066,40 @@
                         </div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="flex items-center space-x-2">
-                            <i data-lucide="calendar" class="w-4 h-4 text-gray-400"></i>
-                            <span class="text-sm text-gray-900 dark:text-white">${order.validationDate.split(' ')[0]}</span>
-                        </div>
+                        <span class="text-sm font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : order.delay > 5 ? 'text-yellow-600' : 'text-green-600'}">
+                            ${order.delay}j
+                        </span>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-sm font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : order.delay > 5 ? 'text-yellow-600' : 'text-green-600'}">
-                                ${order.delay}j
-                            </span>
-                            ${order.delay > 14 ? '<i data-lucide="alert-circle" class="w-4 h-4 text-red-500"></i>' : ''}
-                        </div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(order.partsStatus)}">
+                        <span class="px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.partsStatus)}">
                             ${getStatusLabel(order.partsStatus)}
                         </span>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap text-right">
                         <div class="flex items-center justify-end space-x-2">
-                            <button class="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-lg transition-colors" onclick="event.stopPropagation(); openModal('${order.id}')">
+                            <button class="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-lg transition-colors" onclick="event.stopPropagation(); viewOrderDetail('${order.id}')">
                                 <i data-lucide="eye" class="w-4 h-4 text-blue-600"></i>
                             </button>
-                            <button class="p-2 hover:bg-green-100 dark:hover:bg-green-900 rounded-lg transition-colors">
+                            <button class="p-2 hover:bg-green-100 dark:hover:bg-green-900 rounded-lg transition-colors" onclick="event.stopPropagation(); editOrder('${order.id}')">
                                 <i data-lucide="edit" class="w-4 h-4 text-green-600"></i>
+                            </button>
+                            <button class="p-2 hover:bg-red-100 dark:hover:bg-red-900 rounded-lg transition-colors" onclick="event.stopPropagation(); deleteOrder('${order.id}')">
+                                <i data-lucide="trash-2" class="w-4 h-4 text-red-600"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
             `).join('');
 
-            document.getElementById('ordersCount').textContent = `${filteredOrders.length} dossiers ${selectedWeek !== 'all' ? `pour ${selectedWeek}` : ''}`;
+            document.getElementById('ordersCount').textContent = `${filteredOrders.length} dossiers`;
             document.getElementById('paginationText').textContent = `Affichage de 1 à ${filteredOrders.length} sur ${filteredOrders.length} résultats`;
             
             lucide.createIcons();
         }
 
-        function renderStatusDistribution() {
-            const container = document.getElementById('statusDistribution');
+        function renderAnalytics() {
+            // Status Distribution
+            const statusContainer = document.getElementById('statusDistribution');
             const statuses = [
                 { status: 'Reçues', count: orders.filter(o => o.partsStatus === 'received').length, color: 'bg-green-500' },
                 { status: 'En attente', count: orders.filter(o => o.partsStatus === 'pending').length, color: 'bg-blue-500' },
@@ -706,7 +1107,7 @@
                 { status: 'Critique', count: orders.filter(o => o.partsStatus === 'critical').length, color: 'bg-red-500' },
             ];
 
-            container.innerHTML = statuses.map(item => {
+            statusContainer.innerHTML = statuses.map(item => {
                 const percentage = orders.length > 0 ? (item.count / orders.length) * 100 : 0;
                 return `
                     <div>
@@ -720,10 +1121,9 @@
                     </div>
                 `;
             }).join('');
-        }
 
-        function renderDelayDistribution() {
-            const container = document.getElementById('delayDistribution');
+            // Delay Distribution
+            const delayContainer = document.getElementById('delayDistribution');
             const delays = [
                 { label: '≤5j', count: orders.filter(o => o.delay <= 5).length, color: 'bg-green-500' },
                 { label: '6-10j', count: orders.filter(o => o.delay > 5 && o.delay <= 10).length, color: 'bg-yellow-500' },
@@ -731,7 +1131,7 @@
                 { label: '>14j', count: orders.filter(o => o.delay > 14).length, color: 'bg-red-500' },
             ];
 
-            container.innerHTML = delays.map(item => {
+            delayContainer.innerHTML = delays.map(item => {
                 const height = orders.length > 0 ? Math.max((item.count / orders.length) * 150, 20) : 20;
                 return `
                     <div class="flex flex-col items-center">
@@ -741,13 +1141,12 @@
                     </div>
                 `;
             }).join('');
-        }
 
-        function renderManagerStats() {
-            const container = document.getElementById('managerStats');
+            // Manager Stats
+            const managerContainer = document.getElementById('managerStats');
             const managers = [...new Set(orders.map(o => o.lastUpdateBy))].slice(0, 8);
 
-            container.innerHTML = managers.map(manager => {
+            managerContainer.innerHTML = managers.map(manager => {
                 const managerOrders = orders.filter(o => o.lastUpdateBy === manager);
                 const avgDelay = managerOrders.reduce((acc, o) => acc + o.delay, 0) / managerOrders.length;
                 const initials = manager.split(' ').map(n => n[0]).join('').substring(0, 2);
@@ -772,56 +1171,221 @@
                     </div>
                 `;
             }).join('');
-        }
 
-        function renderAll() {
-            renderStats();
-            renderUploadHistory();
-            renderOrdersTable();
-            renderStatusDistribution();
-            renderDelayDistribution();
-            renderManagerStats();
+            // Weekly Trend
+            const weeklyContainer = document.getElementById('weeklyTrend');
+            weeklyContainer.innerHTML = uploadHistory.map(week => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div>
+                        <p class="font-medium text-gray-900 dark:text-white">${week.name}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">${week.startDate} - ${week.endDate}</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">${week.orderCount} dossiers</span>
+                        <i data-lucide="trending-up" class="w-4 h-4 text-green-600"></i>
+                    </div>
+                </div>
+            `).join('');
         }
 
         // ============================================
-        // GESTIONNAIRES D'ÉVÉNEMENTS
+        // DETAIL VIEW
         // ============================================
-        function selectWeek(weekName) {
-            selectedWeek = weekName;
-            renderUploadHistory();
-            renderAll();
+        function viewOrderDetail(orderId) {
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return;
+
+            currentOrderId = orderId;
+
+            // Fill detail view
+            document.getElementById('detailReference').textContent = order.reference;
+            document.getElementById('detailClient').textContent = order.client;
+            document.getElementById('detailVehicleBrand').textContent = order.vehicleBrand;
+            document.getElementById('detailVehicle').textContent = order.vehicle;
+            document.getElementById('detailTask').textContent = order.task;
+            document.getElementById('detailManager').textContent = order.lastUpdateBy;
+            document.getElementById('detailManagerInitials').textContent = order.lastUpdateBy.split(' ').map(n => n[0]).join('').substring(0, 2);
+            document.getElementById('detailValidationDate').textContent = order.validationDate;
+            document.getElementById('detailWeek').textContent = order.week;
+            document.getElementById('detailImportDate').textContent = order.importDate;
+
+            // Delay with color
+            const delayEl = document.getElementById('detailDelay');
+            delayEl.textContent = order.delay + ' jours';
+            delayEl.className = `text-3xl font-bold ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : 'text-green-600'}`;
+
+            // Status
+            const statusEl = document.getElementById('detailStatus');
+            statusEl.textContent = getStatusLabel(order.partsStatus);
+            statusEl.className = `px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.partsStatus)}`;
+
+            // Priority
+            const priorityEl = document.getElementById('detailPriority');
+            priorityEl.textContent = order.priority;
+            priorityEl.className = `px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(order.priority)}`;
+
+            navigateTo('detail');
         }
 
-        document.getElementById('showAllWeeks').addEventListener('click', () => {
-            selectedWeek = 'all';
-            renderUploadHistory();
-            renderAll();
-        });
-
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            searchTerm = e.target.value;
-            renderOrdersTable();
-        });
-
-        document.getElementById('statusFilter').addEventListener('change', (e) => {
-            statusFilter = e.target.value;
-            renderOrdersTable();
-        });
-
-        document.getElementById('priorityFilter').addEventListener('change', (e) => {
-            priorityFilter = e.target.value;
-            renderOrdersTable();
-        });
-
-        // Dark mode toggle
-        document.getElementById('darkModeToggle').addEventListener('click', () => {
-            isDarkMode = !isDarkMode;
-            document.documentElement.classList.toggle('dark');
-            document.getElementById('darkModeToggle').innerHTML = isDarkMode 
-                ? '<i data-lucide="sun" class="w-5 h-5"></i>' 
-                : '<i data-lucide="moon" class="w-5 h-5"></i>';
+        // ============================================
+        // CRUD OPERATIONS
+        // ============================================
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Ajouter un dossier';
+            document.getElementById('orderForm').reset();
+            document.getElementById('editOrderId').value = '';
+            document.getElementById('orderModal').classList.remove('hidden');
             lucide.createIcons();
+        }
+
+        function editOrder(orderId) {
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return;
+
+            currentOrderId = orderId;
+            document.getElementById('modalTitle').textContent = 'Modifier le dossier';
+            document.getElementById('editOrderId').value = order.id;
+            document.getElementById('formReference').value = order.reference;
+            document.getElementById('formClient').value = order.client;
+            document.getElementById('formVehicle').value = order.vehicle;
+            document.getElementById('formVehicleBrand').value = order.vehicleBrand;
+            document.getElementById('formTask').value = order.task;
+            document.getElementById('formManager').value = order.lastUpdateBy;
+            document.getElementById('formValidationDate').value = order.validationDate.replace(' ', 'T');
+            
+            document.getElementById('orderModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function editCurrentOrder() {
+            if (currentOrderId) {
+                editOrder(currentOrderId);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('orderModal').classList.add('hidden');
+        }
+
+        function deleteOrder(orderId) {
+            orderToDelete = orderId;
+            document.getElementById('deleteModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function deleteCurrentOrder() {
+            if (currentOrderId) {
+                deleteOrder(currentOrderId);
+            }
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            orderToDelete = null;
+        }
+
+        function confirmDelete() {
+            if (orderToDelete) {
+                orders = orders.filter(o => o.id !== orderToDelete);
+                saveData();
+                renderAll();
+                showToast('Dossier supprimé avec succès', 'success');
+                addNotification('Dossier supprimé', 'info');
+                
+                if (currentView === 'detail') {
+                    navigateTo('orders');
+                }
+                
+                closeDeleteModal();
+            }
+        }
+
+        // Form submit
+        document.getElementById('orderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const editId = document.getElementById('editOrderId').value;
+            const vehicle = document.getElementById('formVehicle').value;
+            const validationDate = document.getElementById('formValidationDate').value;
+            const delay = calculateDelay(validationDate);
+
+            if (editId) {
+                // Update existing order
+                const index = orders.findIndex(o => o.id === editId);
+                if (index !== -1) {
+                    orders[index] = {
+                        ...orders[index],
+                        reference: document.getElementById('formReference').value,
+                        client: document.getElementById('formClient').value,
+                        vehicle: vehicle,
+                        vehicleBrand: document.getElementById('formVehicleBrand').value || extractVehicleBrand(vehicle),
+                        task: document.getElementById('formTask').value,
+                        lastUpdateBy: document.getElementById('formManager').value,
+                        validationDate: validationDate.replace('T', ' '),
+                        delay: delay,
+                        partsStatus: determinePartsStatus(delay),
+                        priority: determinePriority(delay)
+                    };
+                    showToast('Dossier modifié avec succès', 'success');
+                    addNotification('Dossier modifié: ' + orders[index].reference, 'info');
+                }
+            } else {
+                // Add new order
+                const newOrder = {
+                    id: `new-${Date.now()}`,
+                    reference: document.getElementById('formReference').value,
+                    client: document.getElementById('formClient').value,
+                    vehicle: vehicle,
+                    vehicleBrand: document.getElementById('formVehicleBrand').value || extractVehicleBrand(vehicle),
+                    task: document.getElementById('formTask').value,
+                    lastUpdateBy: document.getElementById('formManager').value,
+                    validationDate: validationDate.replace('T', ' '),
+                    delay: delay,
+                    partsStatus: determinePartsStatus(delay),
+                    priority: determinePriority(delay),
+                    week: getWeekName(new Date()),
+                    importDate: new Date().toISOString().split('T')[0]
+                };
+                orders.unshift(newOrder);
+                showToast('Dossier ajouté avec succès', 'success');
+                addNotification('Nouveau dossier: ' + newOrder.reference, 'success');
+            }
+
+            saveData();
+            closeModal();
+            renderAll();
         });
+
+        // ============================================
+        // IMPORT/EXPORT
+        // ============================================
+        function exportToExcel() {
+            const filteredOrders = getFilteredOrders();
+            const exportData = filteredOrders.map(order => ({
+                'Référence': order.reference,
+                'Client': order.client,
+                'Véhicule': order.vehicle,
+                'Marque': order.vehicleBrand,
+                'Tâche': order.task,
+                'Chargé d\'achat': order.lastUpdateBy,
+                'Date Validation': order.validationDate,
+                'Délai (jours)': order.delay,
+                'Statut': order.partsStatus,
+                'Priorité': order.priority,
+                'Semaine': order.week
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Commandes');
+            XLSX.writeFile(wb, `OrderFlow_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Export réussi !', 'success');
+        }
+
+        function refreshData() {
+            renderAll();
+            showToast('Données actualisées', 'success');
+        }
 
         // Drag and drop
         const dropZone = document.getElementById('dropZone');
@@ -877,7 +1441,6 @@
                         validationDate: validationDate,
                         delay: delay,
                         partsStatus: determinePartsStatus(delay),
-                        estimatedDate: new Date(new Date().getTime() + delay * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                         priority: determinePriority(delay),
                         week: getWeekName(new Date()),
                         importDate: new Date().toISOString().split('T')[0]
@@ -895,124 +1458,18 @@
                 document.getElementById('lastUploadDate').textContent = new Date().toLocaleDateString('fr-FR');
                 orders = [...newOrders, ...orders];
                 
-                // Sauvegarder dans localStorage
                 saveData();
-                
                 renderAll();
-                alert(`${newOrders.length} dossiers importés avec succès !`);
+                
+                const msg = `${newOrders.length} dossiers importés avec succès !`;
+                showToast(msg, 'success');
+                addNotification(msg, 'success');
             };
             reader.readAsBinaryString(file);
         }
 
         // ============================================
-        // MODAL FUNCTIONS
-        // ============================================
-        function openModal(orderId) {
-            const order = orders.find(o => o.id === orderId);
-            if (!order) return;
-
-            const modalContent = document.getElementById('modalContent');
-            modalContent.innerHTML = `
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Référence</label>
-                    <p class="font-medium text-gray-900 dark:text-white">${order.reference}</p>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Client</label>
-                    <p class="font-medium text-gray-900 dark:text-white">${order.client}</p>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Véhicule (Marque)</label>
-                    <p class="font-medium text-gray-900 dark:text-white">${order.vehicleBrand}</p>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Véhicule (Complet)</label>
-                    <p class="font-medium text-gray-900 dark:text-white text-sm">${order.vehicle}</p>
-                </div>
-                <div class="col-span-2">
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Tâche</label>
-                    <p class="font-medium text-gray-900 dark:text-white">${order.task}</p>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Dernière mise à jour par</label>
-                    <p class="font-medium text-gray-900 dark:text-white">${order.lastUpdateBy}</p>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Date Validation Expert</label>
-                    <p class="font-medium text-gray-900 dark:text-white">${order.validationDate}</p>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Délai d'achat (jours)</label>
-                    <p class="font-bold text-lg ${order.delay > 14 ? 'text-red-600' : order.delay > 10 ? 'text-orange-600' : 'text-green-600'}">
-                        ${order.delay} jours
-                    </p>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Statut Pièces</label>
-                    <span class="px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(order.partsStatus)}">
-                        ${getStatusLabel(order.partsStatus)}
-                    </span>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Priorité</label>
-                    <span class="px-3 py-1 rounded-full text-xs font-medium capitalize ${getPriorityColor(order.priority)}">
-                        ${order.priority}
-                    </span>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Semaine</label>
-                    <p class="font-medium text-gray-900 dark:text-white">${order.week}</p>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-500 dark:text-gray-400">Date Import</label>
-                    <p class="font-medium text-gray-900 dark:text-white">${order.importDate}</p>
-                </div>
-            `;
-
-            document.getElementById('orderModal').classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function closeModal() {
-            document.getElementById('orderModal').classList.add('hidden');
-        }
-
-        document.getElementById('closeModal').addEventListener('click', closeModal);
-        document.getElementById('closeModalBtn').addEventListener('click', closeModal);
-        document.getElementById('modalBackdrop').addEventListener('click', closeModal);
-
-        // ============================================
-        // EXPORT & REFRESH FUNCTIONS
-        // ============================================
-        function exportToExcel() {
-            const filteredOrders = getFilteredOrders();
-            const exportData = filteredOrders.map(order => ({
-                'Référence': order.reference,
-                'Client': order.client,
-                'Véhicule': order.vehicle,
-                'Marque': order.vehicleBrand,
-                'Tâche': order.task,
-                'Chargé d\'achat': order.lastUpdateBy,
-                'Date Validation': order.validationDate,
-                'Délai (jours)': order.delay,
-                'Statut': order.partsStatus,
-                'Priorité': order.priority,
-                'Semaine': order.week
-            }));
-
-            const ws = XLSX.utils.json_to_sheet(exportData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Commandes');
-            XLSX.writeFile(wb, `OrderFlow_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
-        }
-
-        function refreshData() {
-            renderAll();
-            alert('Données actualisées !');
-        }
-
-        // ============================================
-        // LOCAL STORAGE (Pour persistance locale)
+        // LOCAL STORAGE
         // ============================================
         function saveData() {
             localStorage.setItem('orderFlow_orders', JSON.stringify(orders));
@@ -1036,18 +1493,43 @@
             }
         }
 
+        function renderAll() {
+            renderStats();
+            renderUploadHistory();
+            renderRecentOrders();
+            renderOrdersTable();
+            renderAnalytics();
+            updateNotificationBadge();
+        }
+
+        function selectWeek(weekName) {
+            selectedWeek = weekName;
+            renderUploadHistory();
+            renderOrdersTable();
+        }
+
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            document.documentElement.classList.toggle('dark');
+            document.getElementById('darkModeToggle').innerHTML = isDarkMode 
+                ? '<i data-lucide="sun" class="w-5 h-5"></i>' 
+                : '<i data-lucide="moon" class="w-5 h-5"></i>';
+            lucide.createIcons();
+        }
+
         // ============================================
         // INITIALISATION
         // ============================================
         document.addEventListener('DOMContentLoaded', () => {
-            // Charger les données sauvegardées
             loadData();
-            
-            // Initialiser l'affichage
             renderAll();
-            
-            // Initialiser les icônes
             lucide.createIcons();
+            
+            // Add welcome notification if first time
+            if (!localStorage.getItem('orderFlow_visited')) {
+                showToast('Bienvenue sur OrderFlow !', 'success');
+                localStorage.setItem('orderFlow_visited', 'true');
+            }
         });
     </script>
 </body>
