@@ -476,27 +476,44 @@ apiKey: "AIzaSyDjaYzS64cTQ63ozYzSgRZSyqPgqpmJgGI",
         }
 
         // Charger les données depuis Firestore
-        function loadUserData() {
-            // Écouter les changements en temps réel
-            db.collection('orders').onSnapshot(snapshot => {
-                orders = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    // Filtrer selon le rôle
-                    if (userRole === 'manager' || data.buyerId === currentUser.uid || !data.buyerId) {
-                        orders.push({ id: doc.id, ...data });
-                    }
-                });
-                renderAll();
-            });
+function loadUserData() {
+    console.log('=== CHARGEMENT DES DONNÉES ===');
+    console.log('User:', currentUser?.email);
+    console.log('Role:', userRole);
+    
+    // Écouter les changements en temps réel
+    db.collection('orders').onSnapshot(snapshot => {
+        console.log('📦 Snapshot reçu:', snapshot.size, 'documents');
+        
+        orders = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            console.log('Document:', data.reference, '| buyerId:', data.buyerId);
+            
+            // Manager voit TOUT
+            if (userRole === 'manager') {
+                orders.push({ id: doc.id, ...data });
+            }
+            // Buyer voit ses dossiers ou ceux sans acheteur
+            else if (!data.buyerId || data.buyerId === '' || data.buyerId === currentUser.uid) {
+                orders.push({ id: doc.id, ...data });
+            }
+        });
+        
+        console.log('✅ Total dossiers affichés:', orders.length);
+        renderAll();
+    }, error => {
+        console.error('❌ Erreur onSnapshot:', error);
+        showToast('Erreur de chargement: ' + error.message, 'error');
+    });
 
-            db.collection('uploadHistory').orderBy('date', 'desc').onSnapshot(snapshot => {
-                uploadHistory = [];
-                snapshot.forEach(doc => uploadHistory.push({ id: doc.id, ...doc.data() }));
-                renderUploadHistory();
-            });
-        }
-
+    // Historique des uploads
+    db.collection('uploadHistory').orderBy('date', 'desc').onSnapshot(snapshot => {
+        uploadHistory = [];
+        snapshot.forEach(doc => uploadHistory.push({ id: doc.id, ...doc.data() }));
+        renderUploadHistory();
+    });
+}
         // ============================================
         // FONCTIONS UTILITAIRES
         // ============================================
