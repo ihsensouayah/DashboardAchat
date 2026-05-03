@@ -516,7 +516,8 @@
                     submitBtn.innerHTML = '<i data-lucide="log-in" class="w-5 h-5"></i><span>Se connecter</span>';
                     lucide.createIcons();
                 });
-        });
+            });
+        }
 
         document.getElementById('createAccountForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -778,7 +779,7 @@
                 `;
             }).join('');
 
-            const unmatchedBody = document.getElementById('unmatchedBuyersList');
+            // unmatchedBody déjà déclaré plus haut dans la fonction
             if (unmatchedBuyersList.length === 0) {
                 unmatchedBody.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Aucun acheteur en attente</p>';
             } else {
