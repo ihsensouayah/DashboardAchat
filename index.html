@@ -161,255 +161,238 @@
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border mb-8">
-                    <div class="p-6 border-b"><h2 class="text-lg font-semibold flex items-center space-x-2"><i data-lucide="trophy" class="w-5 h-5 text-yellow-600"></i><span>Achats Terminés Cette Semaine</span></h2><p class="text-sm text-gray-500 mt-1" id="currentWeekLabel">Semaine en cours</p></div>
-                    <div id="weeklyClosedByBuyer" class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                    <div class="p-6 border-b"><h2 class="text-lg font-semibold flex items-center space-x-2"><i data-lucide="trophy" class="w-5 h-5 text-yellow-600"></i><span>Top Acheteurs - Cette Semaine</span></h2></div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dossiers Fermés</th></tr></thead><tbody id="weeklyClosedByBuyer"></tbody></table></div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                    <div class="lg:col-span-2">
-                        <div id="dropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center hover:border-blue-400">
-                            <div class="flex flex-col items-center">
-                                <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4"><i data-lucide="upload" class="w-8 h-8 text-gray-400"></i></div>
-                                <h3 class="text-lg font-semibold mb-2">Importer l'état des dossiers (Odoo .xlsx)</h3>
-                                <p class="text-gray-500 mb-4">Glissez votre fichier Excel ici</p>
-                                <label class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer flex items-center space-x-2"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i><span>Sélectionner</span><input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden"></label>
-                                <p class="text-xs text-gray-400 mt-3">Dernière MAJ : <span id="lastUploadDate">--/--/----</span></p>
-                            </div>
-                        </div>
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border">
+                    <div class="p-6 border-b flex justify-between items-center">
+                        <h2 class="text-lg font-semibold flex items-center space-x-2"><i data-lucide="clock" class="w-5 h-5 text-blue-600"></i><span>Dernières Commandes</span></h2>
+                        <button onclick="navigateTo('orders')" class="text-sm text-blue-600 hover:underline">Voir tout</button>
                     </div>
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border">
-                        <h3 class="text-lg font-semibold mb-4 flex items-center space-x-2"><i data-lucide="history" class="w-5 h-5 text-blue-600"></i><span>Historique</span></h3>
-                        <div id="uploadHistory" class="space-y-3"></div>
-                        <button id="showAllWeeks" class="w-full mt-3 p-3 rounded-xl bg-blue-100 dark:bg-blue-900 text-blue-700 font-medium">Voir tout</button>
+                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Véhicule</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th></tr></thead><tbody id="recentOrders"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- ORDERS VIEW -->
+            <div id="view-orders" class="view-section">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
+                    <h2 class="text-2xl font-bold flex items-center space-x-2"><i data-lucide="file-text" class="w-6 h-6"></i><span>Gestion des Commandes</span></h2>
+                    <div class="flex flex-wrap gap-3">
+                        <div class="relative"><input type="text" id="searchInput" oninput="renderOrdersTable()" placeholder="Rechercher..." class="pl-10 pr-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i></div>
+                        <select id="filterStatus" onchange="renderOrdersTable()" class="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="">Tous les statuts</option><option value="in_progress">En cours</option><option value="firm">Fermé</option><option value="received">Réceptionné</option><option value="closed">Clôturé</option></select>
+                        <button onclick="openAddModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="plus" class="w-4 h-4"></i><span>Ajouter</span></button>
+                        <button onclick="exportToExcel()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="download" class="w-4 h-4"></i><span>Export</span></button>
+                        <label class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center space-x-2 cursor-pointer"><i data-lucide="upload" class="w-4 h-4"></i><span>Import Excel</span><input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden"></label>
                     </div>
+                </div>
+
+                <div id="dropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center mb-6 hover:border-blue-500 transition-colors">
+                    <i data-lucide="upload-cloud" class="w-12 h-12 mx-auto text-gray-400 mb-4"></i>
+                    <p class="text-gray-600 dark:text-gray-400">Glissez-déposez votre fichier Excel ici ou cliquez pour sélectionner</p>
+                    <p class="text-xs text-gray-500 mt-2">Format: .xlsx ou .xls</p>
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden">
-                    <div class="p-6 border-b flex justify-between items-center">
-                        <div><h2 class="text-lg font-semibold">Dossiers Récents</h2><p class="text-sm text-gray-500">Cliquez pour voir les détails</p></div>
-                        <button onclick="navigateTo('orders')" class="text-blue-600 text-sm font-medium flex items-center space-x-1"><span>Voir tout</span><i data-lucide="arrow-right" class="w-4 h-4"></i></button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gray-50 dark:bg-gray-700">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Référence</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Client</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Marque</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Acheteur</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Délai</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Statut</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recentOrdersBody" class="divide-y"></tbody>
-                        </table>
-                    </div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Réf</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Véhicule</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tâche</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Val.</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Délai</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th></tr></thead><tbody id="ordersTableBody"></tbody></table></div>
                 </div>
             </div>
 
-            <!-- ORDERS -->
-            <div id="view-orders" class="view-section">
-                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border mb-6">
-                    <div class="flex flex-col lg:flex-row gap-4">
-                        <div class="relative flex-1 max-w-md"><i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i><input type="text" id="searchInput" placeholder="Rechercher..." class="w-full pl-10 pr-4 py-2.5 border rounded-xl dark:bg-gray-700"></div>
-                        <select id="statusFilter" class="px-4 py-2.5 border rounded-xl dark:bg-gray-700"><option value="all">Tous les statuts</option><option value="in_progress">En cours d'achat</option><option value="closed">Achat terminé</option><option value="firm">Commande ferme</option></select>
-                        <select id="buyerFilter" class="px-4 py-2.5 border rounded-xl dark:bg-gray-700"><option value="all">Tous les acheteurs</option></select>
-                        <button onclick="exportToExcel()" class="px-4 py-2.5 border rounded-xl hover:bg-gray-50 flex items-center space-x-2"><i data-lucide="download" class="w-4 h-4"></i><span>Exporter</span></button>
-                        <button onclick="openAddModal()" class="px-4 py-2.5 bg-blue-600 text-white rounded-xl flex items-center space-x-2"><i data-lucide="plus" class="w-4 h-4"></i><span>Ajouter</span></button>
-                    </div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border">
-                    <div class="p-6 border-b flex justify-between items-center">
-                        <div><h2 class="text-lg font-semibold">Toutes les Commandes</h2><p class="text-sm text-gray-500" id="ordersCount">0 dossiers</p></div>
-                        <button onclick="refreshData()" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gray-50 dark:bg-gray-700">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase cursor-pointer" onclick="handleSort('reference')">Référence</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase cursor-pointer" onclick="handleSort('client')">Client</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase cursor-pointer" onclick="handleSort('vehicleBrand')">Marque</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Acheteur</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase cursor-pointer" onclick="handleSort('delay')">Délai (j)</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Statut</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ordersTableBody" class="divide-y"></tbody>
-                        </table>
-                    </div>
-                    <div class="p-6 border-t flex justify-between items-center"><p class="text-sm text-gray-500" id="paginationText">Affichage de 1 à 0</p><div class="flex space-x-2"><button class="px-4 py-2 border rounded-lg" disabled>Précédent</button><button class="px-4 py-2 bg-blue-600 text-white rounded-lg">1</button><button class="px-4 py-2 border rounded-lg">2</button><button class="px-4 py-2 border rounded-lg">Suivant</button></div></div>
-                </div>
-            </div>
-
-            <!-- BUYERS -->
+            <!-- BUYERS VIEW -->
             <div id="view-buyers" class="view-section">
-                <div class="mb-6"><h2 class="text-2xl font-bold">Équipe Achats</h2><p class="text-gray-500">Gestion des acheteurs et performance</p></div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"><div id="buyersGrid" class="contents"></div></div>
-                <div class="bg-orange-50 rounded-2xl p-6 border border-orange-200"><div class="flex items-start space-x-4"><div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center"><i data-lucide="circle-alert" class="w-5 h-5 text-orange-600"></i></div><div class="flex-1"><h3 class="font-semibold mb-2">Acheteurs à valider</h3><p class="text-sm text-gray-600 mb-4">Noms non reconnus lors de l'import Excel.</p><div id="unmatchedBuyers" class="space-y-2"></div></div></div></div>
-            </div>
-
-            <!-- ANALYTICS -->
-            <div id="view-analytics" class="view-section">
+                <h2 class="text-2xl font-bold flex items-center space-x-2 mb-6"><i data-lucide="users" class="w-6 h-6"></i><span>Gestion des Acheteurs</span></h2>
+                
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border"><h3 class="text-lg font-semibold mb-6 flex items-center space-x-2"><i data-lucide="pie-chart" class="w-5 h-5 text-blue-600"></i><span>Répartition par statut</span></h3><div id="statusDistribution" class="space-y-4"></div></div>
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border"><h3 class="text-lg font-semibold mb-6 flex items-center space-x-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-purple-600"></i><span>Délais d'achat</span></h3><div id="delayDistribution" class="flex items-end justify-around h-48 px-4"></div></div>
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border">
+                        <div class="p-6 border-b"><h3 class="font-semibold flex items-center space-x-2"><i data-lucide="circle-check" class="w-5 h-5 text-green-600"></i><span>Acheteurs Officiels</span></h3></div>
+                        <div class="p-4 space-y-2" id="officialBuyersList"></div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border">
+                        <div class="p-6 border-b"><h3 class="font-semibold flex items-center space-x-2"><i data-lucide="circle-alert" class="w-5 h-5 text-orange-600"></i><span>Acheteurs à Valider</span></h3></div>
+                        <div class="p-4 space-y-2" id="unmatchedBuyersList"></div>
+                    </div>
                 </div>
-                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border mb-8"><h3 class="text-lg font-semibold mb-6 flex items-center space-x-2"><i data-lucide="trophy" class="w-5 h-5 text-yellow-600"></i><span>Performance par Acheteur</span></h3><div id="buyerPerformance" class="space-y-4"></div></div>
-                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border"><h3 class="text-lg font-semibold mb-6 flex items-center space-x-2"><i data-lucide="activity" class="w-5 h-5 text-red-600"></i><span>Évolution hebdomadaire</span></h3><div id="weeklyTrend" class="space-y-3"></div></div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border">
+                    <div class="p-6 border-b"><h3 class="font-semibold">Historique des Imports</h3></div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Semaine</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Début</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Fin</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dossiers</th></tr></thead><tbody id="uploadHistoryBody"></tbody></table></div>
+                </div>
             </div>
 
-            <!-- DETAIL -->
-            <div id="view-detail" class="view-section">
-                <div class="mb-6"><button onclick="navigateTo('orders')" class="flex items-center space-x-2 text-gray-600"><i data-lucide="arrow-left" class="w-5 h-5"></i><span>Retour aux commandes</span></button></div>
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border">
-                    <div class="p-6 border-b flex justify-between items-center">
-                        <div><div class="flex items-center space-x-3"><h1 class="text-2xl font-bold" id="detailReference">--</h1><span id="detailStatus" class="px-3 py-1 rounded-full text-xs"></span></div><p class="text-sm text-gray-500 mt-1" id="detailClient">--</p></div>
-                        <div class="flex space-x-2"><button onclick="editCurrentOrder()" class="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2"><i data-lucide="edit" class="w-4 h-4"></i><span>Modifier</span></button><button onclick="deleteCurrentOrder()" class="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center space-x-2"><i data-lucide="trash-2" class="w-4 h-4"></i><span>Supprimer</span></button></div>
+            <!-- ANALYTICS VIEW -->
+            <div id="view-analytics" class="view-section">
+                <h2 class="text-2xl font-bold flex items-center space-x-2 mb-6"><i data-lucide="bar-chart-3" class="w-6 h-6"></i><span>Analytics</span></h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+                        <h3 class="font-semibold mb-4">Répartition par Statut</h3>
+                        <div id="statusChart" class="space-y-3"></div>
                     </div>
-                    <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="car" class="w-5 h-5 text-blue-600"></i><h3 class="font-semibold">Véhicule</h3></div><p class="text-2xl font-bold" id="detailVehicleBrand">--</p><p class="text-sm text-gray-500" id="detailVehicle">--</p></div>
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="clock" class="w-5 h-5 text-purple-600"></i><h3 class="font-semibold">Délai d'achat</h3></div><p class="text-3xl font-bold" id="detailDelay">--</p><p class="text-sm text-gray-500">depuis validation expert</p></div>
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="user" class="w-5 h-5 text-pink-600"></i><h3 class="font-semibold">Acheteur</h3></div><div class="flex items-center space-x-3"><div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white" id="detailBuyerAvatar">--</div><div><p class="font-medium" id="detailBuyer">--</p><p class="text-xs text-gray-500" id="detailBuyerRole">--</p></div></div></div>
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 md:col-span-2 lg:col-span-3"><div class="flex items-center space-x-2 mb-3"><i data-lucide="clipboard-list" class="w-5 h-5 text-green-600"></i><h3 class="font-semibold">Tâche courante</h3></div><p id="detailTask">--</p></div>
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="calendar-check" class="w-5 h-5 text-indigo-600"></i><h3 class="font-semibold">Date Validation Expert</h3></div><p id="detailValidationDate" class="text-lg font-medium">--</p><p class="text-xs text-gray-500 mt-1">Format: JJ/MM/AAAA</p></div>
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4"><div class="flex items-center space-x-2 mb-3"><i data-lucide="file-up" class="w-5 h-5 text-cyan-600"></i><h3 class="font-semibold">Import</h3></div><p class="text-sm text-gray-500">Semaine: <span id="detailWeek">--</span></p><p class="text-sm text-gray-500">Importé le: <span id="detailImportDate">--</span></p></div>
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+                        <h3 class="font-semibold mb-4">Performance par Acheteur</h3>
+                        <div id="buyerChart" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ORDER DETAIL VIEW -->
+            <div id="view-detail" class="view-section">
+                <div class="flex items-center space-x-4 mb-6">
+                    <button onclick="navigateTo('orders')" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                    <h2 class="text-2xl font-bold">Détails du Dossier</h2>
+                    <div class="flex-1"></div>
+                    <button onclick="editCurrentOrder()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="edit" class="w-4 h-4"></i><span>Modifier</span></button>
+                    <button onclick="deleteCurrentOrder()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="trash" class="w-4 h-4"></i><span>Supprimer</span></button>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div><p class="text-sm text-gray-500">Référence</p><p class="text-lg font-semibold" id="detailReference">-</p></div>
+                        <div><p class="text-sm text-gray-500">Client</p><p class="text-lg font-semibold" id="detailClient">-</p></div>
+                        <div><p class="text-sm text-gray-500">Véhicule</p><p class="text-lg font-semibold" id="detailVehicle">-</p></div>
+                        <div><p class="text-sm text-gray-500">Marque</p><p class="text-lg font-semibold" id="detailVehicleBrand">-</p></div>
+                        <div><p class="text-sm text-gray-500">Tâche Courante</p><p class="text-lg font-semibold" id="detailTask">-</p></div>
+                        <div><p class="text-sm text-gray-500">Date Validation</p><p class="text-lg font-semibold" id="detailValidationDate">-</p></div>
+                        <div><p class="text-sm text-gray-500">Délai (jours)</p><p class="text-lg font-semibold" id="detailDelay">-</p></div>
+                        <div><p class="text-sm text-gray-500">Statut Pièces</p><span id="detailPartsStatus" class="px-3 py-1 rounded-full text-xs">-</span></div>
+                    </div>
+
+                    <div class="mt-6 pt-6 border-t">
+                        <h3 class="font-semibold mb-4 flex items-center space-x-2"><i data-lucide="user" class="w-5 h-5"></i><span>Acheteur Assigné</span></h3>
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full flex items-center justify-center text-white font-medium" id="detailBuyerAvatar">?</div>
+                            <div><p class="font-medium" id="detailBuyer">Non assigné</p><p class="text-sm text-gray-500" id="detailBuyerRole">À valider</p></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </main>
+    </div>
 
-        <!-- Modals -->
-        <div id="orderModal" class="fixed inset-0 z-50 hidden">
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75" id="modalBackdrop"></div>
-            <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full p-6 relative">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-xl font-semibold" id="modalTitle">Ajouter un dossier</h3>
-                        <button type="button" onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
-                    </div>
-                    <form id="orderForm" class="space-y-4">
-                        <input type="hidden" id="editOrderId">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label class="block text-sm font-medium mb-1">Référence *</label><input type="text" id="formReference" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"></div>
-                            <div><label class="block text-sm font-medium mb-1">Client *</label><input type="text" id="formClient" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"></div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label class="block text-sm font-medium mb-1">Véhicule *</label><input type="text" id="formVehicle" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"></div>
-                            <div><label class="block text-sm font-medium mb-1">Marque *</label><input type="text" id="formVehicleBrand" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"></div>
-                        </div>
-                        <div><label class="block text-sm font-medium mb-1">Tâche *</label><input type="text" id="formTask" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"></div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Acheteur *</label>
-                                <div class="relative">
-                                    <select id="formBuyer" required class="w-full px-4 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 bg-white focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer">
-                                        <option value="">-- Sélectionner un acheteur --</option>
-                                    </select>
-                                    <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
-                                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                    </div>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-1">Sélectionnez l'acheteur dans la liste</p>
-                            </div>
-                            <div><label class="block text-sm font-medium mb-1">Date Validation *</label><input type="datetime-local" id="formValidationDate" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"></div>
-                        </div>
-                        <div><label class="block text-sm font-medium mb-1">Statut *</label><select id="formStatus" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"><option value="in_progress">En cours d'achat</option><option value="closed">Achat terminé</option><option value="firm">Commande ferme</option></select></div>
-                        <div class="flex justify-end space-x-3">
-                            <button type="button" onclick="closeModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button>
-                            <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="save" class="w-4 h-4"></i><span>Enregistrer</span></button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+    <!-- MODAL: Add/Edit Order -->
+    <div id="modalBackdrop" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+    <div id="orderModal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 animate-fade-in">
+            <div class="flex justify-between items-center mb-6"><h3 id="modalTitle" class="text-xl font-bold">Ajouter un dossier</h3><button onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+            <form id="orderForm" class="space-y-4">
+                <input type="hidden" id="editOrderId">
+                <div><label class="block text-sm font-medium mb-1">Référence</label><input type="text" id="formReference" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
+                <div><label class="block text-sm font-medium mb-1">Client</label><input type="text" id="formClient" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
+                <div><label class="block text-sm font-medium mb-1">Véhicule</label><input type="text" id="formVehicle" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Ex: Peugeot 308"></div>
+                <div><label class="block text-sm font-medium mb-1">Marque</label><input type="text" id="formVehicleBrand" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
+                <div><label class="block text-sm font-medium mb-1">Tâche</label><input type="text" id="formTask" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
+                <div><label class="block text-sm font-medium mb-1">Date Validation Expert</label><input type="datetime-local" id="formValidationDate" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
+                <div><label class="block text-sm font-medium mb-1">Statut Pièces</label><select id="formStatus" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="in_progress">En cours</option><option value="firm">Fermé</option><option value="received">Réceptionné</option><option value="closed">Clôturé</option></select></div>
+                <div><label class="block text-sm font-medium mb-1">Acheteur</label><select id="formBuyer" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></select></div>
+                <div class="flex space-x-3 pt-4"><button type="button" onclick="closeModal()" class="flex-1 py-3 border rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button><button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Enregistrer</button></div>
+            </form>
         </div>
+    </div>
 
-        <div id="assignBuyerModal" class="fixed inset-0 z-50 hidden"><div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeAssignBuyerModal()"></div><div class="flex items-center justify-center min-h-screen p-4"><div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6"><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-semibold">Assigner un acheteur</h3><button onclick="closeAssignBuyerModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button></div><p class="text-gray-600 mb-4">Nom : <span id="assignBuyerName" class="font-bold"></span></p><div id="assignBuyerList" class="space-y-2 mb-6"></div></div></div></div>
+    <!-- MODAL: Delete Confirmation -->
+    <div id="deleteModal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
+            <div class="text-center"><div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><i data-lucide="alert-triangle" class="w-8 h-8 text-red-600"></i></div><h3 class="text-xl font-bold mb-2">Confirmer la suppression</h3><p class="text-gray-600 dark:text-gray-400 mb-6">Êtes-vous sûr de vouloir supprimer ce dossier ? Cette action est irréversible.</p><div class="flex space-x-3"><button onclick="closeDeleteModal()" class="flex-1 py-3 border rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button><button onclick="confirmDelete()" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium">Supprimer</button></div></div>
+        </div>
+    </div>
 
-        <div id="deleteModal" class="fixed inset-0 z-50 hidden"><div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeDeleteModal()"></div><div class="flex items-center justify-center min-h-screen p-4"><div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6"><div class="flex items-center space-x-3 mb-4"><div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center"><i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i></div><h3 class="text-lg font-semibold">Confirmer suppression</h3></div><p class="text-gray-600 mb-6">Êtes-vous sûr ? Cette action est irréversible.</p><div class="flex justify-end space-x-3"><button onclick="closeDeleteModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button><button onclick="confirmDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="trash-2" class="w-4 h-4"></i><span>Supprimer</span></button></div></div></div></div>
-
-        <footer class="bg-white dark:bg-gray-800 border-t mt-12"><div class="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center"><span class="text-sm text-gray-600">OrderFlow © 2026 - Firebase Auth</span><span class="text-xs text-gray-500">Version 4.0.0</span></div></footer>
+    <!-- MODAL: Assign Buyer -->
+    <div id="assignBuyerModal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
+            <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold">Assigner un acheteur</h3><button onclick="closeAssignBuyerModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Pour: <span id="assignBuyerName" class="font-semibold"></span></p>
+            <div id="assignBuyerList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+        </div>
     </div>
 
     <script>
-        // ============================================
-        // CONFIGURATION FIREBASE - À REMPLACER
-        // ============================================
+        // Configuration Firebase - PROJET AUTOPACHAT
         const firebaseConfig = {
-apiKey: "AIzaSyDjaYzS64cTQ63ozYzSgRZSyqPgqpmJgGI",
-  authDomain: "autopachat.firebaseapp.com",
-  projectId: "autopachat",
-  storageBucket: "autopachat.firebasestorage.app",
-  messagingSenderId: "61990255227",
-  appId: "1:61990255227:web:2126c73037ed2c07fbc0de",
-  measurementId: "G-CWTLMD8K3Y"
+            apiKey: "AIzaSyDjaYzS64cTQ63ozYzSgRZSyqPgqpmJgGI",
+            authDomain: "autopachat.firebaseapp.com",
+            projectId: "autopachat",
+            storageBucket: "autopachat.firebasestorage.app",
+            messagingSenderId: "61990255227",
+            appId: "1:61990255227:web:2126c73037ed2c07fbc0de",
+            measurementId: "G-CWTLMD8K3Y"
         };
 
-        // Initialiser Firebase
+        // Initialisation Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-
-        // Liste officielle des acheteurs (sans IHSEN ni Hatèn)
-        const OFFICIAL_BUYERS = [
-            { id: 'achref', name: 'Achref Zehiri', role: 'Responsable Achat', initials: 'AZ', keywords: ['achref', 'zehiri'] },
-            { id: 'olfa', name: 'OLFA', role: 'Chef d\'équipe', initials: 'OL', keywords: ['olfa', 'zribi'] },
-            { id: 'ines', name: 'INES', role: 'Chargée d\'achat', initials: 'IN', keywords: ['ines'] },
-            { id: 'feriel', name: 'FERIEL', role: 'Chargée d\'achat', initials: 'FE', keywords: ['feriel'] },
-            { id: 'iheb', name: 'IHEB DRAOUI', role: 'Chargé Achat', initials: 'ID', keywords: ['iheb', 'draoui'] },
-            { id: 'houssem', name: 'Houssem ben rouha', role: 'Chargé Achat', initials: 'HB', keywords: ['houssem', 'ben', 'rouha'] },
-            { id: 'nada', name: 'Nada', role: 'Chargée Achat', initials: 'NA', keywords: ['nada'] },
-            { id: 'emna', name: 'Emna', role: 'Chargée Achat', initials: 'EM', keywords: ['emna', 'elaloui'] },
-            { id: 'amine', name: 'Amine', role: 'Chargé Achat', initials: 'AM', keywords: ['amine', 'belsaad'] },
-            { id: 'nour', name: 'Nour el houda', role: 'Chargée Achat', initials: 'NH', keywords: ['nour', 'houda'] }
-        ];
+        
+        // Test de connexion Firestore
+        console.log('✅ Firebase initialisé avec le projet:', firebaseConfig.projectId);
+        
+        // Vérifier les permissions Firestore
+        db.collection('orders').limit(1).get()
+            .then(() => console.log('✅ Accès Firestore OK'))
+            .catch(err => console.error('❌ Erreur Firestore:', err.code, err.message));
 
         // Variables globales
-        let orders = [], uploadHistory = [], unmatchedBuyersList = [], notifications = [];
-        let currentUser = null, userRole = 'buyer';
-        let selectedWeek = 'all', searchTerm = '', statusFilter = 'all', buyerFilter = 'all', sortField = 'delay', sortDirection = 'desc', isDarkMode = false, currentView = 'dashboard', currentOrderId = null, orderToDelete = null, currentUnmatchedName = null;
+        let currentUser = null;
+        let orders = [];
+        let buyers = [];
+        let uploadHistory = [];
+        let currentView = 'dashboard';
+        let currentOrderId = null;
+        let orderToDelete = null;
+        let isDarkMode = false;
+        let selectedWeek = '';
+        let currentUnmatchedName = null;
+        let unmatchedBuyersList = [];
+        let notifications = [];
 
-        // ============================================
-        // AUTHENTIFICATION FIREBASE
-        // ============================================
-        
-        // Vérifier l'état de connexion
+        // Acheteurs officiels (à personnaliser)
+        const OFFICIAL_BUYERS = [
+            { id: 'buyer1', name: 'Ahmed Ben Ali', initials: 'AB', role: 'Acheteur' },
+            { id: 'buyer2', name: 'Sarah Mohammed', initials: 'SM', role: 'Acheteur Senior' },
+            { id: 'buyer3', name: 'Karim Trabelsi', initials: 'KT', role: 'Acheteur' }
+        ];
+
+        // Fonctions d'authentification
+        function showCreateAccount() {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('createAccountPage').classList.remove('hidden');
+        }
+
+        function showLogin() {
+            document.getElementById('createAccountPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+        }
+
+        function showMainApp() {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+        }
+
         auth.onAuthStateChanged(user => {
             if (user) {
                 currentUser = user;
-                // Récupérer le rôle de l'utilisateur
-                db.collection('users').doc(user.uid).get().then(doc => {
-                    if (doc.exists) {
-                        userRole = doc.data().role || 'buyer';
-                    }
-                    showMainApp();
-                    loadUserData();
-                });
+                showMainApp();
+                loadData();
             } else {
                 currentUser = null;
-                showLoginPage();
+                document.getElementById('mainApp').classList.add('hidden');
+                document.getElementById('loginPage').classList.remove('hidden');
             }
         });
 
-        // Login
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
             const errorDiv = document.getElementById('loginError');
             
-            try {
-                await auth.signInWithEmailAndPassword(email, password);
-                errorDiv.classList.add('hidden');
-            } catch (error) {
-                errorDiv.textContent = 'Erreur : ' + error.message;
-                errorDiv.classList.remove('hidden');
-            }
+            auth.signInWithEmailAndPassword(email, password)
+                .catch(error => {
+                    errorDiv.textContent = error.message;
+                    errorDiv.classList.remove('hidden');
+                });
         });
 
-        // Créer un compte (Manager seulement)
-        document.getElementById('createAccountForm').addEventListener('submit', async (e) => {
+        document.getElementById('createAccountForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const name = document.getElementById('createName').value;
             const email = document.getElementById('createEmail').value;
@@ -417,318 +400,320 @@ apiKey: "AIzaSyDjaYzS64cTQ63ozYzSgRZSyqPgqpmJgGI",
             const role = document.getElementById('createRole').value;
             const errorDiv = document.getElementById('createError');
             
-            try {
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                // Sauvegarder les infos utilisateur
-                await db.collection('users').doc(userCredential.user.uid).set({
-                    name: name,
-                    email: email,
-                    role: role,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(cred => {
+                    return db.collection('users').doc(cred.user.uid).set({
+                        name, email, role, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                })
+                .then(() => {
+                    showToast('Compte créé avec succès', 'success');
+                    showLogin();
+                })
+                .catch(error => {
+                    errorDiv.textContent = error.message;
+                    errorDiv.classList.remove('hidden');
                 });
-                errorDiv.classList.add('hidden');
-                showLogin();
-                showToast('Compte créé avec succès !', 'success');
-            } catch (error) {
-                errorDiv.textContent = 'Erreur : ' + error.message;
-                errorDiv.classList.remove('hidden');
-            }
         });
 
-        // Déconnexion
         function logout() {
             auth.signOut().then(() => {
-                showToast('Déconnecté avec succès', 'info');
+                showToast('Déconnecté', 'success');
             });
         }
 
-        // Afficher la page de login
-        function showLoginPage() {
-            document.getElementById('loginPage').classList.remove('hidden');
-            document.getElementById('createAccountPage').classList.add('hidden');
-            document.getElementById('mainApp').classList.add('hidden');
+        // Chargement des données
+        function loadData() {
+            db.collection('orders').onSnapshot(snapshot => {
+                orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderAll();
+            });
+
+            db.collection('buyers').onSnapshot(snapshot => {
+                buyers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderAll();
+            });
+
+            db.collection('uploadHistory').orderBy('date', 'desc').onSnapshot(snapshot => {
+                uploadHistory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderUploadHistory();
+            });
         }
 
-        // Afficher la page de création de compte
-        function showCreateAccount() {
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('createAccountPage').classList.remove('hidden');
-        }
-
-        // Retour au login
-        function showLogin() {
-            document.getElementById('createAccountPage').classList.add('hidden');
-            document.getElementById('loginPage').classList.remove('hidden');
-        }
-
-        // Afficher l'application principale
-        function showMainApp() {
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('createAccountPage').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
+        // Navigation
+        function navigateTo(view) {
+            currentView = view;
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + view).classList.add('active');
             
-            // Mettre à jour l'avatar avec les initiales
-            if (currentUser) {
-                const name = currentUser.email.split('@')[0];
-                const initials = name.substring(0, 2).toUpperCase();
-                document.getElementById('userAvatar').textContent = initials;
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-100', 'text-blue-700');
+                btn.classList.add('text-gray-600', 'hover:bg-gray-100');
+            });
+            
+            const navBtn = document.getElementById('nav-' + view);
+            if (navBtn) {
+                navBtn.classList.remove('text-gray-600', 'hover:bg-gray-100');
+                navBtn.classList.add('bg-blue-100', 'text-blue-700');
             }
+            
+            if (view === 'orders') renderOrdersTable();
+            if (view === 'buyers') renderBuyersView();
+            if (view === 'analytics') renderAnalytics();
+            if (view === 'dashboard') { renderStats(); renderWeeklyClosedByBuyer(); renderRecentOrders(); }
         }
 
-        // Charger les données depuis Firestore
-function loadUserData() {
-    console.log('=== CHARGEMENT DES DONNÉES ===');
-    console.log('User:', currentUser?.email);
-    console.log('Role:', userRole);
-    
-    // Écouter les changements en temps réel
-    db.collection('orders').onSnapshot(snapshot => {
-        console.log('📦 Snapshot reçu:', snapshot.size, 'documents');
-        
-        orders = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            console.log('Document:', data.reference, '| buyerId:', data.buyerId);
-            
-            // Manager voit TOUT
-            if (userRole === 'manager') {
-                orders.push({ id: doc.id, ...data });
-            }
-            // Buyer voit ses dossiers ou ceux sans acheteur
-            else if (!data.buyerId || data.buyerId === '' || data.buyerId === currentUser.uid) {
-                orders.push({ id: doc.id, ...data });
-            }
-        });
-        
-        console.log('✅ Total dossiers affichés:', orders.length);
-        renderAll();
-    }, error => {
-        console.error('❌ Erreur onSnapshot:', error);
-        showToast('Erreur de chargement: ' + error.message, 'error');
-    });
+        // Utilitaires
+        function getStatusLabel(status) {
+            const labels = { 'in_progress': 'En cours', 'firm': 'Fermé', 'received': 'Réceptionné', 'closed': 'Clôturé' };
+            return labels[status] || status;
+        }
 
-    // Historique des uploads
-    db.collection('uploadHistory').orderBy('date', 'desc').onSnapshot(snapshot => {
-        uploadHistory = [];
-        snapshot.forEach(doc => uploadHistory.push({ id: doc.id, ...doc.data() }));
-        renderUploadHistory();
-    });
-}
-        // ============================================
-        // FONCTIONS UTILITAIRES
-        // ============================================
+        function getStatusColor(status) {
+            const colors = { 'in_progress': 'bg-blue-100 text-blue-700', 'firm': 'bg-purple-100 text-purple-700', 'received': 'bg-orange-100 text-orange-700', 'closed': 'bg-green-100 text-green-700' };
+            return colors[status] || 'bg-gray-100 text-gray-700';
+        }
+
+        function calculateDelay(validationDate) {
+            if (!validationDate) return 0;
+            const vDate = new Date(validationDate);
+            const today = new Date();
+            const diff = Math.ceil((today - vDate) / (1000 * 60 * 60 * 24));
+            return diff;
+        }
+
+        function getCurrentWeekName() {
+            const now = new Date();
+            const startOfYear = new Date(now.getFullYear(), 0, 1);
+            const weekNum = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+            return 'Semaine ' + weekNum + ' ' + now.getFullYear();
+        }
+
+        function extractVehicleBrand(vehicle) {
+            const brands = ['Peugeot', 'Renault', 'Citroën', 'Volkswagen', 'BMW', 'Mercedes', 'Audi', 'Toyota', 'Ford', 'Opel'];
+            for (const brand of brands) {
+                if (vehicle.toLowerCase().includes(brand.toLowerCase())) return brand;
+            }
+            return 'Autre';
+        }
+
+        function getBuyerById(id) {
+            return buyers.find(b => b.id === id) || OFFICIAL_BUYERS.find(b => b.id === id);
+        }
+
         function matchBuyer(name) {
             if (!name) return null;
-            const n = name.toLowerCase().trim();
-            for (const b of OFFICIAL_BUYERS) {
-                for (const k of b.keywords) if (n.includes(k) || k.includes(n.split(' ')[0])) return b;
-            }
-            return null;
+            const matched = OFFICIAL_BUYERS.find(b => name.toLowerCase().includes(b.name.split(' ')[0].toLowerCase()) || name.toLowerCase().includes(b.name.split(' ')[1]?.toLowerCase() || ''));
+            return matched || buyers.find(b => name.toLowerCase().includes(b.name.toLowerCase()));
         }
 
-        function getBuyerById(id) { return OFFICIAL_BUYERS.find(b => b.id === id) || null; }
-
-        function populateBuyerSelect() {
-            const s = document.getElementById('formBuyer'), f = document.getElementById('buyerFilter');
-            if (!s || !f) return;
-            s.innerHTML = '<option value="">-- Sélectionner un acheteur --</option>' + OFFICIAL_BUYERS.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
-            f.innerHTML = '<option value="all">Tous</option>' + OFFICIAL_BUYERS.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
-        }
-
-        function calculateDelay(dateStr, endDateStr = null) {
-            if (!dateStr) return 0;
-            let d;
-            if (typeof dateStr === 'number') { d = new Date(1899, 11, 30); d.setTime(d.getTime() + dateStr * 86400000); }
-            else { d = new Date(String(dateStr).replace(' ', 'T')); if (isNaN(d.getTime())) { const m = String(dateStr).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if (m) d = new Date(m[3], m[2]-1, m[1]); } if (isNaN(d.getTime()) && /^\d+\.?\d*$/.test(String(dateStr))) { const n = parseFloat(dateStr); d = new Date(1899, 11, 30); d.setTime(d.getTime() + n * 86400000); } }
-            if (isNaN(d.getTime()) || d.getFullYear() < 2000) return 0;
-            let end = endDateStr ? new Date(endDateStr) : new Date();
-            if (isNaN(end.getTime())) end = new Date();
-            end.setHours(0,0,0,0);
-            d.setHours(0,0,0,0);
-            return Math.floor((end.getTime() - d.getTime()) / 86400000);
-        }
-
-        function formatDateJJMMAAAA(dateStr) {
-            if (!dateStr) return '--/--/----';
-            let d;
-            if (typeof dateStr === 'number') { d = new Date(1899, 11, 30); d.setTime(d.getTime() + dateStr * 86400000); }
-            else { d = new Date(String(dateStr).replace(' ', 'T')); if (isNaN(d.getTime())) { const m = String(dateStr).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if (m) d = new Date(m[3], m[2]-1, m[1]); } if (isNaN(d.getTime()) && /^\d+\.?\d*$/.test(String(dateStr))) { const n = parseFloat(dateStr); d = new Date(1899, 11, 30); d.setTime(d.getTime() + n * 86400000); } }
-            if (isNaN(d.getTime()) || d.getFullYear() < 2000) return '--/--/----';
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}/${month}/${year}`;
-        }
-
-        function recalculateAllDelays() {
-            orders = orders.map(o => {
-                if (o.partsStatus === 'firm') return {...o, delay: 0};
-                if (o.partsStatus === 'closed' && o.closedDate) {
-                    return {...o, delay: calculateDelay(o.validationDate, o.closedDate)};
-                }
-                return {...o, delay: calculateDelay(o.validationDate)};
-            });
-        }
-
-        function getWeekNumber(date) { const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())); const day = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - day); const start = new Date(Date.UTC(d.getUTCFullYear(), 0, 1)); return Math.ceil((((d.getTime() - start.getTime()) / 86400000) + 1) / 7); }
-        function getCurrentWeekName() { return getWeekName(new Date()); }
-        function getWeekName(date) { const w = getWeekNumber(date), m = date.toLocaleString('fr-FR', {month:'long'}); return `Semaine ${w} - ${m.charAt(0).toUpperCase() + m.slice(1)} ${date.getFullYear()}`; }
-        function extractVehicleBrand(v) { if (!v) return ''; const p = v.split('/'); return p[0].trim() || v.split(' ')[0]; }
-
-        function getStatusColor(s) { return s === 'in_progress' ? 'bg-blue-100 text-blue-800' : s === 'firm' ? 'bg-purple-100 text-purple-800' : s === 'closed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'; }
-        function getStatusLabel(s) { return s === 'in_progress' ? 'En cours d\'achat' : s === 'firm' ? 'Commande ferme' : s === 'closed' ? 'Achat terminé' : s; }
-
-        function updateOrderStatus(id, newStatus) {
-            const o = orders.find(x => x.id === id);
-            if (!o) return;
-            const oldStatus = o.partsStatus;
-            o.partsStatus = newStatus;
-            if (newStatus === 'firm') o.firmDate = new Date().toISOString();
-            if (newStatus === 'closed' && oldStatus !== 'closed') o.closedDate = new Date().toISOString();
-            if (newStatus === 'in_progress' && oldStatus === 'closed') delete o.closedDate;
-            
-            // Mettre à jour dans Firestore
-            db.collection('orders').doc(id).update({
-                partsStatus: newStatus,
-                firmDate: o.firmDate || null,
-                closedDate: o.closedDate || null
-            });
-            
-            recalculateAllDelays();
-            renderAll();
-            showToast('Statut mis à jour', 'success');
-        }
-
-        // ============================================
-        // NAVIGATION
-        // ============================================
-        function navigateTo(view) {
-            document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active'));
-            document.getElementById('view-' + view).classList.add('active');
-            document.querySelectorAll('.nav-btn').forEach(b => { b.classList.remove('bg-blue-100', 'text-blue-700'); b.classList.add('text-gray-600', 'hover:bg-gray-100'); });
-            const nb = document.getElementById('nav-' + view);
-            if (nb) { nb.classList.remove('text-gray-600', 'hover:bg-gray-100'); nb.classList.add('bg-blue-100', 'text-blue-700'); }
-            currentView = view;
-            if (view === 'buyers') renderBuyersView();
-            setTimeout(() => lucide.createIcons(), 100);
-        }
-
-        // ============================================
-        // NOTIFICATIONS
-        // ============================================
-        function updateNotificationBadge() { const b = document.getElementById('notificationBadge'); if (b) { b.textContent = notifications.length; b.classList.toggle('hidden', notifications.length === 0); } }
-        function toggleNotifications() { const p = document.getElementById('notificationsPanel'); if (p) { p.classList.toggle('hidden'); renderNotifications(); } }
-        function renderNotifications() { const l = document.getElementById('notificationsList'); if (!l) return; l.innerHTML = notifications.length === 0 ? '<p class="text-center text-gray-500 py-4">Aucune</p>' : notifications.map(n => `<div class="p-3 hover:bg-gray-50 rounded-lg"><div class="flex items-start space-x-3"><div class="w-2 h-2 rounded-full mt-2 ${n.type==='success'?'bg-green-500':n.type==='warning'?'bg-orange-500':n.type==='error'?'bg-red-500':'bg-blue-500'}"></div><div><p class="text-sm">${n.message}</p><p class="text-xs text-gray-500">${n.time}</p></div></div></div>`).join(''); }
-        function clearNotifications() { notifications = []; updateNotificationBadge(); renderNotifications(); showToast('Notifications effacées', 'success'); }
-        function addNotification(msg, type) { notifications.unshift({id:Date.now(), type, message:msg, time:'À l\'instant'}); updateNotificationBadge(); }
-        function showToast(msg, type) { const c = document.getElementById('toastContainer'); if (!c) return; const t = document.createElement('div'); t.className = `px-4 py-3 rounded-lg shadow-lg text-white ${type==='success'?'bg-green-600':type==='error'?'bg-red-600':type==='warning'?'bg-orange-600':'bg-blue-600'}`; t.textContent = msg; c.appendChild(t); setTimeout(() => t.remove(), 3000); }
-
-        // ============================================
-        // FILTRAGE
-        // ============================================
         function getFilteredOrders() {
+            const search = document.getElementById('searchInput')?.value.toLowerCase() || '';
+            const status = document.getElementById('filterStatus')?.value || '';
             return orders.filter(o => {
-                const ms = o.reference.toLowerCase().includes(searchTerm.toLowerCase()) || o.client.toLowerCase().includes(searchTerm.toLowerCase()) || o.vehicleBrand.toLowerCase().includes(searchTerm.toLowerCase()) || (o.buyerName && o.buyerName.toLowerCase().includes(searchTerm.toLowerCase()));
-                return ms && (statusFilter === 'all' || o.partsStatus === statusFilter) && (buyerFilter === 'all' || o.buyerId === buyerFilter) && (selectedWeek === 'all' || o.week === selectedWeek);
-            }).sort((a, b) => { const av = a[sortField], bv = b[sortField]; return typeof av === 'string' ? (sortDirection === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)) : (sortDirection === 'asc' ? av - bv : bv - av); });
+                const matchSearch = !search || o.reference?.toLowerCase().includes(search) || o.client?.toLowerCase().includes(search) || o.vehicle?.toLowerCase().includes(search);
+                const matchStatus = !status || o.partsStatus === status;
+                return matchSearch && matchStatus;
+            });
         }
 
-        function handleSort(f) { sortDirection = sortField === f && sortDirection === 'desc' ? 'asc' : 'desc'; sortField = f; renderOrdersTable(); }
-
-        // ============================================
-        // AFFICHAGE
-        // ============================================
-        function renderStats() { const cw = getCurrentWeekName(), wo = orders.filter(o => o.week === cw); document.getElementById('statTotal').textContent = wo.length; document.getElementById('statInProgress').textContent = wo.filter(o => o.partsStatus === 'in_progress').length; document.getElementById('statFirm').textContent = wo.filter(o => o.partsStatus === 'firm').length; document.getElementById('statClosed').textContent = wo.filter(o => o.partsStatus === 'closed').length; document.getElementById('currentWeekLabel').textContent = cw; }
+        // Rendu UI
+        function renderStats() {
+            const total = orders.length;
+            const inProgress = orders.filter(o => o.partsStatus === 'in_progress').length;
+            const firm = orders.filter(o => o.partsStatus === 'firm').length;
+            const closed = orders.filter(o => o.partsStatus === 'closed').length;
+            
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statInProgress').textContent = inProgress;
+            document.getElementById('statFirm').textContent = firm;
+            document.getElementById('statClosed').textContent = closed;
+        }
 
         function renderWeeklyClosedByBuyer() {
-            const c = document.getElementById('weeklyClosedByBuyer'); if (!c) return;
-            const cw = getCurrentWeekName(), stats = OFFICIAL_BUYERS.map(b => ({...b, count: orders.filter(o => o.buyerName === b.name && o.partsStatus === 'closed' && o.week === cw).length})).filter(b => b.count > 0).sort((a,b) => b.count - a.count);
-            c.innerHTML = stats.length === 0 ? '<p class="text-gray-500 text-center col-span-full py-8">Aucun achat terminé cette semaine</p>' : stats.map(b => `<div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200"><div class="flex items-center space-x-3"><div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">${b.initials}</div><div class="flex-1"><p class="font-medium">${b.name}</p><p class="text-xs text-gray-500">${b.role}</p></div><div class="text-right"><p class="text-2xl font-bold text-green-600">${b.count}</p><p class="text-xs text-gray-500">terminés</p></div></div></div>`).join('');
-        }
-
-        function renderUploadHistory() {
-            const c = document.getElementById('uploadHistory'); if (!c) return;
-            c.innerHTML = uploadHistory.slice(0, 4).map(w => `<button onclick="selectWeek('${w.name}')" class="w-full p-3 rounded-xl text-left ${selectedWeek === w.name ? 'bg-blue-100 border-2 border-blue-500' : 'bg-gray-50 border-2 border-transparent'}"><div class="flex justify-between"><div><p class="font-medium text-sm">${w.name}</p><p class="text-xs text-gray-500">${w.startDate} - ${w.endDate}</p></div><div class="text-right"><p class="text-lg font-bold text-blue-600">${w.orderCount}</p><p class="text-xs text-gray-500">dossiers</p></div></div></button>`).join('');
+            const closedThisWeek = orders.filter(o => o.partsStatus === 'closed');
+            const byBuyer = {};
+            closedThisWeek.forEach(o => {
+                const b = getBuyerById(o.buyerId);
+                const name = b ? b.name : (o.buyerName || 'Non assigné');
+                byBuyer[name] = (byBuyer[name] || 0) + 1;
+            });
+            
+            const sorted = Object.entries(byBuyer).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            const tbody = document.getElementById('weeklyClosedByBuyer');
+            tbody.innerHTML = sorted.map(([name, count], i) => `
+                <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="px-6 py-4"><span class="w-6 h-6 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center text-xs font-bold">${i + 1}</span></td>
+                    <td class="px-6 py-4 font-medium">${name}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">Acheteur</td>
+                    <td class="px-6 py-4"><span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-semibold">${count}</span></td>
+                </tr>
+            `).join('');
         }
 
         function renderRecentOrders() {
-            const t = document.getElementById('recentOrdersBody'); if (!t) return;
-            t.innerHTML = orders.slice(0, 5).map((o, idx) => { const b = getBuyerById(o.buyerId); return `
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer animate-fade-in" style="animation-delay: ${idx * 50}ms" onclick="viewOrderDetail('${o.id}')">
-                    <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm font-medium text-blue-600">${o.reference}</span></td>
-                    <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm text-gray-900">${o.client}</span></td>
-                    <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm font-medium text-gray-900">${o.vehicleBrand}</span></td>
-                    <td class="px-6 py-4 whitespace-nowrap">${b ? `<div class="flex items-center space-x-2"><div class="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-medium">${b.initials}</div><span class="text-sm text-gray-900">${b.name}</span></div>` : '<span class="text-xs text-orange-600">À valider</span>'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${o.partsStatus === 'firm' ? '<span class="text-sm font-bold text-green-600">-</span>' : `<span class="text-sm font-bold ${o.delay > 14 ? 'text-red-600' : o.delay > 10 ? 'text-orange-600' : o.delay > 5 ? 'text-yellow-600' : 'text-green-600'}">${o.delay}j</span>`}</td>
-                    <td class="px-6 py-4 whitespace-nowrap"><select onchange="updateOrderStatus('${o.id}',this.value)" class="px-4 py-2 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(o.partsStatus)}" onclick="event.stopPropagation()"><option value="in_progress" ${o.partsStatus==='in_progress'?'selected':''}>En cours d'achat</option><option value="closed" ${o.partsStatus==='closed'?'selected':''}>Achat terminé</option><option value="firm" ${o.partsStatus==='firm'?'selected':''}>Commande ferme</option></select></td>
-                </tr>
-            `; }).join('');
-            setTimeout(() => lucide.createIcons(), 100);
+            const recent = orders.slice(-5).reverse();
+            const tbody = document.getElementById('recentOrders');
+            tbody.innerHTML = recent.map(o => {
+                const b = getBuyerById(o.buyerId);
+                return `
+                    <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onclick="openOrderDetail('${o.id}')">
+                        <td class="px-6 py-4 font-medium">${o.reference}</td>
+                        <td class="px-6 py-4">${o.client}</td>
+                        <td class="px-6 py-4">${o.vehicle}</td>
+                        <td class="px-6 py-4">${b ? b.name : (o.buyerName || 'Non assigné')}</td>
+                        <td class="px-6 py-4"><span class="px-3 py-1 rounded-full text-xs ${getStatusColor(o.partsStatus)}">${getStatusLabel(o.partsStatus)}</span></td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function renderOrdersTable() {
-            const t = document.getElementById('ordersTableBody'); if (!t) return;
-            const f = getFilteredOrders();
-            t.innerHTML = f.map((o, idx) => { const b = getBuyerById(o.buyerId); return `
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer animate-fade-in" style="animation-delay: ${idx * 50}ms" onclick="viewOrderDetail('${o.id}')">
-                    <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm font-medium text-blue-600">${o.reference}</span></td>
-                    <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm text-gray-900">${o.client}</span></td>
-                    <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm font-medium text-gray-900">${o.vehicleBrand}</span></td>
-                    <td class="px-6 py-4 whitespace-nowrap">${b ? `<div class="flex items-center space-x-2"><div class="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-medium">${b.initials}</div><span class="text-sm text-gray-900">${b.name}</span></div>` : `<span class="text-xs text-orange-600 flex items-center space-x-1"><i data-lucide="circle-alert" class="w-4 h-4"></i><span>À valider</span></span>`}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${o.partsStatus === 'firm' ? '<span class="text-sm font-bold text-green-600">-</span>' : `<span class="text-sm font-bold ${o.delay > 14 ? 'text-red-600' : o.delay > 10 ? 'text-orange-600' : o.delay > 5 ? 'text-yellow-600' : 'text-green-600'}">${o.delay}j</span>`}</td>
-                    <td class="px-6 py-4 whitespace-nowrap"><select onchange="updateOrderStatus('${o.id}',this.value)" class="px-4 py-2 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(o.partsStatus)}" onclick="event.stopPropagation()"><option value="in_progress" ${o.partsStatus==='in_progress'?'selected':''}>En cours d'achat</option><option value="closed" ${o.partsStatus==='closed'?'selected':''}>Achat terminé</option><option value="firm" ${o.partsStatus==='firm'?'selected':''}>Commande ferme</option></select></td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right"><div class="flex justify-end space-x-2"><button class="p-2 hover:bg-blue-100 rounded-lg" onclick="event.stopPropagation(); viewOrderDetail('${o.id}')"><i data-lucide="eye" class="w-4 h-4 text-blue-600"></i></button><button class="p-2 hover:bg-green-100 rounded-lg" onclick="event.stopPropagation(); editOrder('${o.id}')"><i data-lucide="edit" class="w-4 h-4 text-green-600"></i></button><button class="p-2 hover:bg-red-100 rounded-lg" onclick="event.stopPropagation(); deleteOrder('${o.id}')"><i data-lucide="trash-2" class="w-4 h-4 text-red-600"></i></button></div></td>
-                </tr>
-            `; }).join('');
-            document.getElementById('ordersCount').textContent = f.length + ' dossiers';
-            document.getElementById('paginationText').textContent = 'Affichage de 1 à ' + f.length;
+            const filtered = getFilteredOrders();
+            const tbody = document.getElementById('ordersTableBody');
+            tbody.innerHTML = filtered.map(o => {
+                const b = getBuyerById(o.buyerId);
+                return `
+                    <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td class="px-6 py-4 font-medium">${o.reference}</td>
+                        <td class="px-6 py-4">${o.client}</td>
+                        <td class="px-6 py-4">${o.vehicle}</td>
+                        <td class="px-6 py-4 text-sm">${o.task}</td>
+                        <td class="px-6 py-4">${b ? b.name : (o.buyerName || 'Non assigné')}</td>
+                        <td class="px-6 py-4 text-sm">${o.validationDate ? new Date(o.validationDate).toLocaleDateString('fr-FR') : '-'}</td>
+                        <td class="px-6 py-4"><span class="${o.delay > 7 ? 'text-red-600 font-bold' : ''}">${o.delay || 0}j</span></td>
+                        <td class="px-6 py-4"><span class="px-3 py-1 rounded-full text-xs ${getStatusColor(o.partsStatus)}">${getStatusLabel(o.partsStatus)}</span></td>
+                        <td class="px-6 py-4">
+                            <div class="flex space-x-2">
+                                <button onclick="openOrderDetail('${o.id}')" class="p-1 hover:bg-gray-100 rounded" title="Voir"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                                <button onclick="editOrder('${o.id}')" class="p-1 hover:bg-gray-100 rounded" title="Modifier"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                <button onclick="deleteOrder('${o.id}')" class="p-1 hover:bg-red-100 rounded text-red-600" title="Supprimer"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
             setTimeout(() => lucide.createIcons(), 100);
         }
 
         function renderBuyersView() {
-            const g = document.getElementById('buyersGrid'), u = document.getElementById('unmatchedBuyers');
-            if (!g) return;
-            g.innerHTML = OFFICIAL_BUYERS.map(b => { const bo = orders.filter(o => o.buyerName === b.name), cl = bo.filter(o => o.partsStatus === 'closed' && o.week === getCurrentWeekName()).length; return `<div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border hover:shadow-lg"><div class="flex items-center space-x-4 mb-4"><div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">${b.initials}</div><div><h3 class="font-semibold">${b.name}</h3><p class="text-sm text-gray-500">${b.role}</p></div></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-green-50 rounded-lg p-2"><p class="text-2xl font-bold text-green-600">${cl}</p><p class="text-xs text-gray-500">Terminés</p></div><div class="bg-blue-50 rounded-lg p-2"><p class="text-2xl font-bold text-blue-600">${bo.filter(o => o.partsStatus === 'in_progress').length}</p><p class="text-xs text-gray-500">En cours</p></div><div class="bg-purple-50 rounded-lg p-2"><p class="text-2xl font-bold text-purple-600">${bo.filter(o => o.partsStatus === 'firm').length}</p><p class="text-xs text-gray-500">Fermes</p></div></div></div>`; }).join('');
-            if (u) u.innerHTML = unmatchedBuyersList.length === 0 ? '<p class="text-sm text-green-600">✓ Tous validés</p>' : unmatchedBuyersList.map(n => `<div class="flex justify-between items-center p-3 bg-white rounded-lg border border-orange-200"><div class="flex items-center space-x-3"><i data-lucide="user-x" class="w-5 h-5 text-orange-600"></i><span class="font-medium">${n}</span></div><button onclick="openAssignBuyer('${n}')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg">Assigner</button></div>`).join('');
-            setTimeout(() => lucide.createIcons(), 100);
+            const officialBody = document.getElementById('officialBuyersList');
+            officialBody.innerHTML = OFFICIAL_BUYERS.map(b => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-medium">${b.initials}</div>
+                        <div><p class="font-medium">${b.name}</p><p class="text-xs text-gray-500">${b.role}</p></div>
+                    </div>
+                </div>
+            `).join('');
+
+            const unmatchedBody = document.getElementById('unmatchedBuyersList');
+            if (unmatchedBuyersList.length === 0) {
+                unmatchedBody.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Aucun acheteur en attente</p>';
+            } else {
+                unmatchedBody.innerHTML = unmatchedBuyersList.map(name => `
+                    <div class="flex items-center justify-between p-3 bg-orange-50 dark:bg-gray-700 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-medium">${name.charAt(0).toUpperCase()}</div>
+                            <div><p class="font-medium">${name}</p><p class="text-xs text-orange-600">À assigner</p></div>
+                        </div>
+                        <button onclick="openAssignBuyer('${name}')" class="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700">Assigner</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function renderUploadHistory() {
+            const tbody = document.getElementById('uploadHistoryBody');
+            tbody.innerHTML = uploadHistory.map(h => `
+                <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedWeek === h.name ? 'bg-blue-50 dark:bg-gray-700' : ''}" onclick="selectWeek('${h.name}')">
+                    <td class="px-6 py-4 font-medium">${h.name}</td>
+                    <td class="px-6 py-4">${h.startDate}</td>
+                    <td class="px-6 py-4">${h.endDate}</td>
+                    <td class="px-6 py-4"><span class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm">${h.orderCount}</span></td>
+                </tr>
+            `).join('');
         }
 
         function renderAnalytics() {
-            const sc = document.getElementById('statusDistribution');
-            if (sc) { const st = [{s:'En cours d\'achat',c:orders.filter(o=>o.partsStatus==='in_progress').length,color:'bg-blue-500'},{s:'Commande ferme',c:orders.filter(o=>o.partsStatus==='firm').length,color:'bg-purple-500'},{s:'Achat terminé',c:orders.filter(o=>o.partsStatus==='closed').length,color:'bg-green-500'}]; sc.innerHTML = st.map(i => { const p = orders.length > 0 ? (i.c / orders.length) * 100 : 0; return `<div><div class="flex justify-between text-sm mb-1"><span>${i.s}</span><span>${i.c} (${p.toFixed(0)}%)</span></div><div class="w-full bg-gray-200 rounded-full h-3"><div class="${i.color} h-3 rounded-full" style="width:${p}%"></div></div></div>`; }).join(''); }
+            const byStatus = {};
+            orders.forEach(o => { byStatus[o.partsStatus] = (byStatus[o.partsStatus] || 0) + 1; });
+            
+            const statusChart = document.getElementById('statusChart');
+            const total = orders.length || 1;
+            statusChart.innerHTML = Object.entries(byStatus).map(([status, count]) => {
+                const pct = Math.round((count / total) * 100);
+                return `
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span>${getStatusLabel(status)}</span><span>${count} (${pct}%)</span></div>
+                        <div class="w-full bg-gray-200 rounded-full h-2"><div class="h-2 rounded-full ${status === 'closed' ? 'bg-green-500' : status === 'firm' ? 'bg-purple-500' : status === 'received' ? 'bg-orange-500' : 'bg-blue-500'}" style="width: ${pct}%"></div></div>
+                    </div>
+                `;
+            }).join('');
 
-            const dc = document.getElementById('delayDistribution');
-            if (dc) { const ao = orders.filter(o => o.partsStatus !== 'firm'), dl = [{l:'≤5j',c:ao.filter(o=>o.delay<=5).length,color:'bg-green-500'},{l:'6-10j',c:ao.filter(o=>o.delay>5&&o.delay<=10).length,color:'bg-yellow-500'},{l:'11-14j',c:ao.filter(o=>o.delay>10&&o.delay<=14).length,color:'bg-orange-500'},{l:'>14j',c:ao.filter(o=>o.delay>14).length,color:'bg-red-500'}]; dc.innerHTML = dl.map(i => { const h = ao.length > 0 ? Math.max((i.c / ao.length) * 150, 20) : 20; return `<div class="flex flex-col items-center"><div class="font-bold mb-2">${i.c}</div><div class="${i.color} w-14 rounded-t-lg" style="height:${h}px"></div><div class="text-xs text-gray-500 mt-2">${i.l}</div></div>`; }).join(''); }
+            const byBuyer = {};
+            orders.forEach(o => {
+                const b = getBuyerById(o.buyerId);
+                const name = b ? b.name : (o.buyerName || 'Non assigné');
+                byBuyer[name] = (byBuyer[name] || 0) + 1;
+            });
 
-            const bc = document.getElementById('buyerPerformance');
-            if (bc) { const st = OFFICIAL_BUYERS.map(b => { const bo = orders.filter(o => o.buyerName === b.name), cl = bo.filter(o => o.partsStatus === 'closed').length, ao = bo.filter(o => o.partsStatus !== 'firm'), avg = ao.length > 0 ? ao.reduce((a,o) => a + o.delay, 0) / ao.length : 0; return {...b, total: bo.length, closed: cl, avg: avg}; }).filter(b => b.total > 0).sort((a,b) => b.closed - a.closed); bc.innerHTML = st.map(b => `<div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg"><div class="flex items-center space-x-3"><div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white">${b.initials}</div><div><p class="font-medium">${b.name}</p><p class="text-xs text-gray-500">${b.total} dossiers</p></div></div><div class="flex space-x-6"><div class="text-center"><p class="font-bold text-green-600">${b.closed}</p><p class="text-xs text-gray-500">Terminés</p></div><div class="text-center"><p class="font-bold ${b.avg > 14 ? 'text-red-600' : ''}">${b.avg.toFixed(1)}j</p><p class="text-xs text-gray-500">Délai moyen</p></div></div></div>`).join(''); }
-
-            const wc = document.getElementById('weeklyTrend');
-            if (wc) wc.innerHTML = uploadHistory.map(w => `<div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg"><div><p class="font-medium">${w.name}</p><p class="text-xs text-gray-500">${w.startDate} - ${w.endDate}</p></div><div class="flex items-center space-x-4"><span class="text-sm">${w.orderCount} dossiers</span><i data-lucide="trending-up" class="w-4 h-4 text-green-600"></i></div></div>`).join('');
-            setTimeout(() => lucide.createIcons(), 100);
+            const buyerChart = document.getElementById('buyerChart');
+            const sortedBuyers = Object.entries(byBuyer).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            const maxCount = sortedBuyers[0]?.[1] || 1;
+            buyerChart.innerHTML = sortedBuyers.map(([name, count]) => {
+                const pct = Math.round((count / maxCount) * 100);
+                return `
+                    <div>
+                        <div class="flex justify-between text-sm mb-1"><span>${name}</span><span>${count} dossiers</span></div>
+                        <div class="w-full bg-gray-200 rounded-full h-2"><div class="h-2 rounded-full bg-purple-500" style="width: ${pct}%"></div></div>
+                    </div>
+                `;
+            }).join('');
         }
 
-        function viewOrderDetail(id) {
-            const o = orders.find(x => x.id === id); if (!o) return;
+        // Détail commande
+        function openOrderDetail(id) {
             currentOrderId = id;
-            const b = getBuyerById(o.buyerId);
+            const o = orders.find(x => x.id === id);
+            if (!o) return;
+
             document.getElementById('detailReference').textContent = o.reference;
             document.getElementById('detailClient').textContent = o.client;
-            document.getElementById('detailVehicleBrand').textContent = o.vehicleBrand;
             document.getElementById('detailVehicle').textContent = o.vehicle;
+            document.getElementById('detailVehicleBrand').textContent = o.vehicleBrand;
             document.getElementById('detailTask').textContent = o.task;
-            document.getElementById('detailValidationDate').textContent = formatDateJJMMAAAA(o.validationDate);
-            document.getElementById('detailWeek').textContent = o.week;
-            document.getElementById('detailImportDate').textContent = o.importDate;
-            const de = document.getElementById('detailDelay'); de.textContent = o.delay + ' jours'; de.className = 'text-3xl font-bold ' + (o.delay > 14 ? 'text-red-600' : o.delay > 10 ? 'text-orange-600' : 'text-green-600');
-            const se = document.getElementById('detailStatus'); se.textContent = getStatusLabel(o.partsStatus); se.className = 'px-3 py-1 rounded-full text-xs ' + getStatusColor(o.partsStatus);
-            if (b) { document.getElementById('detailBuyer').textContent = b.name; document.getElementById('detailBuyerRole').textContent = b.role; document.getElementById('detailBuyerAvatar').textContent = b.initials; }
-            else { document.getElementById('detailBuyer').textContent = o.buyerName || 'Non assigné'; document.getElementById('detailBuyerRole').textContent = 'À valider'; document.getElementById('detailBuyerAvatar').textContent = '?'; }
+            document.getElementById('detailValidationDate').textContent = o.validationDate ? new Date(o.validationDate).toLocaleDateString('fr-FR') : '-';
+            document.getElementById('detailDelay').textContent = o.delay || 0;
+            
+            const se = document.getElementById('detailPartsStatus');
+            se.textContent = getStatusLabel(o.partsStatus);
+            se.className = 'px-3 py-1 rounded-full text-xs ' + getStatusColor(o.partsStatus);
+
+            const b = getBuyerById(o.buyerId);
+            if (b) {
+                document.getElementById('detailBuyer').textContent = b.name;
+                document.getElementById('detailBuyerRole').textContent = b.role;
+                document.getElementById('detailBuyerAvatar').textContent = b.initials;
+            } else {
+                document.getElementById('detailBuyer').textContent = o.buyerName || 'Non assigné';
+                document.getElementById('detailBuyerRole').textContent = 'À valider';
+                document.getElementById('detailBuyerAvatar').textContent = '?';
+            }
+
             navigateTo('detail');
         }
 
-        function openAddModal() { document.getElementById('modalTitle').textContent = 'Ajouter un dossier'; document.getElementById('orderForm').reset(); document.getElementById('editOrderId').value = ''; populateBuyerSelect(); document.getElementById('orderModal').classList.remove('hidden'); setTimeout(() => lucide.createIcons(), 100); }
-        
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Ajouter un dossier';
+            document.getElementById('orderForm').reset();
+            document.getElementById('editOrderId').value = '';
+            populateBuyerSelect();
+            document.getElementById('orderModal').classList.remove('hidden');
+            document.getElementById('modalBackdrop').classList.remove('hidden');
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+
         function editOrder(id) { 
             const o = orders.find(x => x.id === id); 
             if (!o) return; 
@@ -740,6 +725,7 @@ function loadUserData() {
             document.getElementById('formVehicle').value = o.vehicle; 
             document.getElementById('formVehicleBrand').value = o.vehicleBrand; 
             document.getElementById('formTask').value = o.task; 
+            
             let vd = o.validationDate;
             if (typeof vd === 'string' && vd.includes(' ')) vd = vd.replace(' ', 'T');
             else if (typeof vd === 'number') {
@@ -747,31 +733,56 @@ function loadUserData() {
                 d.setTime(d.getTime() + vd * 86400000);
                 vd = d.toISOString().split('T')[0] + 'T00:00';
             }
-            document.getElementById('formValidationDate').value = vd.split('.')[0];
+            document.getElementById('formValidationDate').value = vd ? vd.split('.')[0] : '';
             document.getElementById('formStatus').value = o.partsStatus; 
+            
             populateBuyerSelect();
+            
             setTimeout(() => {
                 const buyerSelect = document.getElementById('formBuyer');
                 if (buyerSelect) buyerSelect.value = o.buyerId || '';
             }, 150);
+
             document.getElementById('orderModal').classList.remove('hidden');
+            document.getElementById('modalBackdrop').classList.remove('hidden');
             setTimeout(() => lucide.createIcons(), 100);
         }
-        
-        function editCurrentOrder() { if (currentOrderId) editOrder(currentOrderId); else showToast('Aucun dossier sélectionné', 'error'); }
-        function closeModal() { document.getElementById('orderModal').classList.add('hidden'); }
-        function deleteOrder(id) { orderToDelete = id; document.getElementById('deleteModal').classList.remove('hidden'); setTimeout(() => lucide.createIcons(), 100); }
-        function deleteCurrentOrder() { if (currentOrderId) deleteOrder(currentOrderId); }
-        function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); orderToDelete = null; }
-        
-        function confirmDelete() { 
-            if (orderToDelete) { 
+
+        function editCurrentOrder() {
+            if (currentOrderId) editOrder(currentOrderId);
+            else showToast('Aucun dossier sélectionné', 'error');
+        }
+
+        function closeModal() {
+            document.getElementById('orderModal').classList.add('hidden');
+            document.getElementById('modalBackdrop').classList.add('hidden');
+        }
+
+        function deleteOrder(id) {
+            orderToDelete = id;
+            document.getElementById('deleteModal').classList.remove('hidden');
+            document.getElementById('modalBackdrop').classList.remove('hidden');
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+
+        function deleteCurrentOrder() {
+            if (currentOrderId) deleteOrder(currentOrderId);
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            document.getElementById('modalBackdrop').classList.add('hidden');
+            orderToDelete = null;
+        }
+
+        function confirmDelete() {
+            if (orderToDelete) {
                 db.collection('orders').doc(orderToDelete).delete().then(() => {
                     showToast('Supprimé', 'success');
                     if (currentView === 'detail') navigateTo('orders');
                     closeDeleteModal();
                 });
-            } 
+            }
         }
 
         document.getElementById('orderForm').addEventListener('submit', async function(e) {
@@ -811,91 +822,315 @@ function loadUserData() {
             closeModal(); 
         });
 
-        function openAssignBuyer(name) { currentUnmatchedName = name; document.getElementById('assignBuyerName').textContent = name; document.getElementById('assignBuyerList').innerHTML = OFFICIAL_BUYERS.map(b => `<button onclick="assignBuyerToName('${name}','${b.id}')" class="w-full p-3 text-left hover:bg-gray-50 rounded-lg flex items-center space-x-3"><div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white">${b.initials}</div><div><p class="font-medium">${b.name}</p><p class="text-xs text-gray-500">${b.role}</p></div></button>`).join(''); document.getElementById('assignBuyerModal').classList.remove('hidden'); }
-        function closeAssignBuyerModal() { document.getElementById('assignBuyerModal').classList.add('hidden'); currentUnmatchedName = null; }
-        function assignBuyerToName(un, bid) { const b = getBuyerById(bid); if (!b) return; const ordersToUpdate = orders.filter(o => o.buyerName === un); ordersToUpdate.forEach(o => { db.collection('orders').doc(o.id).update({ buyerId: bid, buyerName: b.name }); }); unmatchedBuyersList = unmatchedBuyersList.filter(n => n !== un); renderBuyersView(); renderOrdersTable(); renderAll(); closeAssignBuyerModal(); showToast('Assigné : ' + b.name, 'success'); }
+        function populateBuyerSelect() {
+            const select = document.getElementById('formBuyer');
+            if (!select) return;
+            const allBuyers = [...OFFICIAL_BUYERS, ...buyers];
+            select.innerHTML = '<option value="">Non assigné</option>' + allBuyers.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+        }
 
-        function exportToExcel() { const d = getFilteredOrders().map(o => { const b = getBuyerById(o.buyerId); return {'Référence': o.reference, 'Client': o.client, 'Véhicule': o.vehicle, 'Marque': o.vehicleBrand, 'Tâche': o.task, 'Acheteur': b ? b.name : (o.buyerName || 'Non assigné'), 'Date Validation': o.validationDate, 'Délai (jours)': o.delay, 'Statut': getStatusLabel(o.partsStatus), 'Semaine': o.week}; }); const ws = XLSX.utils.json_to_sheet(d), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Commandes'); XLSX.writeFile(wb, 'OrderFlow_Export_' + new Date().toISOString().split('T')[0] + '.xlsx'); showToast('Export réussi', 'success'); }
-        function refreshData() { recalculateAllDelays(); renderAll(); showToast('Données actualisées', 'success'); }
+        function openAssignBuyer(name) {
+            currentUnmatchedName = name;
+            document.getElementById('assignBuyerName').textContent = name;
+            document.getElementById('assignBuyerList').innerHTML = OFFICIAL_BUYERS.map(b => `
+                <button onclick="assignBuyerToName('${name}','${b.id}')" class="w-full p-3 text-left hover:bg-gray-50 rounded-lg flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white">${b.initials}</div>
+                    <div><p class="font-medium">${b.name}</p><p class="text-xs text-gray-500">${b.role}</p></div>
+                </button>
+            `).join('');
+            document.getElementById('assignBuyerModal').classList.remove('hidden');
+            document.getElementById('modalBackdrop').classList.remove('hidden');
+        }
 
-        const dropZone = document.getElementById('dropZone'), fileInput = document.getElementById('fileInput');
-        if (dropZone) { dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-active'); }); dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active')); dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-active'); if (e.dataTransfer.files.length > 0) processExcelFile(e.dataTransfer.files[0]); }); }
-        if (fileInput) fileInput.addEventListener('change', e => { if (e.target.files && e.target.files.length > 0) processExcelFile(e.target.files[0]); });
+        function closeAssignBuyerModal() {
+            document.getElementById('assignBuyerModal').classList.add('hidden');
+            document.getElementById('modalBackdrop').classList.add('hidden');
+            currentUnmatchedName = null;
+        }
+
+        function assignBuyerToName(un, bid) {
+            const b = getBuyerById(bid);
+            if (!b) return;
+            const ordersToUpdate = orders.filter(o => o.buyerName === un);
+            ordersToUpdate.forEach(o => {
+                db.collection('orders').doc(o.id).update({ buyerId: bid, buyerName: b.name });
+            });
+            unmatchedBuyersList = unmatchedBuyersList.filter(n => n !== un);
+            renderBuyersView();
+            renderOrdersTable();
+            renderAll();
+            closeAssignBuyerModal();
+            showToast('Assigné : ' + b.name, 'success');
+        }
+
+        function exportToExcel() {
+            const d = getFilteredOrders().map(o => {
+                const b = getBuyerById(o.buyerId);
+                return {
+                    'Référence': o.reference,
+                    'Client': o.client,
+                    'Véhicule': o.vehicle,
+                    'Marque': o.vehicleBrand,
+                    'Tâche': o.task,
+                    'Acheteur': b ? b.name : (o.buyerName || 'Non assigné'),
+                    'Date Validation': o.validationDate,
+                    'Délai (jours)': o.delay,
+                    'Statut': getStatusLabel(o.partsStatus),
+                    'Semaine': o.week
+                };
+            });
+            const ws = XLSX.utils.json_to_sheet(d);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Commandes');
+            XLSX.writeFile(wb, 'OrderFlow_Export_' + new Date().toISOString().split('T')[0] + '.xlsx');
+            showToast('Export réussi', 'success');
+        }
+
+        function refreshData() {
+            recalculateAllDelays();
+            renderAll();
+            showToast('Données actualisées', 'success');
+        }
+
+        function recalculateAllDelays() {
+            orders.forEach(o => {
+                if (o.validationDate) {
+                    const del = calculateDelay(o.validationDate);
+                    if (del !== o.delay) {
+                        db.collection('orders').doc(o.id).update({ delay: del });
+                    }
+                }
+            });
+        }
+
+        // Import Excel
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        if (dropZone) {
+            dropZone.addEventListener('dragover', e => {
+                e.preventDefault();
+                dropZone.classList.add('drag-active');
+            });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));
+            dropZone.addEventListener('drop', e => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-active');
+                if (e.dataTransfer.files.length > 0) processExcelFile(e.dataTransfer.files[0]);
+            });
+        }
+
+        if (fileInput) {
+            fileInput.addEventListener('change', e => {
+                if (e.target.files && e.target.files.length > 0) processExcelFile(e.target.files[0]);
+            });
+        }
 
         function processExcelFile(file) {
+            console.log('📂 Début de l\'import du fichier:', file.name);
+            
             const reader = new FileReader();
             reader.onload = async event => {
-                const data = event.target.result, workbook = XLSX.read(data, {type: 'binary'}), worksheet = workbook.Sheets[workbook.SheetNames[0]], jsonData = XLSX.utils.sheet_to_json(worksheet);
-                const cw = getCurrentWeekName(), newOrders = [], newUnmatched = new Set();
-                jsonData.forEach(async (row, idx) => {
-                    const ref = row['Référence interne'] || row['reference_interne'] || 'REF-'+Date.now()+'-'+idx, client = row['Client'] || 'Client inconnu', veh = row['Véhicule'] || row['vehicule'] || '', task = row['Tâche courante'] || row['tache_courante'] || 'Tâche non spécifiée', lub = row['Dernière mise à jour par'] || row['derniere_mise_a_jour_par'] || '', vd = row['Date Validation Expert'] || row['date_validation_expert'];
-                    let vdate = vd;
-                    if (typeof vd === 'number') {
-                        const d = new Date(1899, 11, 30);
-                        d.setTime(d.getTime() + vd * 86400000);
-                        vdate = d.toISOString();
-                    } else if (typeof vd === 'string') {
-                        if (/^\d+\.?\d*$/.test(vd.trim())) {
-                            const n = parseFloat(vd.trim());
+                try {
+                    const data = event.target.result;
+                    console.log('📄 Fichier lu, taille:', data.length, 'octets');
+                    
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    console.log('📊 Workbook chargé, feuilles:', workbook.SheetNames);
+                    
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    console.log('📋 Données Excel parsées:', jsonData.length, 'lignes');
+                    
+                    if (jsonData.length === 0) {
+                        showToast('Fichier Excel vide !', 'error');
+                        return;
+                    }
+                    
+                    const cw = getCurrentWeekName();
+                    const newOrders = [];
+                    const newUnmatched = new Set();
+
+                    for (const row of jsonData) {
+                        const ref = row['Référence interne'] || row['reference_interne'] || 'REF-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                        const client = row['Client'] || 'Client inconnu';
+                        const veh = row['Véhicule'] || row['vehicule'] || '';
+                        const task = row['Tâche courante'] || row['tache_courante'] || 'Tâche non spécifiée';
+                        const lub = row['Dernière mise à jour par'] || row['derniere_mise_a_jour_par'] || '';
+                        let vd = row['Date Validation Expert'] || row['date_validation_expert'];
+
+                        let vdate = vd;
+                        if (typeof vd === 'number') {
                             const d = new Date(1899, 11, 30);
-                            d.setTime(d.getTime() + n * 86400000);
+                            d.setTime(d.getTime() + vd * 86400000);
                             vdate = d.toISOString();
+                        } else if (typeof vd === 'string') {
+                            if (/^\d+\.?\d*$/.test(vd.trim())) {
+                                const n = parseFloat(vd.trim());
+                                const d = new Date(1899, 11, 30);
+                                d.setTime(d.getTime() + n * 86400000);
+                                vdate = d.toISOString();
+                            }
+                        }
+                        if (!vdate) vdate = new Date().toISOString();
+
+                        const del = calculateDelay(vdate);
+                        const mb = matchBuyer(lub);
+                        if (lub && !mb) newUnmatched.add(lub);
+
+                        const existingOrder = await db.collection('orders').where('reference', '==', ref).get();
+                        if (existingOrder.empty) {
+                            newOrders.push({
+                                reference: ref,
+                                client,
+                                vehicle: veh,
+                                vehicleBrand: extractVehicleBrand(veh),
+                                task,
+                                buyerName: lub,
+                                buyerId: mb ? mb.id : '',
+                                validationDate: vdate,
+                                delay: del,
+                                partsStatus: 'in_progress',
+                                week: cw,
+                                importDate: new Date().toISOString().split('T')[0],
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
                         }
                     }
-                    if (!vdate) vdate = new Date().toISOString();
-                    const del = calculateDelay(vdate), mb = matchBuyer(lub);
-                    if (lub && !mb) newUnmatched.add(lub);
-                    const existingOrder = await db.collection('orders').where('reference', '==', ref).get();
-                    if (existingOrder.empty) {
-                        newOrders.push({
-                            reference: ref, client, vehicle: veh, vehicleBrand: extractVehicleBrand(veh), task, 
-                            buyerName: lub, buyerId: mb ? mb.id : '', validationDate: vdate, delay: del, 
-                            partsStatus: 'in_progress', week: cw, importDate: new Date().toISOString().split('T')[0],
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+
+                    console.log('📦 Nouvelles commandes à ajouter:', newOrders.length);
+
+                    // Ajouter les nouvelles commandes
+                    if (newOrders.length > 0) {
+                        const batch = db.batch();
+                        newOrders.forEach(order => {
+                            const docRef = db.collection('orders').doc();
+                            batch.set(docRef, order);
                         });
+                        await batch.commit();
+                        console.log('✅ Commandes écrites dans Firestore');
                     }
-                });
-                
-                // Ajouter les nouvelles commandes
-                const batch = db.batch();
-                newOrders.forEach(order => {
-                    const docRef = db.collection('orders').doc();
-                    batch.set(docRef, order);
-                });
-                await batch.commit();
-                
-                // Mettre à jour l'historique
-                await db.collection('uploadHistory').add({
-                    name: cw,
-                    startDate: new Date().toLocaleDateString('fr-FR'),
-                    endDate: new Date().toLocaleDateString('fr-FR'),
-                    orderCount: newOrders.length,
-                    date: new Date(),
-                    uploadedBy: currentUser.uid
-                });
-                
-                unmatchedBuyersList = [...new Set([...unmatchedBuyersList, ...newUnmatched])];
-                document.getElementById('lastUploadDate').textContent = new Date().toLocaleDateString('fr-FR');
-                showToast(newOrders.length + ' dossiers ajoutés', 'success');
-                addNotification(newOrders.length + ' dossiers importés', 'success');
-                if (newUnmatched.size > 0) addNotification(newUnmatched.size + ' acheteur(s) à valider', 'warning');
+
+                    // Mettre à jour l'historique
+                    await db.collection('uploadHistory').add({
+                        name: cw,
+                        startDate: new Date().toLocaleDateString('fr-FR'),
+                        endDate: new Date().toLocaleDateString('fr-FR'),
+                        orderCount: newOrders.length,
+                        date: new Date(),
+                        uploadedBy: currentUser.uid
+                    });
+                    console.log('✅ Historique mis à jour');
+
+                    unmatchedBuyersList = [...new Set([...unmatchedBuyersList, ...newUnmatched])];
+                    document.getElementById('lastUploadDate').textContent = new Date().toLocaleDateString('fr-FR');
+                    
+                    const msg = newOrders.length + ' dossiers ajoutés';
+                    showToast(msg, 'success');
+                    console.log('✅ ' + msg);
+                    
+                    addNotification(newOrders.length + ' dossiers importés', 'success');
+                    if (newUnmatched.size > 0) addNotification(newUnmatched.size + ' acheteur(s) à valider', 'warning');
+                    
+                } catch (error) {
+                    console.error('❌ ERREUR lors de l\'import Excel:', error);
+                    showToast('Erreur: ' + error.message, 'error');
+                    addNotification('Échec import: ' + error.message, 'error');
+                }
+            };
+            reader.onerror = (err) => {
+                console.error('❌ Erreur lecture fichier:', err);
+                showToast('Erreur de lecture du fichier', 'error');
             };
             reader.readAsBinaryString(file);
         }
 
-        function selectWeek(name) { selectedWeek = name; renderUploadHistory(); renderOrdersTable(); }
-        function toggleDarkMode() { isDarkMode = !isDarkMode; document.documentElement.classList.toggle('dark'); document.getElementById('darkModeToggle').innerHTML = isDarkMode ? '<i data-lucide="sun" class="w-5 h-5"></i>' : '<i data-lucide="moon" class="w-5 h-5"></i>'; setTimeout(() => lucide.createIcons(), 100); }
-        function renderAll() { renderStats(); renderWeeklyClosedByBuyer(); renderUploadHistory(); renderRecentOrders(); renderOrdersTable(); renderAnalytics(); updateNotificationBadge(); populateBuyerSelect(); }
+        function selectWeek(name) {
+            selectedWeek = name;
+            renderUploadHistory();
+            renderOrdersTable();
+        }
+
+        // Dark mode
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            document.documentElement.classList.toggle('dark');
+            const btn = document.querySelector('button[onclick="toggleDarkMode()"]');
+            if (btn) {
+                btn.innerHTML = isDarkMode ? '<i data-lucide="sun" class="w-5 h-5"></i>' : '<i data-lucide="moon" class="w-5 h-5"></i>';
+            }
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+
+        // Notifications
+        function toggleNotifications() {
+            const panel = document.getElementById('notificationsPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        function addNotification(message, type = 'info') {
+            notifications.unshift({ message, type, time: new Date() });
+            updateNotificationBadge();
+            renderNotifications();
+        }
+
+        function updateNotificationBadge() {
+            const badge = document.getElementById('notificationBadge');
+            badge.textContent = notifications.length;
+            badge.classList.toggle('hidden', notifications.length === 0);
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notificationsList');
+            list.innerHTML = notifications.map(n => `
+                <div class="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">
+                    <p class="text-sm">${n.message}</p>
+                    <p class="text-xs text-gray-500 mt-1">${n.time.toLocaleTimeString('fr-FR')}</p>
+                </div>
+            `).join('');
+        }
+
+        function clearNotifications() {
+            notifications = [];
+            updateNotificationBadge();
+            renderNotifications();
+        }
+
+        // Toast
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `px-4 py-3 rounded-lg shadow-lg text-white animate-fade-in ${type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`;
+            toast.innerHTML = `<p class="text-sm font-medium">${message}</p>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function renderAll() {
+            renderStats();
+            renderWeeklyClosedByBuyer();
+            renderUploadHistory();
+            renderRecentOrders();
+            renderOrdersTable();
+            renderAnalytics();
+            updateNotificationBadge();
+            populateBuyerSelect();
+        }
 
         // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
             const backdrop = document.getElementById('modalBackdrop');
             if (backdrop) {
                 backdrop.addEventListener('click', function(e) {
-                    if (e.target === backdrop) closeModal();
+                    if (e.target === backdrop) {
+                        closeModal();
+                        closeDeleteModal();
+                        closeAssignBuyerModal();
+                    }
                 });
             }
             populateBuyerSelect();
+            lucide.createIcons();
         });
     </script>
 </body>
