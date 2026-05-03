@@ -279,27 +279,35 @@
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
                     <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center space-x-2"><i data-lucide="file-text" class="w-6 h-6 text-blue-500"></i><span>Gestion des Commandes</span></h2>
                     <div class="flex flex-wrap gap-3">
-                        <div class="relative">
-                            <input type="text" id="searchInput" oninput="renderOrdersTable()" placeholder="Rechercher..." class="pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                        <div class="relative flex-1 min-w-[250px]">
+                            <input type="text" id="searchInput" oninput="renderOrdersTable()" placeholder="Rechercher (réf, client, marque, acheteur...)" class="pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all w-full">
                             <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
                         </div>
+                        <select id="filterBuyer" onchange="renderOrdersTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all min-w-[180px]">
+                            <option value="">Tous les acheteurs</option>
+                            ${OFFICIAL_BUYERS.map(b => `<option value="${b.id}">${b.name}</option>`).join('')}
+                        </select>
                         <select id="filterStatus" onchange="renderOrdersTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
                             <option value="">Tous les statuts</option>
                             <option value="en_cours">En cours d'achat</option>
                             <option value="commande_ferme">Commande ferme</option>
                             <option value="achat_termine">Achat terminé</option>
                         </select>
-                        <button onclick="openAddModal()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                        <button onclick="openAddModal()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap">
                             <i data-lucide="plus" class="w-4 h-4"></i>
                             <span>Ajouter</span>
                         </button>
-                        <button onclick="exportToExcel()" class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                        <button onclick="exportToExcel()" class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap">
                             <i data-lucide="download" class="w-4 h-4"></i>
                             <span>Export</span>
                         </button>
-                        <button onclick="migrateData()" class="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105" title="Nettoyer les données">
+                        <button onclick="migrateData()" class="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap" title="Nettoyer les données (statuts, acheteurs, marques)">
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                             <span>Nettoyer</span>
+                        </button>
+                        <button onclick="cleanAutreBrands()" class="px-5 py-2.5 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap" title="Corriger uniquement les marques 'Autre'">
+                            <i data-lucide="car" class="w-4 h-4"></i>
+                            <span>Marques</span>
                         </button>
                     </div>
                 </div>
@@ -689,7 +697,7 @@
             });
         }
 
-        // Migration des données - Mettre à jour les anciens statuts et nettoyer les acheteurs non officiels
+        // Migration des données - Mettre à jour les anciens statuts et nettoyer les données
         async function migrateData() {
             console.log('🔄 Vérification migration des données...');
             
@@ -726,6 +734,18 @@
                     }
                 }
                 
+                // 3. CORRIGER les marques "Autre" - Extraire la vraie marque depuis vehicle
+                if (data.vehicleBrand === 'Autre' || data.vehicleBrand === 'autre' || data.vehicleBrand === 'Inconnue') {
+                    if (data.vehicle) {
+                        const correctBrand = extractVehicleBrand(data.vehicle);
+                        if (correctBrand !== 'Autre' && correctBrand !== 'Inconnue') {
+                            updates.vehicleBrand = correctBrand;
+                            needsUpdate = true;
+                            console.log('✅ Marque corrigée:', data.vehicleBrand, '→', correctBrand);
+                        }
+                    }
+                }
+                
                 if (needsUpdate) {
                     batch.update(doc.ref, updates);
                     updated++;
@@ -736,6 +756,45 @@
                 console.log('📊 Migration:', updated, 'dossiers mis à jour');
                 await batch.commit();
                 showToast(updated + ' dossiers mis à jour', 'success');
+                // Rafraîchir l'affichage
+                renderAll();
+            } else {
+                console.log('✅ Aucune migration nécessaire');
+                showToast('✅ Vos données sont à jour', 'success');
+            }
+        }
+        
+        // Fonction spécifique pour nettoyer uniquement les marques "Autre"
+        async function cleanAutreBrands() {
+            console.log('🚗 Nettoyage des marques "Autre"...');
+            
+            const ordersSnapshot = await db.collection('orders').get();
+            let updated = 0;
+            
+            const batch = db.batch();
+            
+            ordersSnapshot.forEach(doc => {
+                const data = doc.data();
+                
+                if (data.vehicleBrand === 'Autre' || data.vehicleBrand === 'autre') {
+                    if (data.vehicle) {
+                        const correctBrand = extractVehicleBrand(data.vehicle);
+                        if (correctBrand !== 'Autre' && correctBrand !== 'Inconnue') {
+                            batch.update(doc.ref, { vehicleBrand: correctBrand });
+                            updated++;
+                            console.log('✅ Marque corrigée:', data.vehicle, '→', correctBrand);
+                        }
+                    }
+                }
+            });
+            
+            if (updated > 0) {
+                await batch.commit();
+                showToast('✅ ' + updated + ' marques corrigées', 'success');
+                renderBrandStats();
+                renderOrdersTable();
+            } else {
+                showToast('✅ Aucune marque "Autre" à corriger', 'success');
             }
         }
 
@@ -964,10 +1023,25 @@
         function getFilteredOrders() {
             const search = document.getElementById('searchInput')?.value.toLowerCase() || '';
             const status = document.getElementById('filterStatus')?.value || '';
+            const buyerId = document.getElementById('filterBuyer')?.value || '';
+            
             return orders.filter(o => {
-                const matchSearch = !search || o.reference?.toLowerCase().includes(search) || o.client?.toLowerCase().includes(search) || o.vehicle?.toLowerCase().includes(search);
-                const matchStatus = !status || o.partsStatus === status;
-                return matchSearch && matchStatus;
+                // Recherche textuelle (réf, client, marque, acheteur, tâche)
+                const matchSearch = !search || 
+                    o.reference?.toLowerCase().includes(search) || 
+                    o.client?.toLowerCase().includes(search) || 
+                    o.vehicleBrand?.toLowerCase().includes(search) ||
+                    o.task?.toLowerCase().includes(search) ||
+                    o.buyerName?.toLowerCase().includes(search);
+                
+                // Filtre par statut (avec normalisation)
+                const normalizedStatus = normalizeStatus(o.partsStatus);
+                const matchStatus = !status || normalizedStatus === status;
+                
+                // Filtre par acheteur
+                const matchBuyer = !buyerId || o.buyerId === buyerId;
+                
+                return matchSearch && matchStatus && matchBuyer;
             });
         }
 
@@ -2214,14 +2288,27 @@
             // Compter les dossiers par marque
             const byBrand = {};
             orders.forEach(o => {
-                const brand = o.vehicleBrand || 'Inconnue';
+                let brand = o.vehicleBrand || 'Inconnue';
+                
+                // Nettoyer la marque - JAMAIS "Autre"
+                if (brand === 'Autre' || brand === 'autre' || brand === 'Inconnue') {
+                    // Essayer d'extraire la vraie marque depuis vehicle
+                    if (o.vehicle) {
+                        brand = extractVehicleBrand(o.vehicle);
+                    }
+                    if (brand === 'Autre' || brand === 'autre' || brand === 'Inconnue') {
+                        brand = 'Autres Marques';
+                    }
+                }
+                
                 if (!byBrand[brand]) {
                     byBrand[brand] = { total: 0, enCours: 0, commandeFerme: 0, achatTermine: 0 };
                 }
                 byBrand[brand].total++;
-                if (o.partsStatus === 'en_cours') byBrand[brand].enCours++;
-                else if (o.partsStatus === 'commande_ferme') byBrand[brand].commandeFerme++;
-                else if (o.partsStatus === 'achat_termine') byBrand[brand].achatTermine++;
+                const status = normalizeStatus(o.partsStatus);
+                if (status === 'en_cours') byBrand[brand].enCours++;
+                else if (status === 'commande_ferme') byBrand[brand].commandeFerme++;
+                else if (status === 'achat_termine') byBrand[brand].achatTermine++;
             });
             
             // Trier par nombre de dossiers
