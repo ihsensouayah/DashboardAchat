@@ -297,6 +297,10 @@
                             <i data-lucide="download" class="w-4 h-4"></i>
                             <span>Export</span>
                         </button>
+                        <button onclick="migrateData()" class="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105" title="Nettoyer les données">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            <span>Nettoyer</span>
+                        </button>
                     </div>
                 </div>
 
@@ -685,9 +689,62 @@
             });
         }
 
+        // Migration des données - Mettre à jour les anciens statuts et nettoyer les acheteurs non officiels
+        async function migrateData() {
+            console.log('🔄 Vérification migration des données...');
+            
+            const ordersSnapshot = await db.collection('orders').get();
+            let updated = 0;
+            
+            const batch = db.batch();
+            
+            ordersSnapshot.forEach(doc => {
+                const data = doc.data();
+                const updates = {};
+                let needsUpdate = false;
+                
+                // 1. Normaliser le statut
+                if (data.partsStatus && ['in_progress', 'firm', 'closed', 'received'].includes(data.partsStatus)) {
+                    updates.partsStatus = normalizeStatus(data.partsStatus);
+                    needsUpdate = true;
+                }
+                
+                // 2. Nettoyer les acheteurs non officiels
+                if (data.buyerName && !data.buyerId) {
+                    const matchedBuyer = matchBuyer(data.buyerName);
+                    if (matchedBuyer) {
+                        updates.buyerId = matchedBuyer.id;
+                        updates.buyerName = matchedBuyer.name;
+                        needsUpdate = true;
+                        console.log('✅ Match trouvé:', data.buyerName, '→', matchedBuyer.name);
+                    } else {
+                        // Nom non officiel - on efface
+                        updates.buyerName = '';
+                        updates.buyerId = '';
+                        needsUpdate = true;
+                        console.log('❌ Nom non officiel effacé:', data.buyerName);
+                    }
+                }
+                
+                if (needsUpdate) {
+                    batch.update(doc.ref, updates);
+                    updated++;
+                }
+            });
+            
+            if (updated > 0) {
+                console.log('📊 Migration:', updated, 'dossiers mis à jour');
+                await batch.commit();
+                showToast(updated + ' dossiers mis à jour', 'success');
+            }
+        }
+
         // Chargement des données
         function loadData() {
             console.log('📡 Chargement des données depuis Firestore...');
+            
+            // Lancer la migration au premier chargement
+            migrateData().catch(err => console.error('Erreur migration:', err));
             
             db.collection('orders').onSnapshot(snapshot => {
                 console.log('📦 Commandes chargées:', snapshot.size);
@@ -742,22 +799,38 @@
         }
 
         // Utilitaires
+        // Conversion des anciens statuts vers les nouveaux
+        function normalizeStatus(status) {
+            const statusMap = {
+                'in_progress': 'en_cours',
+                'firm': 'commande_ferme',
+                'closed': 'achat_termine',
+                'received': 'commande_ferme',
+                'en_cours': 'en_cours',
+                'commande_ferme': 'commande_ferme',
+                'achat_termine': 'achat_termine'
+            };
+            return statusMap[status] || 'en_cours';
+        }
+
         function getStatusLabel(status) {
+            const normalized = normalizeStatus(status);
             const labels = { 
                 'en_cours': 'En cours d\'achat', 
                 'commande_ferme': 'Commande ferme', 
                 'achat_termine': 'Achat terminé' 
             };
-            return labels[status] || status;
+            return labels[normalized] || 'En cours d\'achat';
         }
 
         function getStatusColor(status) {
+            const normalized = normalizeStatus(status);
             const colors = { 
-                'en_cours': 'bg-blue-100 text-blue-700', 
-                'commande_ferme': 'bg-purple-100 text-purple-700', 
-                'achat_termine': 'bg-green-100 text-green-700' 
+                'en_cours': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', 
+                'commande_ferme': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', 
+                'achat_termine': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
             };
-            return colors[status] || 'bg-gray-100 text-gray-700';
+            return colors[normalized] || colors['en_cours'];
         }
 
         // Calcul du délai : 
@@ -788,46 +861,41 @@
             
             if (!brandPart) return 'Inconnue';
             
-            // Nettoyer la marque (enlever espaces superflus)
+            // Nettoyer la marque
             brandPart = brandPart.replace(/\s+/g, ' ').trim();
-            
-            // Marques connues - correspondance exacte insensible à la casse
-            const brands = [
-                'peugeot', 'renault', 'citroën', 'citroen', 'volkswagen', 'vw', 'bmw', 
-                'mercedes', 'mercedes-benz', 'audi', 'toyota', 'ford', 'opel', 'fiat', 
-                'nissan', 'honda', 'hyundai', 'kia', 'mazda', 'volvo', 'land rover', 
-                'jeep', 'alfa romeo', 'mini', 'porsche', 'tesla', 'skoda', 'seat', 
-                'mitsubishi', 'suzuki', 'subaru', 'lexus', 'infiniti', 'dacia', 
-                'smart', 'jaguar', 'bentley', 'maserati', 'ferrari', 'lamborghini'
-            ];
             
             const brandLower = brandPart.toLowerCase();
             
+            // Marques connues avec correspondance
+            const brandMap = {
+                'peugeot': 'Peugeot', 'renault': 'Renault', 'citroën': 'Citroën', 'citroen': 'Citroën',
+                'volkswagen': 'Volkswagen', 'vw': 'Volkswagen', 'bmw': 'BMW',
+                'mercedes': 'Mercedes', 'mercedes-benz': 'Mercedes', 'audi': 'Audi',
+                'toyota': 'Toyota', 'ford': 'Ford', 'opel': 'Opel', 'fiat': 'Fiat',
+                'nissan': 'Nissan', 'honda': 'Honda', 'hyundai': 'Hyundai', 'kia': 'Kia',
+                'mazda': 'Mazda', 'volvo': 'Volvo', 'land rover': 'Land Rover',
+                'jeep': 'Jeep', 'alfa romeo': 'Alfa Romeo', 'mini': 'Mini',
+                'porsche': 'Porsche', 'tesla': 'Tesla', 'skoda': 'Skoda', 'seat': 'Seat',
+                'mitsubishi': 'Mitsubishi', 'suzuki': 'Suzuki', 'subaru': 'Subaru',
+                'lexus': 'Lexus', 'infiniti': 'Infiniti', 'dacia': 'Dacia',
+                'smart': 'Smart', 'jaguar': 'Jaguar', 'bentley': 'Bentley',
+                'maserati': 'Maserati', 'ferrari': 'Ferrari', 'lamborghini': 'Lamborghini'
+            };
+            
             // Recherche correspondance exacte
-            for (const brand of brands) {
-                if (brandLower === brand) {
-                    // Retourner le nom propre de la marque
-                    const properCase = {
-                        'peugeot': 'Peugeot', 'renault': 'Renault', 'citroën': 'Citroën', 'citroen': 'Citroën',
-                        'volkswagen': 'Volkswagen', 'vw': 'Volkswagen', 'bmw': 'BMW',
-                        'mercedes': 'Mercedes', 'mercedes-benz': 'Mercedes', 'audi': 'Audi',
-                        'toyota': 'Toyota', 'ford': 'Ford', 'opel': 'Opel', 'fiat': 'Fiat',
-                        'nissan': 'Nissan', 'honda': 'Honda', 'hyundai': 'Hyundai', 'kia': 'Kia',
-                        'mazda': 'Mazda', 'volvo': 'Volvo', 'land rover': 'Land Rover',
-                        'jeep': 'Jeep', 'alfa romeo': 'Alfa Romeo', 'mini': 'Mini',
-                        'porsche': 'Porsche', 'tesla': 'Tesla', 'skoda': 'Skoda', 'seat': 'Seat',
-                        'mitsubishi': 'Mitsubishi', 'suzuki': 'Suzuki', 'subaru': 'Subaru',
-                        'lexus': 'Lexus', 'infiniti': 'Infiniti', 'dacia': 'Dacia',
-                        'smart': 'Smart', 'jaguar': 'Jaguar', 'bentley': 'Bentley',
-                        'maserati': 'Maserati', 'ferrari': 'Ferrari', 'lamborghini': 'Lamborghini'
-                    };
-                    return properCase[brand] || brandPart;
+            if (brandMap[brandLower]) {
+                return brandMap[brandLower];
+            }
+            
+            // Recherche correspondance partielle
+            for (const [key, value] of Object.entries(brandMap)) {
+                if (brandLower.includes(key) || key.includes(brandLower)) {
+                    return value;
                 }
             }
             
-            // Si pas de marque connue, retourner la marque telle quelle (JAMAIS "Autre")
-            // Mettre en proper case (première lettre majuscule)
-            return brandPart.charAt(0).toUpperCase() + brandPart.slice(1).toLowerCase();
+            // Si aucune correspondance, retourner la marque telle quelle (JAMAIS "Autre")
+            return brandPart;
         }
 
         function getBuyerById(id) {
@@ -1043,26 +1111,27 @@
                 const statusLabel = getStatusLabel(o.partsStatus);
                 const statusColor = getStatusColor(o.partsStatus);
                 
-                // Calcul du délai selon le statut
+                // Calcul du délai selon le statut (avec normalisation pour compatibilité)
                 // - En cours: aujourd'hui - date validation
                 // - Achat terminé: date achat terminé - date validation
                 // - Commande ferme: non inclus dans le calcul
+                const normalizedStatus = normalizeStatus(o.partsStatus);
                 let delayDisplay = '-';
                 let delayClass = '';
                 let delayTitle = '';
                 
-                if (o.partsStatus === 'en_cours' && o.validationDate) {
+                if (normalizedStatus === 'en_cours' && o.validationDate) {
                     const days = calculateDelay(o.validationDate);
                     delayDisplay = days + 'j';
                     delayClass = days > 14 ? 'text-red-500 font-bold' : days > 7 ? 'text-orange-500 font-semibold' : 'text-green-500 font-medium';
-                    delayTitle = `Depuis le ${new Date(o.validationDate).toLocaleDateString('fr-FR')}`;
-                } else if (o.partsStatus === 'achat_termine' && o.validationDate) {
+                    delayTitle = `Depuis le ${new Date(o.validationDate).toLocaleDateString('fr-FR')} (${days} jours)`;
+                } else if (normalizedStatus === 'achat_termine' && o.validationDate) {
                     const finishedDelay = o.delay || 0;
                     delayDisplay = finishedDelay + 'j';
                     delayClass = finishedDelay <= 7 ? 'text-green-500 font-medium' : finishedDelay <= 14 ? 'text-orange-500 font-semibold' : 'text-red-500 font-bold';
                     delayTitle = `Clôturé en ${finishedDelay} jours`;
-                } else if (o.partsStatus === 'commande_ferme') {
-                    delayDisplay = '<span class="text-gray-400 text-xs">N/A</span>';
+                } else if (normalizedStatus === 'commande_ferme') {
+                    delayDisplay = '<span class="text-gray-400 dark:text-gray-500 text-xs italic">-</span>';
                     delayTitle = 'Non inclus dans le calcul du délai';
                 }
                 
@@ -1081,17 +1150,17 @@
                             <span class="text-gray-600 dark:text-gray-400 text-sm line-clamp-2" title="${o.task}">${o.task}</span>
                         </td>
                         <td class="px-6 py-4">
-                            ${b || o.buyerName ? `
+                            ${b ? `
                                 <div class="flex items-center space-x-2">
                                     <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
-                                        ${b ? b.initials : o.buyerName.charAt(0).toUpperCase()}
+                                        ${b.initials}
                                     </div>
-                                    <span class="text-gray-700 dark:text-gray-300 text-sm font-medium">${b ? b.name : o.buyerName}</span>
+                                    <span class="text-gray-700 dark:text-gray-300 text-sm font-medium">${b.name}</span>
                                 </div>
                             ` : `
                                 <button onclick="openAssignBuyerFromOrder('${o.id}')" class="inline-flex items-center px-3 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-medium hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">
                                     <i data-lucide="user-plus" class="w-3 h-3 mr-1"></i>
-                                    Assigner
+                                    <span>Assigner</span>
                                 </button>
                             `}
                         </td>
@@ -1100,7 +1169,7 @@
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center" title="${delayTitle}">
-                                ${o.partsStatus === 'commande_ferme' ? 
+                                ${normalizedStatus === 'commande_ferme' ? 
                                     `<span class="text-gray-400 dark:text-gray-500 text-xs italic">-</span>` : 
                                     `<span class="${delayClass} text-sm font-semibold">${delayDisplay}</span>`
                                 }
@@ -1150,30 +1219,56 @@
         function renderBuyersView() {
             const officialBody = document.getElementById('officialBuyersList');
             
-            // Compter les dossiers par acheteur
-            const buyerOrderCount = {};
-            const buyerStats = {
-                enCours: {},
-                commandeFerme: {},
-                achatTermine: {}
-            };
+            // Compter les dossiers par acheteur - par buyerId ET par buyerName
+            const buyerStats = {};
             
+            // Initialiser tous les acheteurs officiels
+            OFFICIAL_BUYERS.forEach(b => {
+                buyerStats[b.id] = {
+                    id: b.id,
+                    name: b.name,
+                    total: 0,
+                    enCours: 0,
+                    commandeFerme: 0,
+                    achatTermine: 0
+                };
+            });
+            
+            // Compter les commandes pour chaque acheteur officiel
             orders.forEach(o => {
-                const bid = o.buyerId;
-                if (bid) {
-                    buyerOrderCount[bid] = (buyerOrderCount[bid] || 0) + 1;
-                    if (o.partsStatus === 'en_cours') buyerStats.enCours[bid] = (buyerStats.enCours[bid] || 0) + 1;
-                    else if (o.partsStatus === 'commande_ferme') buyerStats.commandeFerme[bid] = (buyerStats.commandeFerme[bid] || 0) + 1;
-                    else if (o.partsStatus === 'achat_termine') buyerStats.achatTermine[bid] = (buyerStats.achatTermine[bid] || 0) + 1;
+                // Normaliser le statut pour la comparaison
+                const status = normalizeStatus(o.partsStatus);
+                
+                // Chercher l'acheteur par ID ou par nom
+                let matchedBuyerId = null;
+                
+                if (o.buyerId) {
+                    // Si buyerId existe, l'utiliser
+                    matchedBuyerId = o.buyerId;
+                } else if (o.buyerName) {
+                    // Sinon, chercher par nom
+                    const matchedBuyer = matchBuyer(o.buyerName);
+                    if (matchedBuyer) {
+                        matchedBuyerId = matchedBuyer.id;
+                    }
+                }
+                
+                // Compter si on a trouvé un acheteur officiel
+                if (matchedBuyerId && buyerStats[matchedBuyerId]) {
+                    buyerStats[matchedBuyerId].total++;
+                    if (status === 'en_cours') buyerStats[matchedBuyerId].enCours++;
+                    else if (status === 'commande_ferme') buyerStats[matchedBuyerId].commandeFerme++;
+                    else if (status === 'achat_termine') buyerStats[matchedBuyerId].achatTermine++;
                 }
             });
             
-            // Afficher UNIQUEMENT la liste officielle des acheteurs avec stats détaillées
+            // Afficher la liste officielle des acheteurs avec stats détaillées
             officialBody.innerHTML = OFFICIAL_BUYERS.map((b, i) => {
-                const total = buyerOrderCount[b.id] || 0;
-                const enCours = buyerStats.enCours[b.id] || 0;
-                const commandeFerme = buyerStats.commandeFerme[b.id] || 0;
-                const achatTermine = buyerStats.achatTermine[b.id] || 0;
+                const stats = buyerStats[b.id];
+                const total = stats.total;
+                const enCours = stats.enCours;
+                const commandeFerme = stats.commandeFerme;
+                const achatTermine = stats.achatTermine;
                 
                 return `
                     <div class="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 rounded-xl border border-gray-200 dark:border-gray-600 hover:shadow-lg transition-all duration-200 animate-fade-in" style="animation-delay: ${i * 30}ms">
