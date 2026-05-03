@@ -18,17 +18,36 @@
     </script>
     <style>
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        .drag-active { border-color: #3b82f6 !important; background-color: rgba(59, 130, 246, 0.1) !important; transform: scale(1.02); }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .animate-slide-in { animation: slideIn 0.4s ease-out forwards; }
+        .animate-scale-in { animation: scaleIn 0.4s ease-out forwards; }
+        .animate-pulse { animation: pulse 2s infinite; }
+        
+        .drag-active { border-color: #3b82f6 !important; background-color: rgba(59, 130, 246, 0.1) !important; transform: scale(1.02); transition: all 0.2s; }
         .view-section { display: none; }
         .view-section.active { display: block; animation: fadeIn 0.3s ease-out; }
+        
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b82f6, #8b5cf6); border-radius: 4px; }
         .dark ::-webkit-scrollbar-track { background: #1f2937; }
-        .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+        .dark ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b82f6, #8b5cf6); }
+        
         select { position: relative; z-index: 60; }
         select:focus { z-index: 70; }
+        
+        .stat-card { transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        
+        .nav-btn { transition: all 0.2s ease; }
+        .nav-btn:hover { transform: translateY(-2px); }
+        
+        table tbody tr { transition: all 0.2s ease; }
+        table tbody tr:hover { transform: scale(1.01); }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900">
@@ -180,7 +199,7 @@
                     <h2 class="text-2xl font-bold flex items-center space-x-2"><i data-lucide="file-text" class="w-6 h-6"></i><span>Gestion des Commandes</span></h2>
                     <div class="flex flex-wrap gap-3">
                         <div class="relative"><input type="text" id="searchInput" oninput="renderOrdersTable()" placeholder="Rechercher..." class="pl-10 pr-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i></div>
-                        <select id="filterStatus" onchange="renderOrdersTable()" class="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="">Tous les statuts</option><option value="in_progress">En cours</option><option value="firm">Fermé</option><option value="received">Réceptionné</option><option value="closed">Clôturé</option></select>
+                        <select id="filterStatus" onchange="renderOrdersTable()" class="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="">Tous les statuts</option><option value="en_cours">En cours d'achat</option><option value="commande_ferme">Commande ferme</option><option value="achat_termine">Achat terminé</option></select>
                         <button onclick="openAddModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="plus" class="w-4 h-4"></i><span>Ajouter</span></button>
                         <button onclick="exportToExcel()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="download" class="w-4 h-4"></i><span>Export</span></button>
                         <label class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center space-x-2 cursor-pointer"><i data-lucide="upload" class="w-4 h-4"></i><span>Import Excel</span><input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden"></label>
@@ -223,14 +242,69 @@
             <div id="view-analytics" class="view-section">
                 <h2 class="text-2xl font-bold flex items-center space-x-2 mb-6"><i data-lucide="bar-chart-3" class="w-6 h-6"></i><span>Analytics</span></h2>
                 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white shadow-lg">
+                        <p class="text-sm opacity-90">Délai Moyen Service</p>
+                        <p class="text-3xl font-bold mt-1" id="kpiAvgDelay">0j</p>
+                        <p class="text-xs opacity-75 mt-1">Tous achats confondus</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 text-white shadow-lg">
+                        <p class="text-sm opacity-90">Achats Terminés</p>
+                        <p class="text-3xl font-bold mt-1" id="kpiClosedTotal">0</p>
+                        <p class="text-xs opacity-75 mt-1">Cette semaine</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg">
+                        <p class="text-sm opacity-90">Meilleur Délai</p>
+                        <p class="text-3xl font-bold mt-1" id="kpiBestBuyer">-</p>
+                        <p class="text-xs opacity-75 mt-1">Cette semaine</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg">
+                        <p class="text-sm opacity-90">Productivité</p>
+                        <p class="text-3xl font-bold mt-1" id="kpiProductivity">0%</p>
+                        <p class="text-xs opacity-75 mt-1">Taux de clôture</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <!-- Répartition par Statut -->
                     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
-                        <h3 class="font-semibold mb-4">Répartition par Statut</h3>
+                        <h3 class="font-semibold mb-4 flex items-center"><i data-lucide="pie-chart" class="w-5 h-5 mr-2 text-blue-500"></i>Statuts</h3>
                         <div id="statusChart" class="space-y-3"></div>
                     </div>
+                    
+                    <!-- Délai Moyen par Acheteur -->
                     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
-                        <h3 class="font-semibold mb-4">Performance par Acheteur</h3>
-                        <div id="buyerChart" class="space-y-3"></div>
+                        <h3 class="font-semibold mb-4 flex items-center"><i data-lucide="clock" class="w-5 h-5 mr-2 text-orange-500"></i>Délai Moyen / Acheteur</h3>
+                        <div id="avgDelayChart" class="space-y-3"></div>
+                    </div>
+                    
+                    <!-- Dossiers Clôturés / Semaine -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+                        <h3 class="font-semibold mb-4 flex items-center"><i data-lucide="calendar" class="w-5 h-5 mr-2 text-green-500"></i>Clôturés / Semaine</h3>
+                        <div id="weeklyChart" class="space-y-3"></div>
+                    </div>
+                </div>
+                
+                <!-- Performance Détaillée par Acheteur -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+                    <h3 class="font-semibold mb-4 flex items-center"><i data-lucide="trophy" class="w-5 h-5 mr-2 text-yellow-500"></i>Performance Détaillée par Acheteur</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">En Cours</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Commandes Fermes</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Terminés</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Délai Moyen</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="buyerPerformanceTable"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -345,8 +419,19 @@
         let unmatchedBuyersList = [];
         let notifications = [];
 
-        // Les acheteurs sont chargés depuis Firestore (collection 'buyers')
-        // Pas de liste en dur - on utilise uniquement la base de données
+        // Liste officielle des acheteurs - SEULEMENT ces noms sont reconnus
+        const OFFICIAL_BUYERS = [
+            { id: 'buyer1', name: 'Achref zehiri', initials: 'AZ', role: 'Responsable Achat' },
+            { id: 'buyer2', name: 'Olfa zribi', initials: 'OZ', role: 'Chef d\'équipe' },
+            { id: 'buyer3', name: 'Amine belsaad', initials: 'AB', role: 'Chargé d\'achat' },
+            { id: 'buyer4', name: 'Emna elaloui', initials: 'EE', role: 'Chargé d\'achat' },
+            { id: 'buyer5', name: 'Feriel oueslati', initials: 'FO', role: 'Chargé d\'achat' },
+            { id: 'buyer6', name: 'Ines slaimia', initials: 'IS', role: 'Chargé d\'achat' },
+            { id: 'buyer7', name: 'Iheb draoui', initials: 'ID', role: 'Chargé d\'achat' },
+            { id: 'buyer8', name: 'Nada Aydi', initials: 'NA', role: 'Chargé d\'achat' },
+            { id: 'buyer9', name: 'Houssem eddine ben rouha', initials: 'HB', role: 'Chargé d\'achat' },
+            { id: 'buyer10', name: 'Nour houda', initials: 'NH', role: 'Chargé d\'achat' }
+        ];
 
         // Fonctions d'authentification
         function showCreateAccount() {
@@ -506,13 +591,25 @@
         }
 
         function getBuyerById(id) {
-            return buyers.find(b => b.id === id) || null;
+            if (!id) return null;
+            // Cherche d'abord dans Firestore, puis dans la liste officielle
+            return buyers.find(b => b.id === id) || OFFICIAL_BUYERS.find(b => b.id === id);
         }
 
         function matchBuyer(name) {
             if (!name) return null;
-            // Cherche un acheteur dont le nom correspond (partiel ou total)
-            return buyers.find(b => name.toLowerCase().includes(b.name.toLowerCase()) || b.name.toLowerCase().includes(name.toLowerCase()));
+            const nameLower = name.toLowerCase().trim();
+            
+            // Recherche exacte ou partielle dans la liste OFFICIELLE uniquement
+            for (const buyer of OFFICIAL_BUYERS) {
+                const buyerLower = buyer.name.toLowerCase();
+                if (nameLower === buyerLower || nameLower.includes(buyerLower) || buyerLower.includes(nameLower)) {
+                    return buyer;
+                }
+            }
+            
+            // Si pas de match, retourne null (sera marqué comme "à assigner")
+            return null;
         }
 
         function getFilteredOrders() {
@@ -606,20 +703,36 @@
 
         function renderBuyersView() {
             const officialBody = document.getElementById('officialBuyersList');
-            // Affiche TOUS les acheteurs depuis Firestore
-            if (buyers.length === 0) {
-                officialBody.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Aucun acheteur dans la base. Importez un fichier Excel pour commencer.</p>';
-            } else {
-                officialBody.innerHTML = buyers.map((b, i) => `
-                    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            const unmatchedBody = document.getElementById('unmatchedBuyersList');
+            
+            // Compter les dossiers par acheteur
+            const buyerOrderCount = {};
+            orders.forEach(o => {
+                const bid = o.buyerId;
+                if (bid) {
+                    buyerOrderCount[bid] = (buyerOrderCount[bid] || 0) + 1;
+                }
+            });
+            
+            // Afficher la liste officielle des acheteurs avec stats
+            officialBody.innerHTML = OFFICIAL_BUYERS.map((b, i) => {
+                const count = buyerOrderCount[b.id] || 0;
+                return `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:shadow-md transition-shadow animate-fade-in" style="animation-delay: ${i * 30}ms">
                         <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">${b.initials || b.name.charAt(0).toUpperCase()}</div>
-                            <div><p class="font-medium">${b.name}</p><p class="text-xs text-gray-500">${b.role || 'Acheteur'}</p></div>
+                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium shadow-lg">${b.initials}</div>
+                            <div>
+                                <p class="font-medium text-gray-900 dark:text-white">${b.name}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">${b.role}</p>
+                            </div>
                         </div>
-                        <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">${b.orderCount || 0} dossiers</span>
+                        <div class="text-right">
+                            <span class="text-lg font-bold text-blue-600">${count}</span>
+                            <p class="text-xs text-gray-500">dossiers</p>
+                        </div>
                     </div>
-                `).join('');
-            }
+                `;
+            }).join('');
 
             const unmatchedBody = document.getElementById('unmatchedBuyersList');
             if (unmatchedBuyersList.length === 0) {
@@ -650,7 +763,39 @@
         }
 
         function renderAnalytics() {
-            // 1. Répartition par statut
+            // --- KPIs ---
+            const closedOrders = orders.filter(o => o.partsStatus === 'achat_termine');
+            const totalDelay = closedOrders.reduce((sum, o) => sum + (o.delay || 0), 0);
+            const avgDelay = closedOrders.length > 0 ? Math.round(totalDelay / closedOrders.length) : 0;
+            const closedThisWeek = closedOrders.filter(o => o.week === getCurrentWeekName()).length;
+            const productivity = orders.length > 0 ? Math.round((closedOrders.length / orders.length) * 100) : 0;
+            
+            // Meilleur acheteur (délai moyen le plus court)
+            const buyerDelaysAll = {};
+            const buyerClosedAll = {};
+            closedOrders.forEach(o => {
+                const b = getBuyerById(o.buyerId);
+                const name = b ? b.name : (o.buyerName || 'Non assigné');
+                buyerDelaysAll[name] = (buyerDelaysAll[name] || 0) + (o.delay || 0);
+                buyerClosedAll[name] = (buyerClosedAll[name] || 0) + 1;
+            });
+            
+            let bestBuyer = '-';
+            let bestAvg = Infinity;
+            Object.entries(buyerDelaysAll).forEach(([name, total]) => {
+                const avg = total / buyerClosedAll[name];
+                if (avg < bestAvg && buyerClosedAll[name] >= 1) {
+                    bestAvg = avg;
+                    bestBuyer = name.split(' ')[0];
+                }
+            });
+            
+            document.getElementById('kpiAvgDelay').textContent = avgDelay + 'j';
+            document.getElementById('kpiClosedTotal').textContent = closedThisWeek;
+            document.getElementById('kpiBestBuyer').textContent = bestBuyer;
+            document.getElementById('kpiProductivity').textContent = productivity + '%';
+            
+            // --- 1. Répartition par statut ---
             const byStatus = {};
             orders.forEach(o => { byStatus[o.partsStatus] = (byStatus[o.partsStatus] || 0) + 1; });
             
@@ -660,73 +805,134 @@
                 const pct = Math.round((count / total) * 100);
                 const colorClass = status === 'achat_termine' ? 'bg-green-500' : status === 'commande_ferme' ? 'bg-purple-500' : 'bg-blue-500';
                 return `
-                    <div>
+                    <div class="animate-fade-in">
                         <div class="flex justify-between text-sm mb-1"><span>${getStatusLabel(status)}</span><span>${count} (${pct}%)</span></div>
-                        <div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full ${colorClass}" style="width: ${pct}%"></div></div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+                            <div class="h-4 rounded-full ${colorClass} transition-all duration-500" style="width: ${pct}%"></div>
+                        </div>
                     </div>
                 `;
             }).join('');
 
-            // 2. Délai moyen par acheteur (pour les achats terminés)
-            const buyerDelays = {};
-            const buyerClosedCount = {};
-            orders.filter(o => o.partsStatus === 'achat_termine').forEach(o => {
-                const b = getBuyerById(o.buyerId);
-                const name = b ? b.name : (o.buyerName || 'Non assigné');
-                if (!buyerDelays[name]) {
-                    buyerDelays[name] = 0;
-                    buyerClosedCount[name] = 0;
-                }
-                buyerDelays[name] += (o.delay || 0);
-                buyerClosedCount[name]++;
-            });
-
+            // --- 2. Délai moyen par acheteur (achats terminés) ---
             const avgDelayChart = document.getElementById('avgDelayChart');
-            if (avgDelayChart) {
-                const sortedByDelay = Object.entries(buyerDelays)
-                    .map(([name, totalDelay]) => ({ name, avgDelay: Math.round(totalDelay / buyerClosedCount[name]) }))
-                    .sort((a, b) => a.avgDelay - b.avgDelay)
-                    .slice(0, 5);
-                
-                const maxDelay = sortedByDelay[0]?.avgDelay || 1;
-                avgDelayChart.innerHTML = sortedByDelay.map(({ name, avgDelay }) => {
-                    const pct = Math.round((avgDelay / maxDelay) * 100);
-                    return `
-                        <div>
-                            <div class="flex justify-between text-sm mb-1"><span>${name}</span><span>${avgDelay} jours (moy.)</span></div>
-                            <div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full bg-orange-500" style="width: ${pct}%"></div></div>
+            const sortedByDelay = Object.entries(buyerDelaysAll)
+                .map(([name, totalDelay]) => ({ name, avgDelay: Math.round(totalDelay / buyerClosedAll[name]), count: buyerClosedAll[name] }))
+                .filter(b => b.count >= 1)
+                .sort((a, b) => a.avgDelay - b.avgDelay)
+                .slice(0, 8);
+            
+            const maxDelay = sortedByDelay[0]?.avgDelay || 1;
+            avgDelayChart.innerHTML = sortedByDelay.map(({ name, avgDelay }, i) => {
+                const pct = maxDelay > 0 ? Math.round((avgDelay / maxDelay) * 100) : 0;
+                const colors = ['bg-green-500', 'bg-emerald-500', 'bg-teal-500', 'bg-cyan-500', 'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500'];
+                return `
+                    <div class="animate-fade-in" style="animation-delay: ${i * 50}ms">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium truncate">${name}</span>
+                            <span class="text-orange-600 font-semibold">${avgDelay}j</span>
                         </div>
-                    `;
-                }).join('') || '<p class="text-sm text-gray-500">Aucun achat terminé</p>';
-            }
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                            <div class="h-3 rounded-full ${colors[i % colors.length]} transition-all duration-500" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<p class="text-sm text-gray-500 text-center py-4">Aucun achat terminé</p>';
 
-            // 3. Dossiers clôturés par semaine
+            // --- 3. Dossiers clôturés par semaine ---
             const weeklyClosed = {};
-            orders.filter(o => o.partsStatus === 'achat_termine').forEach(o => {
+            closedOrders.forEach(o => {
                 const week = o.week || 'Semaine inconnue';
                 weeklyClosed[week] = (weeklyClosed[week] || 0) + 1;
             });
 
             const weeklyChart = document.getElementById('weeklyChart');
-            if (weeklyChart) {
-                const sortedWeeks = Object.entries(weeklyClosed).sort((a, b) => {
-                    // Trier par numéro de semaine
-                    const aNum = parseInt(a[0].match(/Semaine (\d+)/)?.[1] || 0);
-                    const bNum = parseInt(b[0].match(/Semaine (\d+)/)?.[1] || 0);
-                    return bNum - aNum;
-                }).slice(0, 10);
-                
-                const maxWeek = sortedWeeks[0]?.[1] || 1;
-                weeklyChart.innerHTML = sortedWeeks.map(([week, count]) => {
-                    const pct = Math.round((count / maxWeek) * 100);
-                    return `
-                        <div>
-                            <div class="flex justify-between text-sm mb-1"><span>${week}</span><span>${count} dossiers</span></div>
-                            <div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full bg-green-500" style="width: ${pct}%"></div></div>
+            const sortedWeeks = Object.entries(weeklyClosed).sort((a, b) => {
+                const aNum = parseInt(a[0].match(/Semaine (\d+)/)?.[1] || 0);
+                const bNum = parseInt(b[0].match(/Semaine (\d+)/)?.[1] || 0);
+                return bNum - aNum;
+            }).slice(0, 10);
+            
+            const maxWeek = sortedWeeks[0]?.[1] || 1;
+            weeklyChart.innerHTML = sortedWeeks.map(([week, count], i) => {
+                const pct = maxWeek > 0 ? Math.round((count / maxWeek) * 100) : 0;
+                return `
+                    <div class="animate-fade-in" style="animation-delay: ${i * 50}ms">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium">${week}</span>
+                            <span class="text-green-600 font-semibold">${count}</span>
                         </div>
-                    `;
-                }).join('') || '<p class="text-sm text-gray-500">Aucun dossier clôturé</p>';
-            }
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                            <div class="h-3 rounded-full bg-green-500 transition-all duration-500" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<p class="text-sm text-gray-500 text-center py-4">Aucun dossier clôturé</p>';
+            
+            // --- 4. Tableau de performance par acheteur ---
+            const buyerStats = {};
+            
+            // Initialiser tous les acheteurs officiels
+            OFFICIAL_BUYERS.forEach(b => {
+                buyerStats[b.id] = {
+                    id: b.id,
+                    name: b.name,
+                    role: b.role,
+                    initials: b.initials,
+                    enCours: 0,
+                    commandeFerme: 0,
+                    termines: 0,
+                    totalDelay: 0
+                };
+            });
+            
+            // Compter les dossiers par acheteur
+            orders.forEach(o => {
+                const bid = o.buyerId;
+                if (bid && buyerStats[bid]) {
+                    if (o.partsStatus === 'en_cours') buyerStats[bid].enCours++;
+                    else if (o.partsStatus === 'commande_ferme') buyerStats[bid].commandeFerme++;
+                    else if (o.partsStatus === 'achat_termine') {
+                        buyerStats[bid].termines++;
+                        buyerStats[bid].totalDelay += (o.delay || 0);
+                    }
+                }
+            });
+            
+            // Calculer délai moyen et trier par performance
+            const buyerList = Object.values(buyerStats)
+                .map(b => ({
+                    ...b,
+                    avgDelay: b.termines > 0 ? Math.round(b.totalDelay / b.termines) : 0,
+                    total: b.enCours + b.commandeFerme + b.termines
+                }))
+                .filter(b => b.total > 0)
+                .sort((a, b) => b.termines - a.termines || a.avgDelay - b.avgDelay);
+            
+            const perfTable = document.getElementById('buyerPerformanceTable');
+            perfTable.innerHTML = buyerList.map((b, i) => {
+                const performanceScore = b.termines > 0 ? Math.min(100, Math.round((b.termines / b.total) * 100 + (30 - b.avgDelay))) : 0;
+                const perfColor = performanceScore >= 80 ? 'text-green-600' : performanceScore >= 50 ? 'text-orange-600' : 'text-red-600';
+                const perfBg = performanceScore >= 80 ? 'bg-green-100' : performanceScore >= 50 ? 'bg-orange-100' : 'bg-red-100';
+                
+                return `
+                    <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors animate-fade-in" style="animation-delay: ${i * 50}ms">
+                        <td class="px-4 py-3"><span class="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold">${i + 1}</span></td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">${b.initials}</div>
+                                <span class="font-medium">${b.name}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-500">${b.role}</td>
+                        <td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">${b.enCours}</span></td>
+                        <td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">${b.commandeFerme}</span></td>
+                        <td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">${b.termines}</span></td>
+                        <td class="px-4 py-3 text-center"><span class="${b.avgDelay <= 7 ? 'text-green-600' : b.avgDelay <= 14 ? 'text-orange-600' : 'text-red-600'} font-semibold">${b.avgDelay > 0 ? b.avgDelay + 'j' : '-'}</span></td>
+                        <td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded-full ${perfBg} ${perfColor} text-xs font-bold">${performanceScore}%</span></td>
+                    </tr>
+                `;
+            }).join('') || '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">Aucune donnée disponible</td></tr>';
         }
 
         // Détail commande
@@ -792,6 +998,15 @@
             }
             document.getElementById('formValidationDate').value = vd ? vd.split('.')[0] : '';
             document.getElementById('formStatus').value = o.partsStatus; 
+            
+            // Afficher le champ date d'achat terminé si le statut est 'achat_termine'
+            const finishedDateDiv = document.getElementById('finishedDateDiv');
+            if (o.partsStatus === 'achat_termine' && o.finishedDate) {
+                finishedDateDiv?.classList.remove('hidden');
+                document.getElementById('formFinishedDate').value = o.finishedDate.split('T')[0];
+            } else {
+                finishedDateDiv?.classList.add('hidden');
+            }
             
             populateBuyerSelect();
             
@@ -907,8 +1122,8 @@
         function populateBuyerSelect() {
             const select = document.getElementById('formBuyer');
             if (!select) return;
-            const allBuyers = [...OFFICIAL_BUYERS, ...buyers];
-            select.innerHTML = '<option value="">Non assigné</option>' + allBuyers.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+            // Utiliser uniquement la liste officielle des acheteurs
+            select.innerHTML = '<option value="">Non assigné</option>' + OFFICIAL_BUYERS.map(b => `<option value="${b.id}">${b.name} - ${b.role}</option>`).join('');
         }
 
         function openAssignBuyer(name) {
@@ -1072,7 +1287,7 @@
                                 buyerId: mb ? mb.id : '',
                                 validationDate: vdate,
                                 delay: del,
-                                partsStatus: 'in_progress',
+                                partsStatus: 'en_cours',  // Statut par défaut
                                 week: cw,
                                 importDate: new Date().toISOString().split('T')[0],
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
