@@ -282,7 +282,8 @@
                 <div><label class="block text-sm font-medium mb-1">Marque</label><input type="text" id="formVehicleBrand" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
                 <div><label class="block text-sm font-medium mb-1">Tâche</label><input type="text" id="formTask" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
                 <div><label class="block text-sm font-medium mb-1">Date Validation Expert</label><input type="datetime-local" id="formValidationDate" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
-                <div><label class="block text-sm font-medium mb-1">Statut Pièces</label><select id="formStatus" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="in_progress">En cours</option><option value="firm">Fermé</option><option value="received">Réceptionné</option><option value="closed">Clôturé</option></select></div>
+                <div><label class="block text-sm font-medium mb-1">Statut Achat</label><select id="formStatus" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="en_cours">En cours d'achat</option><option value="commande_ferme">Commande ferme</option><option value="achat_termine">Achat terminé</option></select></div>
+                <div id="finishedDateDiv" class="hidden"><label class="block text-sm font-medium mb-1">Date Achat Terminé</label><input type="date" id="formFinishedDate" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
                 <div><label class="block text-sm font-medium mb-1">Acheteur</label><select id="formBuyer" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></select></div>
                 <div class="flex space-x-3 pt-4"><button type="button" onclick="closeModal()" class="flex-1 py-3 border rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button><button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Enregistrer</button></div>
             </form>
@@ -344,12 +345,8 @@
         let unmatchedBuyersList = [];
         let notifications = [];
 
-        // Acheteurs officiels (à personnaliser)
-        const OFFICIAL_BUYERS = [
-            { id: 'buyer1', name: 'Ahmed Ben Ali', initials: 'AB', role: 'Acheteur' },
-            { id: 'buyer2', name: 'Sarah Mohammed', initials: 'SM', role: 'Acheteur Senior' },
-            { id: 'buyer3', name: 'Karim Trabelsi', initials: 'KT', role: 'Acheteur' }
-        ];
+        // Les acheteurs sont chargés depuis Firestore (collection 'buyers')
+        // Pas de liste en dur - on utilise uniquement la base de données
 
         // Fonctions d'authentification
         function showCreateAccount() {
@@ -465,21 +462,32 @@
 
         // Utilitaires
         function getStatusLabel(status) {
-            const labels = { 'in_progress': 'En cours', 'firm': 'Fermé', 'received': 'Réceptionné', 'closed': 'Clôturé' };
+            const labels = { 
+                'en_cours': 'En cours d\'achat', 
+                'commande_ferme': 'Commande ferme', 
+                'achat_termine': 'Achat terminé' 
+            };
             return labels[status] || status;
         }
 
         function getStatusColor(status) {
-            const colors = { 'in_progress': 'bg-blue-100 text-blue-700', 'firm': 'bg-purple-100 text-purple-700', 'received': 'bg-orange-100 text-orange-700', 'closed': 'bg-green-100 text-green-700' };
+            const colors = { 
+                'en_cours': 'bg-blue-100 text-blue-700', 
+                'commande_ferme': 'bg-purple-100 text-purple-700', 
+                'achat_termine': 'bg-green-100 text-green-700' 
+            };
             return colors[status] || 'bg-gray-100 text-gray-700';
         }
 
-        function calculateDelay(validationDate) {
+        // Calcul du délai : 
+        // - Pour "Achat terminé" : entre date validation expert et date achat terminé
+        // - Pour autres statuts : entre date validation expert et aujourd'hui
+        function calculateDelay(validationDate, finishedDate = null) {
             if (!validationDate) return 0;
             const vDate = new Date(validationDate);
-            const today = new Date();
-            const diff = Math.ceil((today - vDate) / (1000 * 60 * 60 * 24));
-            return diff;
+            const endDate = finishedDate ? new Date(finishedDate) : new Date();
+            const diff = Math.ceil((endDate - vDate) / (1000 * 60 * 60 * 24));
+            return diff >= 0 ? diff : 0;
         }
 
         function getCurrentWeekName() {
@@ -498,13 +506,13 @@
         }
 
         function getBuyerById(id) {
-            return buyers.find(b => b.id === id) || OFFICIAL_BUYERS.find(b => b.id === id);
+            return buyers.find(b => b.id === id) || null;
         }
 
         function matchBuyer(name) {
             if (!name) return null;
-            const matched = OFFICIAL_BUYERS.find(b => name.toLowerCase().includes(b.name.split(' ')[0].toLowerCase()) || name.toLowerCase().includes(b.name.split(' ')[1]?.toLowerCase() || ''));
-            return matched || buyers.find(b => name.toLowerCase().includes(b.name.toLowerCase()));
+            // Cherche un acheteur dont le nom correspond (partiel ou total)
+            return buyers.find(b => name.toLowerCase().includes(b.name.toLowerCase()) || b.name.toLowerCase().includes(name.toLowerCase()));
         }
 
         function getFilteredOrders() {
@@ -520,18 +528,18 @@
         // Rendu UI
         function renderStats() {
             const total = orders.length;
-            const inProgress = orders.filter(o => o.partsStatus === 'in_progress').length;
-            const firm = orders.filter(o => o.partsStatus === 'firm').length;
-            const closed = orders.filter(o => o.partsStatus === 'closed').length;
+            const enCours = orders.filter(o => o.partsStatus === 'en_cours').length;
+            const commandeFerme = orders.filter(o => o.partsStatus === 'commande_ferme').length;
+            const achatTermine = orders.filter(o => o.partsStatus === 'achat_termine').length;
             
             document.getElementById('statTotal').textContent = total;
-            document.getElementById('statInProgress').textContent = inProgress;
-            document.getElementById('statFirm').textContent = firm;
-            document.getElementById('statClosed').textContent = closed;
+            document.getElementById('statInProgress').textContent = enCours;
+            document.getElementById('statFirm').textContent = commandeFerme;
+            document.getElementById('statClosed').textContent = achatTermine;
         }
 
         function renderWeeklyClosedByBuyer() {
-            const closedThisWeek = orders.filter(o => o.partsStatus === 'closed');
+            const closedThisWeek = orders.filter(o => o.partsStatus === 'achat_termine');
             const byBuyer = {};
             closedThisWeek.forEach(o => {
                 const b = getBuyerById(o.buyerId);
@@ -598,14 +606,20 @@
 
         function renderBuyersView() {
             const officialBody = document.getElementById('officialBuyersList');
-            officialBody.innerHTML = OFFICIAL_BUYERS.map(b => `
-                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-medium">${b.initials}</div>
-                        <div><p class="font-medium">${b.name}</p><p class="text-xs text-gray-500">${b.role}</p></div>
+            // Affiche TOUS les acheteurs depuis Firestore
+            if (buyers.length === 0) {
+                officialBody.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Aucun acheteur dans la base. Importez un fichier Excel pour commencer.</p>';
+            } else {
+                officialBody.innerHTML = buyers.map((b, i) => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">${b.initials || b.name.charAt(0).toUpperCase()}</div>
+                            <div><p class="font-medium">${b.name}</p><p class="text-xs text-gray-500">${b.role || 'Acheteur'}</p></div>
+                        </div>
+                        <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">${b.orderCount || 0} dossiers</span>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
 
             const unmatchedBody = document.getElementById('unmatchedBuyersList');
             if (unmatchedBuyersList.length === 0) {
@@ -636,6 +650,7 @@
         }
 
         function renderAnalytics() {
+            // 1. Répartition par statut
             const byStatus = {};
             orders.forEach(o => { byStatus[o.partsStatus] = (byStatus[o.partsStatus] || 0) + 1; });
             
@@ -643,33 +658,75 @@
             const total = orders.length || 1;
             statusChart.innerHTML = Object.entries(byStatus).map(([status, count]) => {
                 const pct = Math.round((count / total) * 100);
+                const colorClass = status === 'achat_termine' ? 'bg-green-500' : status === 'commande_ferme' ? 'bg-purple-500' : 'bg-blue-500';
                 return `
                     <div>
                         <div class="flex justify-between text-sm mb-1"><span>${getStatusLabel(status)}</span><span>${count} (${pct}%)</span></div>
-                        <div class="w-full bg-gray-200 rounded-full h-2"><div class="h-2 rounded-full ${status === 'closed' ? 'bg-green-500' : status === 'firm' ? 'bg-purple-500' : status === 'received' ? 'bg-orange-500' : 'bg-blue-500'}" style="width: ${pct}%"></div></div>
+                        <div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full ${colorClass}" style="width: ${pct}%"></div></div>
                     </div>
                 `;
             }).join('');
 
-            const byBuyer = {};
-            orders.forEach(o => {
+            // 2. Délai moyen par acheteur (pour les achats terminés)
+            const buyerDelays = {};
+            const buyerClosedCount = {};
+            orders.filter(o => o.partsStatus === 'achat_termine').forEach(o => {
                 const b = getBuyerById(o.buyerId);
                 const name = b ? b.name : (o.buyerName || 'Non assigné');
-                byBuyer[name] = (byBuyer[name] || 0) + 1;
+                if (!buyerDelays[name]) {
+                    buyerDelays[name] = 0;
+                    buyerClosedCount[name] = 0;
+                }
+                buyerDelays[name] += (o.delay || 0);
+                buyerClosedCount[name]++;
             });
 
-            const buyerChart = document.getElementById('buyerChart');
-            const sortedBuyers = Object.entries(byBuyer).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            const maxCount = sortedBuyers[0]?.[1] || 1;
-            buyerChart.innerHTML = sortedBuyers.map(([name, count]) => {
-                const pct = Math.round((count / maxCount) * 100);
-                return `
-                    <div>
-                        <div class="flex justify-between text-sm mb-1"><span>${name}</span><span>${count} dossiers</span></div>
-                        <div class="w-full bg-gray-200 rounded-full h-2"><div class="h-2 rounded-full bg-purple-500" style="width: ${pct}%"></div></div>
-                    </div>
-                `;
-            }).join('');
+            const avgDelayChart = document.getElementById('avgDelayChart');
+            if (avgDelayChart) {
+                const sortedByDelay = Object.entries(buyerDelays)
+                    .map(([name, totalDelay]) => ({ name, avgDelay: Math.round(totalDelay / buyerClosedCount[name]) }))
+                    .sort((a, b) => a.avgDelay - b.avgDelay)
+                    .slice(0, 5);
+                
+                const maxDelay = sortedByDelay[0]?.avgDelay || 1;
+                avgDelayChart.innerHTML = sortedByDelay.map(({ name, avgDelay }) => {
+                    const pct = Math.round((avgDelay / maxDelay) * 100);
+                    return `
+                        <div>
+                            <div class="flex justify-between text-sm mb-1"><span>${name}</span><span>${avgDelay} jours (moy.)</span></div>
+                            <div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full bg-orange-500" style="width: ${pct}%"></div></div>
+                        </div>
+                    `;
+                }).join('') || '<p class="text-sm text-gray-500">Aucun achat terminé</p>';
+            }
+
+            // 3. Dossiers clôturés par semaine
+            const weeklyClosed = {};
+            orders.filter(o => o.partsStatus === 'achat_termine').forEach(o => {
+                const week = o.week || 'Semaine inconnue';
+                weeklyClosed[week] = (weeklyClosed[week] || 0) + 1;
+            });
+
+            const weeklyChart = document.getElementById('weeklyChart');
+            if (weeklyChart) {
+                const sortedWeeks = Object.entries(weeklyClosed).sort((a, b) => {
+                    // Trier par numéro de semaine
+                    const aNum = parseInt(a[0].match(/Semaine (\d+)/)?.[1] || 0);
+                    const bNum = parseInt(b[0].match(/Semaine (\d+)/)?.[1] || 0);
+                    return bNum - aNum;
+                }).slice(0, 10);
+                
+                const maxWeek = sortedWeeks[0]?.[1] || 1;
+                weeklyChart.innerHTML = sortedWeeks.map(([week, count]) => {
+                    const pct = Math.round((count / maxWeek) * 100);
+                    return `
+                        <div>
+                            <div class="flex justify-between text-sm mb-1"><span>${week}</span><span>${count} dossiers</span></div>
+                            <div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full bg-green-500" style="width: ${pct}%"></div></div>
+                        </div>
+                    `;
+                }).join('') || '<p class="text-sm text-gray-500">Aucun dossier clôturé</p>';
+            }
         }
 
         // Détail commande
@@ -785,12 +842,32 @@
             }
         }
 
+        // Afficher/masquer le champ date d'achat terminé selon le statut
+        document.getElementById('formStatus')?.addEventListener('change', function() {
+            const finishedDateDiv = document.getElementById('finishedDateDiv');
+            if (this.value === 'achat_termine') {
+                finishedDateDiv?.classList.remove('hidden');
+            } else {
+                finishedDateDiv?.classList.add('hidden');
+            }
+        });
+
         document.getElementById('orderForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const eid = document.getElementById('editOrderId').value;
             const veh = document.getElementById('formVehicle').value;
             const vd = document.getElementById('formValidationDate').value;
-            const del = calculateDelay(vd);
+            const status = document.getElementById('formStatus').value;
+            const finishedDate = document.getElementById('formFinishedDate')?.value;
+            
+            // Calcul du délai selon le statut
+            let del;
+            if (status === 'achat_termine' && finishedDate) {
+                del = calculateDelay(vd, finishedDate);
+            } else {
+                del = calculateDelay(vd);
+            }
+            
             const bid = document.getElementById('formBuyer').value;
             const b = getBuyerById(bid);
             const buyerName = b ? b.name : '';
@@ -805,9 +882,14 @@
                 buyerName: buyerName,
                 validationDate: vd.replace('T', ' '),
                 delay: del,
-                partsStatus: document.getElementById('formStatus').value,
+                partsStatus: status,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
+            
+            // Ajouter la date d'achat terminé si applicable
+            if (status === 'achat_termine' && finishedDate) {
+                orderData.finishedDate = finishedDate;
+            }
             
             if (eid) { 
                 await db.collection('orders').doc(eid).update(orderData);
