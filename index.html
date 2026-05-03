@@ -21,33 +21,55 @@
         @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
         
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         .animate-slide-in { animation: slideIn 0.4s ease-out forwards; }
         .animate-scale-in { animation: scaleIn 0.4s ease-out forwards; }
         .animate-pulse { animation: pulse 2s infinite; }
+        .animate-shimmer { animation: shimmer 2s infinite linear; }
         
-        .drag-active { border-color: #3b82f6 !important; background-color: rgba(59, 130, 246, 0.1) !important; transform: scale(1.02); transition: all 0.2s; }
+        .drag-active { border-color: #3b82f6 !important; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)) !important; transform: scale(1.02); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .view-section { display: none; }
         .view-section.active { display: block; animation: fadeIn 0.3s ease-out; }
         
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b82f6, #8b5cf6); border-radius: 4px; }
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b82f6, #8b5cf6); border-radius: 8px; }
         .dark ::-webkit-scrollbar-track { background: #1f2937; }
         .dark ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b82f6, #8b5cf6); }
+        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #2563eb, #7c3aed); }
         
         select { position: relative; z-index: 60; }
         select:focus { z-index: 70; }
         
-        .stat-card { transition: all 0.3s ease; }
-        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        .stat-card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stat-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
         
-        .nav-btn { transition: all 0.2s ease; }
+        .nav-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
         .nav-btn:hover { transform: translateY(-2px); }
         
         table tbody tr { transition: all 0.2s ease; }
-        table tbody tr:hover { transform: scale(1.01); }
+        table tbody tr:hover { transform: scale(1.005); background-color: rgba(59, 130, 246, 0.05); }
+        
+        /* Mode sombre - Texte lisible */
+        .dark body { color: #f3f4f6; }
+        .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 { color: #f9fafb; }
+        .dark p { color: #d1d5db; }
+        .dark .text-gray-500 { color: #9ca3af !important; }
+        .dark .text-gray-600 { color: #d1d5db !important; }
+        .dark .text-gray-700 { color: #e5e7eb !important; }
+        .dark .text-gray-900 { color: #f9fafb !important; }
+        
+        /* Boutons modernes */
+        button { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        button:active { transform: scale(0.95); }
+        
+        /* Dropdown animations */
+        [id^="status-dropdown-"] {
+            animation: scaleIn 0.2s ease-out;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900">
@@ -164,56 +186,140 @@
         <main class="max-w-7xl mx-auto px-4 py-8">
             <!-- DASHBOARD -->
             <div id="view-dashboard" class="view-section active">
+                <!-- KPI Cards -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border hover:shadow-lg cursor-pointer" onclick="navigateTo('orders')">
-                        <div class="flex justify-between"><div><p class="text-sm text-gray-500">Total Dossiers</p><p class="text-3xl font-bold mt-1" id="statTotal">0</p><p class="text-xs text-green-600 mt-2">Cette semaine</p></div><div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center"><i data-lucide="file-spreadsheet" class="w-6 h-6"></i></div></div>
+                    <div class="stat-card bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div><p class="text-sm opacity-90">Total Dossiers</p><p class="text-4xl font-bold mt-2" id="statTotal">0</p><p class="text-xs opacity-75 mt-2 flex items-center"><i data-lucide="trending-up" class="w-3 h-3 mr-1"></i>Cette semaine</p></div>
+                            <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center"><i data-lucide="file-spreadsheet" class="w-7 h-7"></i></div>
+                        </div>
                     </div>
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border hover:shadow-lg cursor-pointer" onclick="navigateTo('orders')">
-                        <div class="flex justify-between"><div><p class="text-sm text-gray-500">En Cours</p><p class="text-3xl font-bold mt-1" id="statInProgress">0</p><p class="text-xs text-blue-600 mt-2">Actifs</p></div><div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center"><i data-lucide="refresh-cw" class="w-6 h-6"></i></div></div>
+                    <div class="stat-card bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div><p class="text-sm opacity-90">En Cours d'Achat</p><p class="text-4xl font-bold mt-2" id="statInProgress">0</p><p class="text-xs opacity-75 mt-2 flex items-center"><i data-lucide="clock" class="w-3 h-3 mr-1"></i>Actifs</p></div>
+                            <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center"><i data-lucide="refresh-cw" class="w-7 h-7"></i></div>
+                        </div>
                     </div>
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border hover:shadow-lg cursor-pointer" onclick="navigateTo('orders')">
-                        <div class="flex justify-between"><div><p class="text-sm text-gray-500">Commandes Fermes</p><p class="text-3xl font-bold mt-1" id="statFirm">0</p><p class="text-xs text-purple-600 mt-2">Confirmées</p></div><div class="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center"><i data-lucide="shield-check" class="w-6 h-6"></i></div></div>
+                    <div class="stat-card bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div><p class="text-sm opacity-90">Commandes Fermes</p><p class="text-4xl font-bold mt-2" id="statFirm">0</p><p class="text-xs opacity-75 mt-2 flex items-center"><i data-lucide="lock" class="w-3 h-3 mr-1"></i>Confirmées</p></div>
+                            <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center"><i data-lucide="shield-check" class="w-7 h-7"></i></div>
+                        </div>
                     </div>
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border hover:shadow-lg cursor-pointer" onclick="navigateTo('analytics')">
-                        <div class="flex justify-between"><div><p class="text-sm text-gray-500">Achats Terminés</p><p class="text-3xl font-bold text-green-600 mt-1" id="statClosed">0</p><p class="text-xs text-green-600 mt-2">Cette semaine</p></div><div class="w-12 h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center"><i data-lucide="circle-check" class="w-6 h-6"></i></div></div>
+                    <div class="stat-card bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div><p class="text-sm opacity-90">Achats Terminés</p><p class="text-4xl font-bold mt-2" id="statClosed">0</p><p class="text-xs opacity-75 mt-2 flex items-center"><i data-lucide="check-circle" class="w-3 h-3 mr-1"></i>Cette semaine</p></div>
+                            <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center"><i data-lucide="circle-check" class="w-7 h-7"></i></div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border mb-8">
-                    <div class="p-6 border-b"><h2 class="text-lg font-semibold flex items-center space-x-2"><i data-lucide="trophy" class="w-5 h-5 text-yellow-600"></i><span>Top Acheteurs - Cette Semaine</span></h2></div>
-                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dossiers Fermés</th></tr></thead><tbody id="weeklyClosedByBuyer"></tbody></table></div>
+                <!-- Upload Section + Weekly Summary -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Upload Zone -->
+                    <div class="lg:col-span-2 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300" id="dashboardDropZone">
+                        <div class="text-center">
+                            <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
+                                <i data-lucide="upload-cloud" class="w-10 h-10 text-white"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">Importer l'état des dossiers</h3>
+                            <p class="text-gray-500 dark:text-gray-400 mb-4">Glissez-déposez votre fichier Excel ou cliquez pour sélectionner</p>
+                            <p class="text-sm text-gray-400 dark:text-gray-500 mb-6">Format: .xlsx ou .xls • Mise à jour hebdomadaire ou journalière</p>
+                            <label class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                                <i data-lucide="folder-open" class="w-5 h-5 mr-2"></i>
+                                <span>Sélectionner un fichier</span>
+                                <input type="file" id="dashboardFileInput" accept=".xlsx,.xls" class="hidden">
+                            </label>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-4"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>Seuls les nouveaux dossiers seront ajoutés, les existants ne seront pas écrasés</p>
+                        </div>
+                    </div>
+
+                    <!-- Weekly Summary -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+                        <h3 class="font-bold text-gray-900 dark:text-white mb-4 flex items-center"><i data-lucide="calendar" class="w-5 h-5 mr-2 text-blue-500"></i>Récapitulatif Semaines</h3>
+                        <div id="weeklySummary" class="space-y-3 max-h-96 overflow-y-auto">
+                            <!-- Rempli dynamiquement -->
+                        </div>
+                    </div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border">
-                    <div class="p-6 border-b flex justify-between items-center">
-                        <h2 class="text-lg font-semibold flex items-center space-x-2"><i data-lucide="clock" class="w-5 h-5 text-blue-600"></i><span>Dernières Commandes</span></h2>
-                        <button onclick="navigateTo('orders')" class="text-sm text-blue-600 hover:underline">Voir tout</button>
+                <!-- Stats par Marque -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border mb-8 overflow-hidden">
+                    <div class="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
+                        <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+                            <i data-lucide="car" class="w-5 h-5 text-blue-600"></i>
+                            <span>Répartition par Marque</span>
+                        </h2>
                     </div>
-                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Véhicule</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th></tr></thead><tbody id="recentOrders"></tbody></table></div>
+                    <div class="p-6">
+                        <div id="brandStats" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            <!-- Rempli dynamiquement -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Buyers -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border mb-8 overflow-hidden">
+                    <div class="p-6 border-b bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-gray-800 dark:to-gray-900"><h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center space-x-2"><i data-lucide="trophy" class="w-5 h-5 text-yellow-600"></i><span>Top Acheteurs - Cette Semaine</span></h2></div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dossiers Terminés</th></tr></thead><tbody id="weeklyClosedByBuyer"></tbody></table></div>
+                </div>
+
+                <!-- Recent Orders -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden">
+                    <div class="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 flex justify-between items-center">
+                        <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center space-x-2"><i data-lucide="clock" class="w-5 h-5 text-blue-600"></i><span>Dernières Commandes</span></h2>
+                        <button onclick="navigateTo('orders')" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium flex items-center"><span>Voir tout</span><i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i></button>
+                    </div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marque</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th></tr></thead><tbody id="recentOrders"></tbody></table></div>
                 </div>
             </div>
 
             <!-- ORDERS VIEW -->
             <div id="view-orders" class="view-section">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
-                    <h2 class="text-2xl font-bold flex items-center space-x-2"><i data-lucide="file-text" class="w-6 h-6"></i><span>Gestion des Commandes</span></h2>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center space-x-2"><i data-lucide="file-text" class="w-6 h-6 text-blue-500"></i><span>Gestion des Commandes</span></h2>
                     <div class="flex flex-wrap gap-3">
-                        <div class="relative"><input type="text" id="searchInput" oninput="renderOrdersTable()" placeholder="Rechercher..." class="pl-10 pr-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i></div>
-                        <select id="filterStatus" onchange="renderOrdersTable()" class="px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="">Tous les statuts</option><option value="en_cours">En cours d'achat</option><option value="commande_ferme">Commande ferme</option><option value="achat_termine">Achat terminé</option></select>
-                        <button onclick="openAddModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="plus" class="w-4 h-4"></i><span>Ajouter</span></button>
-                        <button onclick="exportToExcel()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="download" class="w-4 h-4"></i><span>Export</span></button>
-                        <label class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center space-x-2 cursor-pointer"><i data-lucide="upload" class="w-4 h-4"></i><span>Import Excel</span><input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden"></label>
+                        <div class="relative">
+                            <input type="text" id="searchInput" oninput="renderOrdersTable()" placeholder="Rechercher..." class="pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+                        <select id="filterStatus" onchange="renderOrdersTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
+                            <option value="">Tous les statuts</option>
+                            <option value="en_cours">En cours d'achat</option>
+                            <option value="commande_ferme">Commande ferme</option>
+                            <option value="achat_termine">Achat terminé</option>
+                        </select>
+                        <button onclick="openAddModal()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span>Ajouter</span>
+                        </button>
+                        <button onclick="exportToExcel()" class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Export</span>
+                        </button>
                     </div>
                 </div>
 
-                <div id="dropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center mb-6 hover:border-blue-500 transition-colors">
-                    <i data-lucide="upload-cloud" class="w-12 h-12 mx-auto text-gray-400 mb-4"></i>
-                    <p class="text-gray-600 dark:text-gray-400">Glissez-déposez votre fichier Excel ici ou cliquez pour sélectionner</p>
-                    <p class="text-xs text-gray-500 mt-2">Format: .xlsx ou .xls</p>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden">
-                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Réf</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Véhicule</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tâche</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Val.</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Délai</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th></tr></thead><tbody id="ordersTableBody"></tbody></table></div>
+                <!-- Tableau des commandes - Plus grand et plus lisible -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Réf</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Marque</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tâche</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acheteur</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date Val.</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Délai</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Statut</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTableBody" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -287,23 +393,31 @@
                 </div>
                 
                 <!-- Performance Détaillée par Acheteur -->
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
-                    <h3 class="font-semibold mb-4 flex items-center"><i data-lucide="trophy" class="w-5 h-5 mr-2 text-yellow-500"></i>Performance Détaillée par Acheteur</h3>
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border overflow-hidden">
+                    <div class="p-6 border-b bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-gray-800 dark:to-gray-900">
+                        <h3 class="font-bold text-gray-900 dark:text-white flex items-center">
+                            <i data-lucide="trophy" class="w-5 h-5 mr-2 text-yellow-600"></i>
+                            Performance Détaillée par Acheteur
+                        </h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+                            Le délai moyen est calculé uniquement sur les achats terminés
+                        </p>
+                    </div>
                     <div class="overflow-x-auto">
                         <table class="w-full">
-                            <thead class="bg-gray-50 dark:bg-gray-700">
+                            <thead class="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acheteur</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">En Cours</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Commandes Fermes</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Terminés</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Délai Moyen</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Performance</th>
+                                    <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">#</th>
+                                    <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acheteur</th>
+                                    <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">En Cours</th>
+                                    <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Commandes Fermes</th>
+                                    <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Terminés</th>
+                                    <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Délai Moyen</th>
+                                    <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Performance</th>
                                 </tr>
                             </thead>
-                            <tbody id="buyerPerformanceTable"></tbody>
+                            <tbody id="buyerPerformanceTable" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
                         </table>
                     </div>
                 </div>
@@ -551,19 +665,28 @@
 
         // Chargement des données
         function loadData() {
+            console.log('📡 Chargement des données depuis Firestore...');
+            
             db.collection('orders').onSnapshot(snapshot => {
+                console.log('📦 Commandes chargées:', snapshot.size);
                 orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderAll();
+            }, error => {
+                console.error('❌ Erreur chargement orders:', error);
             });
 
             db.collection('buyers').onSnapshot(snapshot => {
                 buyers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderAll();
+            }, error => {
+                console.error('❌ Erreur chargement buyers:', error);
             });
 
             db.collection('uploadHistory').orderBy('date', 'desc').onSnapshot(snapshot => {
                 uploadHistory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUploadHistory();
+            }, error => {
+                console.error('❌ Erreur chargement uploadHistory:', error);
             });
         }
 
@@ -587,7 +710,13 @@
             if (view === 'orders') renderOrdersTable();
             if (view === 'buyers') renderBuyersView();
             if (view === 'analytics') renderAnalytics();
-            if (view === 'dashboard') { renderStats(); renderWeeklyClosedByBuyer(); renderRecentOrders(); }
+            if (view === 'dashboard') { 
+                renderStats(); 
+                renderWeeklyClosedByBuyer(); 
+                renderRecentOrders(); 
+                renderWeeklySummary();
+                renderBrandStats();
+            }
         }
 
         // Utilitaires
@@ -610,8 +739,9 @@
         }
 
         // Calcul du délai : 
+        // - Pour "En cours d'achat" : entre date validation expert et aujourd'hui
         // - Pour "Achat terminé" : entre date validation expert et date achat terminé
-        // - Pour autres statuts : entre date validation expert et aujourd'hui
+        // - Pour "Commande ferme" : NON INCLUS dans le calcul du délai
         function calculateDelay(validationDate, finishedDate = null) {
             if (!validationDate) return 0;
             const vDate = new Date(validationDate);
@@ -628,11 +758,34 @@
         }
 
         function extractVehicleBrand(vehicle) {
-            const brands = ['Peugeot', 'Renault', 'Citroën', 'Volkswagen', 'BMW', 'Mercedes', 'Audi', 'Toyota', 'Ford', 'Opel'];
+            if (!vehicle) return 'Inconnue';
+            
+            // Le format est "Marque/Modèle/Immatriculation" - on prend juste la marque
+            const parts = vehicle.split('/');
+            const brandPart = parts[0].trim();
+            
+            if (!brandPart) return 'Inconnue';
+            
+            // Marques connues - recherche exacte
+            const brands = [
+                'Peugeot', 'Renault', 'Citroën', 'Volkswagen', 'BMW', 'Mercedes', 
+                'Audi', 'Toyota', 'Ford', 'Opel', 'Fiat', 'Nissan', 'Honda', 
+                'Hyundai', 'Kia', 'Mazda', 'Volvo', 'Land Rover', 'Jeep', 
+                'Alfa Romeo', 'Mini', 'Porsche', 'Tesla', 'Skoda', 'Seat', 
+                'Mitsubishi', 'Suzuki', 'Subaru', 'Lexus', 'Infiniti', 'Dacia', 
+                'Smart', 'Jaguar', 'Bentley', 'Maserati', 'Ferrari', 'Lamborghini'
+            ];
+            
+            // Recherche correspondance exacte ou partielle
             for (const brand of brands) {
-                if (vehicle.toLowerCase().includes(brand.toLowerCase())) return brand;
+                if (brandPart.toLowerCase() === brand.toLowerCase() || 
+                    brandPart.toLowerCase().includes(brand.toLowerCase())) {
+                    return brand;
+                }
             }
-            return 'Autre';
+            
+            // Retourner la marque telle qu'indiquée (pas "Autre")
+            return brandPart.charAt(0).toUpperCase() + brandPart.slice(1).toLowerCase();
         }
 
         function getBuyerById(id) {
@@ -645,15 +798,28 @@
             if (!name) return null;
             const nameLower = name.toLowerCase().trim();
             
-            // Recherche exacte ou partielle dans la liste OFFICIELLE uniquement
+            // Recherche dans la liste OFFICIELLE uniquement
+            // Correspondance exacte ou partielle (prénom ou nom complet)
             for (const buyer of OFFICIAL_BUYERS) {
                 const buyerLower = buyer.name.toLowerCase();
-                if (nameLower === buyerLower || nameLower.includes(buyerLower) || buyerLower.includes(nameLower)) {
-                    return buyer;
-                }
+                const buyerFirstName = buyer.name.split(' ')[0].toLowerCase();
+                const buyerLastName = buyer.name.split(' ')[1]?.toLowerCase() || '';
+                
+                // Correspondance exacte
+                if (nameLower === buyerLower) return buyer;
+                
+                // Correspondance par prénom
+                if (nameLower.includes(buyerFirstName) && buyerFirstName.length > 3) return buyer;
+                
+                // Correspondance par nom complet
+                if (buyerLower.includes(nameLower) && nameLower.length > 3) return buyer;
+                
+                // Correspondance inverse (nom dans la chaine)
+                if (nameLower.includes(buyerLower)) return buyer;
             }
             
-            // Si pas de match, retourne null (sera marqué comme "à assigner")
+            // Si pas de match avec la liste officielle, retourne null
+            // Le manager devra assigner manuellement
             return null;
         }
 
@@ -674,10 +840,38 @@
             const commandeFerme = orders.filter(o => o.partsStatus === 'commande_ferme').length;
             const achatTermine = orders.filter(o => o.partsStatus === 'achat_termine').length;
             
-            document.getElementById('statTotal').textContent = total;
-            document.getElementById('statInProgress').textContent = enCours;
-            document.getElementById('statFirm').textContent = commandeFerme;
-            document.getElementById('statClosed').textContent = achatTermine;
+            // Animation des chiffres
+            animateValue('statTotal', parseInt(document.getElementById('statTotal').textContent) || 0, total, 500);
+            animateValue('statInProgress', parseInt(document.getElementById('statInProgress').textContent) || 0, enCours, 500);
+            animateValue('statFirm', parseInt(document.getElementById('statFirm').textContent) || 0, commandeFerme, 500);
+            animateValue('statClosed', parseInt(document.getElementById('statClosed').textContent) || 0, achatTermine, 500);
+        }
+        
+        // Animation des chiffres
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            const obj = document.getElementById(id);
+            if (!obj) return;
+            
+            const range = end - start;
+            const startTime = performance.now();
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Ease out quart
+                const ease = 1 - Math.pow(1 - progress, 4);
+                const current = Math.floor(start + (range * ease));
+                
+                obj.textContent = current;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            
+            requestAnimationFrame(update);
         }
 
         function renderWeeklyClosedByBuyer() {
@@ -691,14 +885,44 @@
             
             const sorted = Object.entries(byBuyer).sort((a, b) => b[1] - a[1]).slice(0, 5);
             const tbody = document.getElementById('weeklyClosedByBuyer');
-            tbody.innerHTML = sorted.map(([name, count], i) => `
-                <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td class="px-6 py-4"><span class="w-6 h-6 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center text-xs font-bold">${i + 1}</span></td>
-                    <td class="px-6 py-4 font-medium">${name}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">Acheteur</td>
-                    <td class="px-6 py-4"><span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-semibold">${count}</span></td>
-                </tr>
-            `).join('');
+            
+            if (sorted.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Aucun achat terminé cette semaine</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = sorted.map(([name, count], i) => {
+                const buyer = OFFICIAL_BUYERS.find(b => b.name === name);
+                const initials = buyer ? buyer.initials : name.split(' ').map(n => n[0]).join('').toUpperCase();
+                const medals = ['🥇', '🥈', '🥉', '🏅', ''];
+                
+                return `
+                    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gradient-to-r hover:from-yellow-50 hover:to-orange-50 dark:hover:from-gray-700 dark:hover:to-gray-800 transition-all duration-200 animate-fade-in" style="animation-delay: ${i * 100}ms">
+                        <td class="px-6 py-4">
+                            <span class="text-2xl">${medals[i] || '🏅'}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white font-bold shadow-lg">
+                                    ${initials}
+                                </div>
+                                <span class="font-semibold text-gray-900 dark:text-white">${name}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">${buyer ? buyer.role : 'Acheteur'}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-bold shadow-lg">
+                                <i data-lucide="check-circle" class="w-4 h-4 mr-1.5"></i>
+                                ${count}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            setTimeout(() => lucide.createIcons(), 100);
         }
 
         function renderRecentOrders() {
@@ -707,37 +931,144 @@
             tbody.innerHTML = recent.map(o => {
                 const b = getBuyerById(o.buyerId);
                 return `
-                    <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onclick="openOrderDetail('${o.id}')">
-                        <td class="px-6 py-4 font-medium">${o.reference}</td>
-                        <td class="px-6 py-4">${o.client}</td>
-                        <td class="px-6 py-4">${o.vehicle}</td>
-                        <td class="px-6 py-4">${b ? b.name : (o.buyerName || 'Non assigné')}</td>
-                        <td class="px-6 py-4"><span class="px-3 py-1 rounded-full text-xs ${getStatusColor(o.partsStatus)}">${getStatusLabel(o.partsStatus)}</span></td>
+                    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-gray-700 dark:hover:to-gray-800 cursor-pointer transition-all duration-200" onclick="openOrderDetail('${o.id}')">
+                        <td class="px-6 py-4">
+                            <span class="font-semibold text-gray-900 dark:text-white">${o.reference}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-gray-700 dark:text-gray-300">${o.client}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium">${o.vehicleBrand || 'Autre'}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                                    ${b ? b.initials : (o.buyerName ? o.buyerName.charAt(0).toUpperCase() : '?')}
+                                </div>
+                                <span class="text-gray-700 dark:text-gray-300 text-sm font-medium">${b ? b.name : (o.buyerName || 'Non assigné')}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-3 py-1.5 rounded-full text-xs font-semibold ${getStatusColor(o.partsStatus)}">${getStatusLabel(o.partsStatus)}</span>
+                        </td>
                     </tr>
                 `;
             }).join('');
+            setTimeout(() => lucide.createIcons(), 100);
         }
 
         function renderOrdersTable() {
             const filtered = getFilteredOrders();
             const tbody = document.getElementById('ordersTableBody');
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400"><i data-lucide="inbox" class="w-12 h-12 mx-auto mb-4 opacity-50"></i><p class="text-lg font-medium">Aucun dossier trouvé</p><p class="text-sm mt-2">Importez un fichier Excel ou ajoutez un dossier manuellement</p></td></tr>';
+                setTimeout(() => lucide.createIcons(), 100);
+                return;
+            }
+            
             tbody.innerHTML = filtered.map(o => {
                 const b = getBuyerById(o.buyerId);
+                const statusLabel = getStatusLabel(o.partsStatus);
+                const statusColor = getStatusColor(o.partsStatus);
+                
+                // Calcul du délai selon le statut
+                // - En cours: aujourd'hui - date validation
+                // - Achat terminé: date achat terminé - date validation
+                // - Commande ferme: non inclus dans le calcul
+                let delayDisplay = '-';
+                let delayClass = '';
+                let delayTitle = '';
+                
+                if (o.partsStatus === 'en_cours' && o.validationDate) {
+                    const days = calculateDelay(o.validationDate);
+                    delayDisplay = days + 'j';
+                    delayClass = days > 14 ? 'text-red-500 font-bold' : days > 7 ? 'text-orange-500 font-semibold' : 'text-green-500 font-medium';
+                    delayTitle = `Depuis le ${new Date(o.validationDate).toLocaleDateString('fr-FR')}`;
+                } else if (o.partsStatus === 'achat_termine' && o.validationDate) {
+                    const finishedDelay = o.delay || 0;
+                    delayDisplay = finishedDelay + 'j';
+                    delayClass = finishedDelay <= 7 ? 'text-green-500 font-medium' : finishedDelay <= 14 ? 'text-orange-500 font-semibold' : 'text-red-500 font-bold';
+                    delayTitle = `Clôturé en ${finishedDelay} jours`;
+                } else if (o.partsStatus === 'commande_ferme') {
+                    delayDisplay = '<span class="text-gray-400 text-xs">N/A</span>';
+                    delayTitle = 'Non inclus dans le calcul du délai';
+                }
+                
                 return `
-                    <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td class="px-6 py-4 font-medium">${o.reference}</td>
-                        <td class="px-6 py-4">${o.client}</td>
-                        <td class="px-6 py-4">${o.vehicle}</td>
-                        <td class="px-6 py-4 text-sm">${o.task}</td>
-                        <td class="px-6 py-4">${b ? b.name : (o.buyerName || 'Non assigné')}</td>
-                        <td class="px-6 py-4 text-sm">${o.validationDate ? new Date(o.validationDate).toLocaleDateString('fr-FR') : '-'}</td>
-                        <td class="px-6 py-4"><span class="${o.delay > 7 ? 'text-red-600 font-bold' : ''}">${o.delay || 0}j</span></td>
-                        <td class="px-6 py-4"><span class="px-3 py-1 rounded-full text-xs ${getStatusColor(o.partsStatus)}">${getStatusLabel(o.partsStatus)}</span></td>
+                    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 dark:hover:from-gray-700/50 dark:hover:to-gray-800/50 transition-all duration-200 group">
                         <td class="px-6 py-4">
-                            <div class="flex space-x-2">
-                                <button onclick="openOrderDetail('${o.id}')" class="p-1 hover:bg-gray-100 rounded" title="Voir"><i data-lucide="eye" class="w-4 h-4"></i></button>
-                                <button onclick="editOrder('${o.id}')" class="p-1 hover:bg-gray-100 rounded" title="Modifier"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                                <button onclick="deleteOrder('${o.id}')" class="p-1 hover:bg-red-100 rounded text-red-600" title="Supprimer"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                            <span class="font-semibold text-gray-900 dark:text-white">${o.reference}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-gray-700 dark:text-gray-300">${o.client}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold shadow-sm">${o.vehicleBrand || 'Inconnue'}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-gray-600 dark:text-gray-400 text-sm line-clamp-2" title="${o.task}">${o.task}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            ${b || o.buyerName ? `
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
+                                        ${b ? b.initials : o.buyerName.charAt(0).toUpperCase()}
+                                    </div>
+                                    <span class="text-gray-700 dark:text-gray-300 text-sm font-medium">${b ? b.name : o.buyerName}</span>
+                                </div>
+                            ` : `
+                                <button onclick="openAssignBuyerFromOrder('${o.id}')" class="inline-flex items-center px-3 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-medium hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">
+                                    <i data-lucide="user-plus" class="w-3 h-3 mr-1"></i>
+                                    Assigner
+                                </button>
+                            `}
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-gray-600 dark:text-gray-400 text-sm">${o.validationDate ? new Date(o.validationDate).toLocaleDateString('fr-FR') : '-'}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center" title="${delayTitle}">
+                                ${o.partsStatus === 'commande_ferme' ? 
+                                    `<span class="text-gray-400 dark:text-gray-500 text-xs italic">-</span>` : 
+                                    `<span class="${delayClass} text-sm font-semibold">${delayDisplay}</span>`
+                                }
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="relative">
+                                <button onclick="showStatusDropdown('${o.id}', this)" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${statusColor} hover:shadow-lg transition-all duration-200 transform hover:scale-105">
+                                    <span>${statusLabel}</span>
+                                    <i data-lucide="chevron-down" class="w-3 h-3 ml-1"></i>
+                                </button>
+                                <div id="status-dropdown-${o.id}" class="hidden absolute z-50 mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 min-w-[200px] animate-scale-in">
+                                    <button onclick="updateOrderStatus('${o.id}', 'en_cours')" class="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 dark:hover:bg-gray-700 flex items-center transition-colors ${o.partsStatus === 'en_cours' ? 'bg-blue-50 dark:bg-gray-700' : ''}">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-blue-500 mr-3"></span>
+                                        <span class="text-gray-700 dark:text-gray-300 font-medium">En cours d'achat</span>
+                                    </button>
+                                    <button onclick="updateOrderStatus('${o.id}', 'commande_ferme')" class="w-full px-4 py-2.5 text-left text-sm hover:bg-purple-50 dark:hover:bg-gray-700 flex items-center transition-colors ${o.partsStatus === 'commande_ferme' ? 'bg-purple-50 dark:bg-gray-700' : ''}">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-purple-500 mr-3"></span>
+                                        <span class="text-gray-700 dark:text-gray-300 font-medium">Commande ferme</span>
+                                    </button>
+                                    <button onclick="updateOrderStatus('${o.id}', 'achat_termine')" class="w-full px-4 py-2.5 text-left text-sm hover:bg-green-50 dark:hover:bg-gray-700 flex items-center transition-colors ${o.partsStatus === 'achat_termine' ? 'bg-green-50 dark:bg-gray-700' : ''}">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-green-500 mr-3"></span>
+                                        <span class="text-gray-700 dark:text-gray-300 font-medium">Achat terminé</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <button onclick="openOrderDetail('${o.id}')" class="p-2 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg text-blue-600 dark:text-blue-400 transition-colors" title="Voir les détails">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="editOrder('${o.id}')" class="p-2 hover:bg-green-50 dark:hover:bg-gray-700 rounded-lg text-green-600 dark:text-green-400 transition-colors" title="Modifier">
+                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteOrder('${o.id}')" class="p-2 hover:bg-red-50 dark:hover:bg-gray-700 rounded-lg text-red-600 dark:text-red-400 transition-colors" title="Supprimer">
+                                    <i data-lucide="trash" class="w-4 h-4"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -795,27 +1126,84 @@
             }
         }
 
+        function renderWeeklySummary() {
+            const container = document.getElementById('weeklySummary');
+            if (!container) return;
+            
+            // Grouper par semaine
+            const byWeek = {};
+            orders.forEach(o => {
+                const week = o.week || 'Semaine inconnue';
+                if (!byWeek[week]) {
+                    byWeek[week] = { total: 0, enCours: 0, commandeFerme: 0, achatTermine: 0 };
+                }
+                byWeek[week].total++;
+                if (o.partsStatus === 'en_cours') byWeek[week].enCours++;
+                else if (o.partsStatus === 'commande_ferme') byWeek[week].commandeFerme++;
+                else if (o.partsStatus === 'achat_termine') byWeek[week].achatTermine++;
+            });
+            
+            // Trier par semaine (plus récente en premier)
+            const sortedWeeks = Object.entries(byWeek).sort((a, b) => {
+                const aNum = parseInt(a[0].match(/Semaine (\d+)/)?.[1] || 0);
+                const bNum = parseInt(b[0].match(/Semaine (\d+)/)?.[1] || 0);
+                return bNum - aNum;
+            }).slice(0, 10);
+            
+            if (sortedWeeks.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Aucune donnée disponible</p>';
+                return;
+            }
+            
+            container.innerHTML = sortedWeeks.map(([week, data], i) => {
+                const restant = data.enCours + data.commandeFerme;
+                const pctTermine = data.total > 0 ? Math.round((data.achatTermine / data.total) * 100) : 0;
+                
+                return `
+                    <div class="p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 rounded-xl border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all duration-200 animate-fade-in" style="animation-delay: ${i * 50}ms">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-semibold text-gray-900 dark:text-white">${week}</span>
+                            <span class="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium">${data.total} dossiers</span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs mb-2">
+                            <span class="text-green-600 dark:text-green-400 flex items-center"><i data-lucide="check-circle" class="w-3 h-3 mr-1"></i>${data.achatTermine} terminés</span>
+                            <span class="text-orange-600 dark:text-orange-400 flex items-center"><i data-lucide="clock" class="w-3 h-3 mr-1"></i>${restant} restants</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 overflow-hidden">
+                            <div class="h-2 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500" style="width: ${pctTermine}%"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">${pctTermine}% complété</p>
+                    </div>
+                `;
+            }).join('');
+            
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+
         function renderUploadHistory() {
             const tbody = document.getElementById('uploadHistoryBody');
+            if (!tbody) return;
+            
             tbody.innerHTML = uploadHistory.map(h => `
                 <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedWeek === h.name ? 'bg-blue-50 dark:bg-gray-700' : ''}" onclick="selectWeek('${h.name}')">
-                    <td class="px-6 py-4 font-medium">${h.name}</td>
-                    <td class="px-6 py-4">${h.startDate}</td>
-                    <td class="px-6 py-4">${h.endDate}</td>
-                    <td class="px-6 py-4"><span class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm">${h.orderCount}</span></td>
+                    <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${h.name}</td>
+                    <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${h.startDate}</td>
+                    <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${h.endDate}</td>
+                    <td class="px-6 py-4"><span class="px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-sm font-medium">${h.orderCount}</span></td>
                 </tr>
             `).join('');
         }
 
         function renderAnalytics() {
             // --- KPIs ---
+            // Filtrer uniquement les achats terminés (exclure commandes fermes)
             const closedOrders = orders.filter(o => o.partsStatus === 'achat_termine');
             const totalDelay = closedOrders.reduce((sum, o) => sum + (o.delay || 0), 0);
             const avgDelay = closedOrders.length > 0 ? Math.round(totalDelay / closedOrders.length) : 0;
             const closedThisWeek = closedOrders.filter(o => o.week === getCurrentWeekName()).length;
             const productivity = orders.length > 0 ? Math.round((closedOrders.length / orders.length) * 100) : 0;
             
-            // Meilleur acheteur (délai moyen le plus court)
+            // Meilleur acheteur (délai moyen le plus court) - uniquement achats terminés
             const buyerDelaysAll = {};
             const buyerClosedAll = {};
             closedOrders.forEach(o => {
@@ -859,7 +1247,7 @@
                 `;
             }).join('');
 
-            // --- 2. Délai moyen par acheteur (achats terminés) ---
+            // --- 2. Délai moyen par acheteur (achats terminés uniquement) ---
             const avgDelayChart = document.getElementById('avgDelayChart');
             const sortedByDelay = Object.entries(buyerDelaysAll)
                 .map(([name, totalDelay]) => ({ name, avgDelay: Math.round(totalDelay / buyerClosedAll[name]), count: buyerClosedAll[name] }))
@@ -874,15 +1262,15 @@
                 return `
                     <div class="animate-fade-in" style="animation-delay: ${i * 50}ms">
                         <div class="flex justify-between text-sm mb-1">
-                            <span class="font-medium truncate">${name}</span>
-                            <span class="text-orange-600 font-semibold">${avgDelay}j</span>
+                            <span class="font-medium truncate text-gray-700 dark:text-gray-300">${name}</span>
+                            <span class="text-orange-600 dark:text-orange-400 font-semibold">${avgDelay}j</span>
                         </div>
                         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                             <div class="h-3 rounded-full ${colors[i % colors.length]} transition-all duration-500" style="width: ${pct}%"></div>
                         </div>
                     </div>
                 `;
-            }).join('') || '<p class="text-sm text-gray-500 text-center py-4">Aucun achat terminé</p>';
+            }).join('') || '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Aucun achat terminé</p>';
 
             // --- 3. Dossiers clôturés par semaine ---
             const weeklyClosed = {};
@@ -904,15 +1292,15 @@
                 return `
                     <div class="animate-fade-in" style="animation-delay: ${i * 50}ms">
                         <div class="flex justify-between text-sm mb-1">
-                            <span class="font-medium">${week}</span>
-                            <span class="text-green-600 font-semibold">${count}</span>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">${week}</span>
+                            <span class="text-green-600 dark:text-green-400 font-semibold">${count}</span>
                         </div>
                         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                            <div class="h-3 rounded-full bg-green-500 transition-all duration-500" style="width: ${pct}%"></div>
+                            <div class="h-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500" style="width: ${pct}%"></div>
                         </div>
                     </div>
                 `;
-            }).join('') || '<p class="text-sm text-gray-500 text-center py-4">Aucun dossier clôturé</p>';
+            }).join('') || '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Aucun dossier clôturé</p>';
             
             // --- 4. Tableau de performance par acheteur ---
             const buyerStats = {};
@@ -927,11 +1315,12 @@
                     enCours: 0,
                     commandeFerme: 0,
                     termines: 0,
-                    totalDelay: 0
+                    totalDelay: 0,
+                    delays: [] // Pour calculer la médiane si besoin
                 };
             });
             
-            // Compter les dossiers par acheteur
+            // Compter les dossiers par acheteur (uniquement les dossiers assignés)
             orders.forEach(o => {
                 const bid = o.buyerId;
                 if (bid && buyerStats[bid]) {
@@ -940,6 +1329,7 @@
                     else if (o.partsStatus === 'achat_termine') {
                         buyerStats[bid].termines++;
                         buyerStats[bid].totalDelay += (o.delay || 0);
+                        buyerStats[bid].delays.push(o.delay || 0);
                     }
                 }
             });
@@ -955,29 +1345,76 @@
                 .sort((a, b) => b.termines - a.termines || a.avgDelay - b.avgDelay);
             
             const perfTable = document.getElementById('buyerPerformanceTable');
+            
+            if (buyerList.length === 0) {
+                perfTable.innerHTML = '<tr><td colspan="8" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400"><i data-lucide="users" class="w-12 h-12 mx-auto mb-4 opacity-50"></i><p class="text-lg font-medium">Aucune donnée disponible</p><p class="text-sm mt-2">Importez un fichier Excel pour commencer</p></td></tr>';
+                setTimeout(() => lucide.createIcons(), 100);
+                return;
+            }
+            
             perfTable.innerHTML = buyerList.map((b, i) => {
                 const performanceScore = b.termines > 0 ? Math.min(100, Math.round((b.termines / b.total) * 100 + (30 - b.avgDelay))) : 0;
-                const perfColor = performanceScore >= 80 ? 'text-green-600' : performanceScore >= 50 ? 'text-orange-600' : 'text-red-600';
-                const perfBg = performanceScore >= 80 ? 'bg-green-100' : performanceScore >= 50 ? 'bg-orange-100' : 'bg-red-100';
+                const perfColor = performanceScore >= 80 ? 'text-green-700 dark:text-green-400' : performanceScore >= 50 ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400';
+                const perfBg = performanceScore >= 80 ? 'bg-green-100 dark:bg-green-900/30' : performanceScore >= 50 ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-red-100 dark:bg-red-900/30';
+                
+                // Déterminer la couleur du délai
+                let delayColor = 'text-gray-400';
+                let delayBg = 'bg-gray-100 dark:bg-gray-700';
+                if (b.avgDelay > 0) {
+                    if (b.avgDelay <= 7) {
+                        delayColor = 'text-green-700 dark:text-green-400';
+                        delayBg = 'bg-green-100 dark:bg-green-900/30';
+                    } else if (b.avgDelay <= 14) {
+                        delayColor = 'text-orange-700 dark:text-orange-400';
+                        delayBg = 'bg-orange-100 dark:bg-orange-900/30';
+                    } else {
+                        delayColor = 'text-red-700 dark:text-red-400';
+                        delayBg = 'bg-red-100 dark:bg-red-900/30';
+                    }
+                }
                 
                 return `
-                    <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors animate-fade-in" style="animation-delay: ${i * 50}ms">
-                        <td class="px-4 py-3"><span class="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold">${i + 1}</span></td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">${b.initials}</div>
-                                <span class="font-medium">${b.name}</span>
+                    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 dark:hover:from-gray-700/50 dark:hover:to-gray-800/50 transition-all duration-200 animate-fade-in" style="animation-delay: ${i * 50}ms">
+                        <td class="px-4 py-4">
+                            <div class="flex items-center justify-center w-8 h-8 rounded-full ${i < 3 ? 'bg-gradient-to-br from-yellow-400 to-orange-500' : 'bg-gray-200 dark:bg-gray-700'} text-white text-sm font-bold shadow-md">
+                                ${i < 3 ? '🏆' : i + 1}
                             </div>
                         </td>
-                        <td class="px-4 py-3 text-sm text-gray-500">${b.role}</td>
-                        <td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">${b.enCours}</span></td>
-                        <td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">${b.commandeFerme}</span></td>
-                        <td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">${b.termines}</span></td>
-                        <td class="px-4 py-3 text-center"><span class="${b.avgDelay <= 7 ? 'text-green-600' : b.avgDelay <= 14 ? 'text-orange-600' : 'text-red-600'} font-semibold">${b.avgDelay > 0 ? b.avgDelay + 'j' : '-'}</span></td>
-                        <td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded-full ${perfBg} ${perfColor} text-xs font-bold">${performanceScore}%</span></td>
+                        <td class="px-4 py-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                                    ${b.initials}
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-900 dark:text-white">${b.name}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">${b.role}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold">${b.enCours}</span>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-bold">${b.commandeFerme}</span>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold">${b.termines}</span>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full ${delayBg} ${delayColor} text-xs font-bold">
+                                ${b.avgDelay > 0 ? b.avgDelay + 'j' : '-'}
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-full ${perfBg} ${perfColor} text-xs font-bold shadow-sm">
+                                ${performanceScore}%
+                            </span>
+                        </td>
                     </tr>
                 `;
-            }).join('') || '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">Aucune donnée disponible</td></tr>';
+            }).join('');
+            
+            setTimeout(() => lucide.createIcons(), 100);
         }
 
         // Détail commande
@@ -1188,6 +1625,7 @@
             document.getElementById('assignBuyerModal').classList.add('hidden');
             document.getElementById('modalBackdrop').classList.add('hidden');
             currentUnmatchedName = null;
+            orderToAssignBuyer = null;
         }
 
         function assignBuyerToName(un, bid) {
@@ -1245,26 +1683,37 @@
             });
         }
 
-        // Import Excel
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
+        // Import Excel - Dashboard
+        const dashboardDropZone = document.getElementById('dashboardDropZone');
+        const dashboardFileInput = document.getElementById('dashboardFileInput');
 
-        if (dropZone) {
-            dropZone.addEventListener('dragover', e => {
+        if (dashboardDropZone) {
+            dashboardDropZone.addEventListener('dragover', e => {
                 e.preventDefault();
-                dropZone.classList.add('drag-active');
+                dashboardDropZone.classList.add('drag-active');
             });
-            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));
-            dropZone.addEventListener('drop', e => {
+            dashboardDropZone.addEventListener('dragleave', () => dashboardDropZone.classList.remove('drag-active'));
+            dashboardDropZone.addEventListener('drop', e => {
                 e.preventDefault();
-                dropZone.classList.remove('drag-active');
-                if (e.dataTransfer.files.length > 0) processExcelFile(e.dataTransfer.files[0]);
+                dashboardDropZone.classList.remove('drag-active');
+                if (e.dataTransfer.files.length > 0) {
+                    processExcelFile(e.dataTransfer.files[0]);
+                }
+            });
+            // Click sur la zone pour ouvrir le sélecteur
+            dashboardDropZone.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'INPUT' && !e.target.closest('label')) {
+                    dashboardFileInput?.click();
+                }
             });
         }
 
-        if (fileInput) {
-            fileInput.addEventListener('change', e => {
-                if (e.target.files && e.target.files.length > 0) processExcelFile(e.target.files[0]);
+        if (dashboardFileInput) {
+            dashboardFileInput.addEventListener('change', e => {
+                if (e.target.files && e.target.files.length > 0) {
+                    processExcelFile(e.target.files[0]);
+                    e.target.value = ''; // Reset pour permettre de re-sélectionner le même fichier
+                }
             });
         }
 
@@ -1351,28 +1800,34 @@
                         });
                         await batch.commit();
                         console.log('✅ Commandes écrites dans Firestore');
+                    } else {
+                        console.log('ℹ️ Aucun nouveau dossier à ajouter');
                     }
 
                     // Mettre à jour l'historique
-                    await db.collection('uploadHistory').add({
-                        name: cw,
-                        startDate: new Date().toLocaleDateString('fr-FR'),
-                        endDate: new Date().toLocaleDateString('fr-FR'),
-                        orderCount: newOrders.length,
-                        date: new Date(),
-                        uploadedBy: currentUser.uid
-                    });
-                    console.log('✅ Historique mis à jour');
+                    if (newOrders.length > 0) {
+                        await db.collection('uploadHistory').add({
+                            name: cw,
+                            startDate: new Date().toLocaleDateString('fr-FR'),
+                            endDate: new Date().toLocaleDateString('fr-FR'),
+                            orderCount: newOrders.length,
+                            date: new Date(),
+                            uploadedBy: currentUser.uid
+                        });
+                        console.log('✅ Historique mis à jour');
+                    }
 
                     unmatchedBuyersList = [...new Set([...unmatchedBuyersList, ...newUnmatched])];
-                    document.getElementById('lastUploadDate').textContent = new Date().toLocaleDateString('fr-FR');
                     
-                    const msg = newOrders.length + ' dossiers ajoutés';
+                    const msg = newOrders.length + ' dossier(s) ajouté(s)';
                     showToast(msg, 'success');
                     console.log('✅ ' + msg);
                     
                     addNotification(newOrders.length + ' dossiers importés', 'success');
                     if (newUnmatched.size > 0) addNotification(newUnmatched.size + ' acheteur(s) à valider', 'warning');
+                    
+                    // Rafraîchir le résumé hebdomadaire
+                    renderWeeklySummary();
                     
                 } catch (error) {
                     console.error('❌ ERREUR lors de l\'import Excel:', error);
@@ -1448,9 +1903,191 @@
             setTimeout(() => toast.remove(), 3000);
         }
 
+        // Afficher le menu déroulant des statuts
+        // Variable pour stocker l'ID de la commande en cours d'assignation
+        let orderToAssignBuyer = null;
+
+        function showStatusDropdown(orderId, btnElement) {
+            // Fermer tous les autres dropdowns
+            document.querySelectorAll('[id^="status-dropdown-"]').forEach(el => {
+                if (el.id !== 'status-dropdown-' + orderId) el.classList.add('hidden');
+            });
+            
+            const dropdown = document.getElementById('status-dropdown-' + orderId);
+            if (dropdown) {
+                dropdown.classList.toggle('hidden');
+                
+                // Positionner le dropdown
+                const rect = btnElement.getBoundingClientRect();
+                dropdown.style.position = 'fixed';
+                dropdown.style.left = rect.left + 'px';
+                dropdown.style.top = (rect.bottom + 5) + 'px';
+            }
+        }
+        
+        // Ouvrir la modal d'assignation depuis le tableau des commandes
+        function openAssignBuyerFromOrder(orderId) {
+            orderToAssignBuyer = orderId;
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return;
+            
+            const buyerName = order.buyerName || 'Nom inconnu';
+            document.getElementById('assignBuyerName').textContent = buyerName;
+            document.getElementById('assignBuyerList').innerHTML = OFFICIAL_BUYERS.map(b => `
+                <button onclick="assignBuyerToOrder('${orderId}', '${b.id}')" class="w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center space-x-3 transition-colors">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold shadow-md">
+                        ${b.initials}
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-900 dark:text-white">${b.name}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">${b.role}</p>
+                    </div>
+                </button>
+            `).join('');
+            document.getElementById('assignBuyerModal').classList.remove('hidden');
+            document.getElementById('modalBackdrop').classList.remove('hidden');
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+        
+        // Assigner un acheteur à une commande
+        async function assignBuyerToOrder(orderId, buyerId) {
+            const buyer = getBuyerById(buyerId);
+            if (!buyer) return;
+            
+            try {
+                await db.collection('orders').doc(orderId).update({
+                    buyerId: buyerId,
+                    buyerName: buyer.name,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                showToast('Acheteur assigné: ' + buyer.name, 'success');
+                closeAssignBuyerModal();
+                renderOrdersTable();
+                renderBrandStats();
+                
+            } catch (error) {
+                console.error('Erreur assignation:', error);
+                showToast('Erreur lors de l\'assignation', 'error');
+            }
+        }
+        
+        // Mettre à jour le statut d'une commande
+        async function updateOrderStatus(orderId, newStatus) {
+            try {
+                const order = orders.find(o => o.id === orderId);
+                if (!order) return;
+                
+                const updateData = {
+                    partsStatus: newStatus,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                // Si passage à "achat_termine", enregistrer la date
+                if (newStatus === 'achat_termine' && !order.finishedDate) {
+                    updateData.finishedDate = new Date().toISOString().split('T')[0];
+                    updateData.delay = calculateDelay(order.validationDate, updateData.finishedDate);
+                } else if (newStatus === 'en_cours') {
+                    // Recalculer le délai depuis la date de validation
+                    updateData.delay = calculateDelay(order.validationDate);
+                }
+                
+                await db.collection('orders').doc(orderId).update(updateData);
+                showToast('Statut mis à jour', 'success');
+                
+                // Fermer le dropdown
+                document.getElementById('status-dropdown-' + orderId)?.classList.add('hidden');
+                
+                // Rafraîchir l'affichage
+                renderOrdersTable();
+                renderStats();
+                renderAnalytics();
+                
+            } catch (error) {
+                console.error('Erreur mise à jour statut:', error);
+                showToast('Erreur lors de la mise à jour', 'error');
+            }
+        }
+        
+        // Fermer les dropdowns quand on clique ailleurs
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('[onclick^="showStatusDropdown"]') && !e.target.closest('[id^="status-dropdown-"]')) {
+                document.querySelectorAll('[id^="status-dropdown-"]').forEach(el => el.classList.add('hidden'));
+            }
+        });
+
+        // Rendu des statistiques par marque
+        function renderBrandStats() {
+            const container = document.getElementById('brandStats');
+            if (!container) return;
+            
+            // Compter les dossiers par marque
+            const byBrand = {};
+            orders.forEach(o => {
+                const brand = o.vehicleBrand || 'Inconnue';
+                if (!byBrand[brand]) {
+                    byBrand[brand] = { total: 0, enCours: 0, commandeFerme: 0, achatTermine: 0 };
+                }
+                byBrand[brand].total++;
+                if (o.partsStatus === 'en_cours') byBrand[brand].enCours++;
+                else if (o.partsStatus === 'commande_ferme') byBrand[brand].commandeFerme++;
+                else if (o.partsStatus === 'achat_termine') byBrand[brand].achatTermine++;
+            });
+            
+            // Trier par nombre de dossiers
+            const sortedBrands = Object.entries(byBrand)
+                .sort((a, b) => b[1].total - a[1].total)
+                .slice(0, 12);
+            
+            if (sortedBrands.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 text-center col-span-full py-8">Aucune donnée disponible</p>';
+                return;
+            }
+            
+            // Couleurs pour les marques
+            const brandColors = [
+                'from-blue-500 to-blue-600',
+                'from-purple-500 to-purple-600',
+                'from-green-500 to-green-600',
+                'from-orange-500 to-orange-600',
+                'from-red-500 to-red-600',
+                'from-indigo-500 to-indigo-600',
+                'from-pink-500 to-pink-600',
+                'from-teal-500 to-teal-600',
+                'from-cyan-500 to-cyan-600',
+                'from-yellow-500 to-yellow-600',
+                'from-emerald-500 to-emerald-600',
+                'from-violet-500 to-violet-600'
+            ];
+            
+            container.innerHTML = sortedBrands.map(([brand, data], i) => {
+                const pct = data.total > 0 ? Math.round((data.achatTermine / data.total) * 100) : 0;
+                const colorClass = brandColors[i % brandColors.length];
+                
+                return `
+                    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br ${colorClass} p-4 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 animate-fade-in" style="animation-delay: ${i * 50}ms">
+                        <div class="relative z-10">
+                            <p class="text-xs opacity-80 font-medium">${brand}</p>
+                            <p class="text-3xl font-bold mt-1">${data.total}</p>
+                            <div class="flex items-center justify-between mt-2 text-xs opacity-90">
+                                <span><i data-lucide="check-circle" class="w-3 h-3 inline mr-1"></i>${data.achatTermine}</span>
+                                <span><i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>${data.enCours + data.commandeFerme}</span>
+                            </div>
+                        </div>
+                        <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full"></div>
+                        <div class="absolute -right-2 -top-2 w-12 h-12 bg-white/10 rounded-full"></div>
+                    </div>
+                `;
+            }).join('');
+            
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+
         function renderAll() {
             renderStats();
             renderWeeklyClosedByBuyer();
+            renderWeeklySummary();
+            renderBrandStats();
             renderUploadHistory();
             renderRecentOrders();
             renderOrdersTable();
