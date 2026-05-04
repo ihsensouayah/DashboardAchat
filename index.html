@@ -421,7 +421,7 @@
                         </h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
-                            Le délai moyen est calculé uniquement sur les achats terminés
+                            Délai moyen = (Achat terminé : date fin - validation) + (En cours : aujourd'hui - validation)
                         </p>
                     </div>
                     <div class="overflow-x-auto">
@@ -1450,28 +1450,60 @@
 
         function renderAnalytics() {
             // --- KPIs ---
-            // Filtrer uniquement les achats terminés (exclure commandes fermes)
+            // Calcul du délai moyen du service (TOUS les dossiers, pas seulement terminés)
+            let totalDelay = 0;
+            let delayCount = 0;
+            
+            orders.forEach(o => {
+                if (o.validationDate) {
+                    const status = normalizeStatus(o.partsStatus);
+                    if (status === 'achat_termine' && o.delay !== undefined && o.delay !== null && o.delay > 0) {
+                        // Achat terminé : utiliser le délai stocké
+                        totalDelay += o.delay;
+                        delayCount++;
+                    } else if (status === 'en_cours' || status === 'commande_ferme') {
+                        // En cours ou commande ferme : calculer depuis la date de validation
+                        const days = calculateDelay(o.validationDate);
+                        totalDelay += days;
+                        delayCount++;
+                    }
+                }
+            });
+            
+            const avgDelay = delayCount > 0 ? Math.round(totalDelay / delayCount) : 0;
+            
             const closedOrders = orders.filter(o => o.partsStatus === 'achat_termine');
-            const totalDelay = closedOrders.reduce((sum, o) => sum + (o.delay || 0), 0);
-            const avgDelay = closedOrders.length > 0 ? Math.round(totalDelay / closedOrders.length) : 0;
             const closedThisWeek = closedOrders.filter(o => o.week === getCurrentWeekName()).length;
             const productivity = orders.length > 0 ? Math.round((closedOrders.length / orders.length) * 100) : 0;
             
-            // Meilleur acheteur (délai moyen le plus court) - uniquement achats terminés
+            // Meilleur acheteur (délai moyen le plus court) - TOUS les dossiers
             const buyerDelaysAll = {};
-            const buyerClosedAll = {};
-            closedOrders.forEach(o => {
+            const buyerDelayCountAll = {};
+            
+            orders.forEach(o => {
                 const b = getBuyerById(o.buyerId);
                 const name = b ? b.name : (o.buyerName || 'Non assigné');
-                buyerDelaysAll[name] = (buyerDelaysAll[name] || 0) + (o.delay || 0);
-                buyerClosedAll[name] = (buyerClosedAll[name] || 0) + 1;
+                
+                if (o.validationDate) {
+                    const status = normalizeStatus(o.partsStatus);
+                    let delay = 0;
+                    
+                    if (status === 'achat_termine' && o.delay !== undefined && o.delay !== null && o.delay > 0) {
+                        delay = o.delay;
+                    } else if (status === 'en_cours' || status === 'commande_ferme') {
+                        delay = calculateDelay(o.validationDate);
+                    }
+                    
+                    buyerDelaysAll[name] = (buyerDelaysAll[name] || 0) + delay;
+                    buyerDelayCountAll[name] = (buyerDelayCountAll[name] || 0) + 1;
+                }
             });
             
             let bestBuyer = '-';
             let bestAvg = Infinity;
             Object.entries(buyerDelaysAll).forEach(([name, total]) => {
-                const avg = total / buyerClosedAll[name];
-                if (avg < bestAvg && buyerClosedAll[name] >= 1) {
+                const avg = total / buyerDelayCountAll[name];
+                if (avg < bestAvg && buyerDelayCountAll[name] >= 1) {
                     bestAvg = avg;
                     bestBuyer = name.split(' ')[0];
                 }
@@ -1501,10 +1533,10 @@
                 `;
             }).join('');
 
-            // --- 2. Délai moyen par acheteur (achats terminés uniquement) ---
+            // --- 2. Délai moyen par acheteur (TOUS les dossiers) ---
             const avgDelayChart = document.getElementById('avgDelayChart');
             const sortedByDelay = Object.entries(buyerDelaysAll)
-                .map(([name, totalDelay]) => ({ name, avgDelay: Math.round(totalDelay / buyerClosedAll[name]), count: buyerClosedAll[name] }))
+                .map(([name, totalDelay]) => ({ name, avgDelay: Math.round(totalDelay / buyerDelayCountAll[name]), count: buyerDelayCountAll[name] }))
                 .filter(b => b.count >= 1)
                 .sort((a, b) => a.avgDelay - b.avgDelay)
                 .slice(0, 8);
@@ -1570,29 +1602,53 @@
                     commandeFerme: 0,
                     termines: 0,
                     totalDelay: 0,
-                    delays: [] // Pour calculer la médiane si besoin
+                    delayCount: 0  // Nombre de dossiers avec délai calculé
                 };
             });
             
-            // Compter les dossiers par acheteur (uniquement les dossiers assignés)
+            // Compter les dossiers par acheteur et calculer TOUS les délais
             orders.forEach(o => {
                 const bid = o.buyerId;
                 if (bid && buyerStats[bid]) {
-                    if (o.partsStatus === 'en_cours') buyerStats[bid].enCours++;
-                    else if (o.partsStatus === 'commande_ferme') buyerStats[bid].commandeFerme++;
-                    else if (o.partsStatus === 'achat_termine') {
+                    const status = normalizeStatus(o.partsStatus);
+                    
+                    if (status === 'en_cours') {
+                        buyerStats[bid].enCours++;
+                        // Calculer délai : aujourd'hui - date validation
+                        if (o.validationDate) {
+                            const days = calculateDelay(o.validationDate);
+                            buyerStats[bid].totalDelay += days;
+                            buyerStats[bid].delayCount++;
+                        }
+                    } else if (status === 'commande_ferme') {
+                        buyerStats[bid].commandeFerme++;
+                        // Calculer délai : aujourd'hui - date validation
+                        if (o.validationDate) {
+                            const days = calculateDelay(o.validationDate);
+                            buyerStats[bid].totalDelay += days;
+                            buyerStats[bid].delayCount++;
+                        }
+                    } else if (status === 'achat_termine') {
                         buyerStats[bid].termines++;
-                        buyerStats[bid].totalDelay += (o.delay || 0);
-                        buyerStats[bid].delays.push(o.delay || 0);
+                        // Utiliser le délai stocké (date achat terminé - validation)
+                        if (o.delay !== undefined && o.delay !== null && o.delay > 0) {
+                            buyerStats[bid].totalDelay += o.delay;
+                            buyerStats[bid].delayCount++;
+                        } else if (o.validationDate) {
+                            // Fallback si delay n'est pas stocké
+                            const days = calculateDelay(o.validationDate);
+                            buyerStats[bid].totalDelay += days;
+                            buyerStats[bid].delayCount++;
+                        }
                     }
                 }
             });
             
-            // Calculer délai moyen et trier par performance
+            // Calculer délai moyen (TOUS les dossiers, pas seulement terminés)
             const buyerList = Object.values(buyerStats)
                 .map(b => ({
                     ...b,
-                    avgDelay: b.termines > 0 ? Math.round(b.totalDelay / b.termines) : 0,
+                    avgDelay: b.delayCount > 0 ? Math.round(b.totalDelay / b.delayCount) : 0,
                     total: b.enCours + b.commandeFerme + b.termines
                 }))
                 .filter(b => b.total > 0)
