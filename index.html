@@ -421,7 +421,7 @@
                         </h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
-                            Délai moyen = (Achat terminé : date fin - validation) + (En cours : aujourd'hui - validation)
+                            Délai moyen = (Achat terminé + En cours) ÷ Nombre de dossiers — Commandes fermes exclues
                         </p>
                     </div>
                     <div class="overflow-x-auto">
@@ -1488,14 +1488,27 @@
                     const status = normalizeStatus(o.partsStatus);
                     let delay = 0;
                     
-                    if (status === 'achat_termine' && o.delay !== undefined && o.delay !== null && o.delay > 0) {
-                        delay = o.delay;
-                    } else if (status === 'en_cours' || status === 'commande_ferme') {
-                        delay = calculateDelay(o.validationDate);
+                    if (status === 'achat_termine') {
+                        // Achat terminé : utiliser délai stocké OU calculer
+                        if (o.validationDate) {
+                            let days = 0;
+                            if (o.delay !== undefined && o.delay !== null && o.delay >= 0) {
+                                days = o.delay;
+                            } else {
+                                days = calculateDelay(o.validationDate);
+                            }
+                            buyerDelaysAll[name] = (buyerDelaysAll[name] || 0) + days;
+                            buyerDelayCountAll[name] = (buyerDelayCountAll[name] || 0) + 1;
+                        }
+                    } else if (status === 'en_cours') {
+                        // ⚠️ Uniquement les dossiers EN COURS (exclure commandes fermes)
+                        if (o.validationDate) {
+                            const days = calculateDelay(o.validationDate);
+                            buyerDelaysAll[name] = (buyerDelaysAll[name] || 0) + days;
+                            buyerDelayCountAll[name] = (buyerDelayCountAll[name] || 0) + 1;
+                        }
                     }
-                    
-                    buyerDelaysAll[name] = (buyerDelaysAll[name] || 0) + delay;
-                    buyerDelayCountAll[name] = (buyerDelayCountAll[name] || 0) + 1;
+                    // ⚠️ Commandes fermes EXCLUES du calcul du délai
                 }
             });
             
@@ -1606,7 +1619,8 @@
                 };
             });
             
-            // Compter les dossiers par acheteur et calculer TOUS les délais
+            // Compter les dossiers par acheteur et calculer les délais
+            // IMPORTANT : EXCLURE les commandes fermes du calcul du délai
             orders.forEach(o => {
                 const bid = o.buyerId;
                 if (bid && buyerStats[bid]) {
@@ -1622,21 +1636,20 @@
                         }
                     } else if (status === 'commande_ferme') {
                         buyerStats[bid].commandeFerme++;
-                        // Calculer délai : aujourd'hui - date validation
-                        if (o.validationDate) {
-                            const days = calculateDelay(o.validationDate);
-                            buyerStats[bid].totalDelay += days;
-                            buyerStats[bid].delayCount++;
-                        }
+                        // ⚠️ NE PAS calculer le délai pour les commandes fermes
+                        // Elles sont exclues du calcul comme demandé
                     } else if (status === 'achat_termine') {
                         buyerStats[bid].termines++;
-                        // Utiliser le délai stocké (date achat terminé - validation)
-                        if (o.delay !== undefined && o.delay !== null && o.delay > 0) {
-                            buyerStats[bid].totalDelay += o.delay;
-                            buyerStats[bid].delayCount++;
-                        } else if (o.validationDate) {
-                            // Fallback si delay n'est pas stocké
-                            const days = calculateDelay(o.validationDate);
+                        // Utiliser le délai stocké OU calculer depuis validationDate
+                        if (o.validationDate) {
+                            let days = 0;
+                            if (o.delay !== undefined && o.delay !== null && o.delay >= 0) {
+                                // Utiliser le délai stocké s'il existe
+                                days = o.delay;
+                            } else {
+                                // Calculer depuis la date de validation
+                                days = calculateDelay(o.validationDate);
+                            }
                             buyerStats[bid].totalDelay += days;
                             buyerStats[bid].delayCount++;
                         }
