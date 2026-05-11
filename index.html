@@ -292,7 +292,15 @@
                             <option value="">Tous les statuts</option>
                             <option value="en_cours">En cours d'achat</option>
                             <option value="commande_ferme">Commande ferme</option>
+                            <option value="recherche_occasion">Recherche en occasion</option>
                             <option value="achat_termine">Achat terminé</option>
+                        </select>
+                        <select id="sortOrder" onchange="renderOrdersTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all min-w-[180px]">
+                            <option value="">Tri : Récent</option>
+                            <option value="delay_asc">Délai croissant</option>
+                            <option value="delay_desc">Délai décroissant</option>
+                            <option value="client_asc">Client (A-Z)</option>
+                            <option value="client_desc">Client (Z-A)</option>
                         </select>
                         <button onclick="openAddModal()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap">
                             <i data-lucide="plus" class="w-4 h-4"></i>
@@ -421,7 +429,7 @@
                         </h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
-                            Délai moyen = (Achat terminé + En cours) ÷ Nombre de dossiers — Commandes fermes exclues
+                            Délai moyen = (Achat terminé + En cours) ÷ Nombre de dossiers — Commandes fermes et Recherche occasion exclues
                         </p>
                     </div>
                     <div class="overflow-x-auto">
@@ -432,6 +440,9 @@
                                     <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acheteur</th>
                                     <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">En Cours</th>
                                     <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Commandes Fermes</th>
+                                    <th class="px-4 py-4 text-center text-xs font-semibold text-orange-500 dark:text-orange-400 uppercase tracking-wider">
+                                        <i data-lucide="car" class="w-3 h-3 inline mr-1"></i>Recherche Occasion
+                                    </th>
                                     <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Terminés</th>
                                     <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Délai Moyen</th>
                                     <th class="px-4 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Performance</th>
@@ -490,7 +501,7 @@
                 <div><label class="block text-sm font-medium mb-1">Marque</label><input type="text" id="formVehicleBrand" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
                 <div><label class="block text-sm font-medium mb-1">Tâche</label><input type="text" id="formTask" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
                 <div><label class="block text-sm font-medium mb-1">Date Validation Expert</label><input type="datetime-local" id="formValidationDate" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
-                <div><label class="block text-sm font-medium mb-1">Statut Achat</label><select id="formStatus" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="en_cours">En cours d'achat</option><option value="commande_ferme">Commande ferme</option><option value="achat_termine">Achat terminé</option></select></div>
+                <div><label class="block text-sm font-medium mb-1">Statut Achat</label><select id="formStatus" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="en_cours">En cours d'achat</option><option value="commande_ferme">Commande ferme</option><option value="recherche_occasion">Recherche en occasion</option><option value="achat_termine">Achat terminé</option></select></div>
                 <div id="finishedDateDiv" class="hidden"><label class="block text-sm font-medium mb-1">Date Achat Terminé</label><input type="date" id="formFinishedDate" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
                 <div><label class="block text-sm font-medium mb-1">Acheteur</label><select id="formBuyer" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></select></div>
                 <div class="flex space-x-3 pt-4"><button type="button" onclick="closeModal()" class="flex-1 py-3 border rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button><button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Enregistrer</button></div>
@@ -868,7 +879,8 @@
                 'received': 'commande_ferme',
                 'en_cours': 'en_cours',
                 'commande_ferme': 'commande_ferme',
-                'achat_termine': 'achat_termine'
+                'achat_termine': 'achat_termine',
+                'recherche_occasion': 'recherche_occasion'
             };
             return statusMap[status] || 'en_cours';
         }
@@ -877,7 +889,8 @@
             const normalized = normalizeStatus(status);
             const labels = { 
                 'en_cours': 'En cours d\'achat', 
-                'commande_ferme': 'Commande ferme', 
+                'commande_ferme': 'Commande ferme',
+                'recherche_occasion': 'Recherche en occasion',
                 'achat_termine': 'Achat terminé' 
             };
             return labels[normalized] || 'En cours d\'achat';
@@ -887,7 +900,8 @@
             const normalized = normalizeStatus(status);
             const colors = { 
                 'en_cours': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', 
-                'commande_ferme': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', 
+                'commande_ferme': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+                'recherche_occasion': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
                 'achat_termine': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
             };
             return colors[normalized] || colors['en_cours'];
@@ -1025,8 +1039,9 @@
             const search = document.getElementById('searchInput')?.value.toLowerCase() || '';
             const status = document.getElementById('filterStatus')?.value || '';
             const buyerId = document.getElementById('filterBuyer')?.value || '';
+            const sort = document.getElementById('sortOrder')?.value || '';
             
-            return orders.filter(o => {
+            let filtered = orders.filter(o => {
                 // Recherche textuelle (réf, client, marque, acheteur, tâche)
                 const matchSearch = !search || 
                     o.reference?.toLowerCase().includes(search) || 
@@ -1044,6 +1059,59 @@
                 
                 return matchSearch && matchStatus && matchBuyer;
             });
+            
+            // Appliquer le tri
+            if (sort) {
+                filtered = [...filtered].sort((a, b) => {
+                    if (sort === 'delay_asc') {
+                        // Délai croissant (les plus petits d'abord)
+                        const delayA = calculateOrderDelay(a);
+                        const delayB = calculateOrderDelay(b);
+                        return delayA - delayB;
+                    } else if (sort === 'delay_desc') {
+                        // Délai décroissant (les plus grands d'abord)
+                        const delayA = calculateOrderDelay(a);
+                        const delayB = calculateOrderDelay(b);
+                        return delayB - delayA;
+                    } else if (sort === 'client_asc') {
+                        // Client A-Z
+                        return (a.client || '').localeCompare(b.client || '');
+                    } else if (sort === 'client_desc') {
+                        // Client Z-A
+                        return (b.client || '').localeCompare(a.client || '');
+                    }
+                    return 0;
+                });
+            }
+            
+            return filtered;
+        }
+        
+        // Fonction pour calculer le délai d'une commande (pour le tri)
+        function calculateOrderDelay(order) {
+            const status = normalizeStatus(order.partsStatus);
+            
+            // Pour commande ferme : pas de délai (retourne 0 pour le tri)
+            if (status === 'commande_ferme') {
+                return 0;
+            }
+            
+            // Pour recherche occasion : calculer le délai (pour le tri) mais sera exclu des stats
+            if (status === 'recherche_occasion' && order.validationDate) {
+                return calculateDelay(order.validationDate);
+            }
+            
+            // Pour achat terminé : utiliser le délai stocké
+            if (status === 'achat_termine' && order.delay !== undefined && order.delay !== null) {
+                return order.delay;
+            }
+            
+            // Pour en cours : calculer depuis la date de validation
+            if (order.validationDate) {
+                return calculateDelay(order.validationDate);
+            }
+            
+            return 0;
         }
 
         // Rendu UI
@@ -1189,6 +1257,7 @@
                 // Calcul du délai selon le statut (avec normalisation pour compatibilité)
                 // - En cours: aujourd'hui - date validation
                 // - Achat terminé: date achat terminé - date validation
+                // - Recherche en occasion: délai affiché mais NON inclus dans délai moyen
                 // - Commande ferme: non inclus dans le calcul
                 const normalizedStatus = normalizeStatus(o.partsStatus);
                 let delayDisplay = '-';
@@ -1200,6 +1269,12 @@
                     delayDisplay = days + 'j';
                     delayClass = days > 14 ? 'text-red-500 font-bold' : days > 7 ? 'text-orange-500 font-semibold' : 'text-green-500 font-medium';
                     delayTitle = `Depuis le ${new Date(o.validationDate).toLocaleDateString('fr-FR')} (${days} jours)`;
+                } else if (normalizedStatus === 'recherche_occasion' && o.validationDate) {
+                    // Recherche en occasion : délai affiché SÉPARÉMENT (pas dans délai moyen)
+                    const days = calculateDelay(o.validationDate);
+                    delayDisplay = days + 'j';
+                    delayClass = days > 14 ? 'text-red-500 font-bold' : days > 7 ? 'text-orange-600 font-semibold' : 'text-orange-500 font-medium';
+                    delayTitle = `Recherche : ${days} jours (non inclus dans délai moyen)`;
                 } else if (normalizedStatus === 'achat_termine' && o.validationDate) {
                     const finishedDelay = o.delay || 0;
                     delayDisplay = finishedDelay + 'j';
@@ -1264,6 +1339,10 @@
                                     <button onclick="updateOrderStatus('${o.id}', 'commande_ferme')" class="w-full px-4 py-2.5 text-left text-sm hover:bg-purple-50 dark:hover:bg-gray-700 flex items-center transition-colors ${o.partsStatus === 'commande_ferme' ? 'bg-purple-50 dark:bg-gray-700' : ''}">
                                         <span class="w-2.5 h-2.5 rounded-full bg-purple-500 mr-3"></span>
                                         <span class="text-gray-700 dark:text-gray-300 font-medium">Commande ferme</span>
+                                    </button>
+                                    <button onclick="updateOrderStatus('${o.id}', 'recherche_occasion')" class="w-full px-4 py-2.5 text-left text-sm hover:bg-orange-50 dark:hover:bg-gray-700 flex items-center transition-colors ${o.partsStatus === 'recherche_occasion' ? 'bg-orange-50 dark:bg-gray-700' : ''}">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-orange-500 mr-3"></span>
+                                        <span class="text-gray-700 dark:text-gray-300 font-medium">Recherche en occasion</span>
                                     </button>
                                     <button onclick="updateOrderStatus('${o.id}', 'achat_termine')" class="w-full px-4 py-2.5 text-left text-sm hover:bg-green-50 dark:hover:bg-gray-700 flex items-center transition-colors ${o.partsStatus === 'achat_termine' ? 'bg-green-50 dark:bg-gray-700' : ''}">
                                         <span class="w-2.5 h-2.5 rounded-full bg-green-500 mr-3"></span>
@@ -1501,14 +1580,14 @@
                             buyerDelayCountAll[name] = (buyerDelayCountAll[name] || 0) + 1;
                         }
                     } else if (status === 'en_cours') {
-                        // ⚠️ Uniquement les dossiers EN COURS (exclure commandes fermes)
+                        // ⚠️ Uniquement les dossiers EN COURS (exclure commandes fermes et recherche occasion)
                         if (o.validationDate) {
                             const days = calculateDelay(o.validationDate);
                             buyerDelaysAll[name] = (buyerDelaysAll[name] || 0) + days;
                             buyerDelayCountAll[name] = (buyerDelayCountAll[name] || 0) + 1;
                         }
                     }
-                    // ⚠️ Commandes fermes EXCLUES du calcul du délai
+                    // ⚠️ Commandes fermes et Recherche occasion EXCLUES du calcul du délai
                 }
             });
             
@@ -1613,9 +1692,10 @@
                     initials: b.initials,
                     enCours: 0,
                     commandeFerme: 0,
+                    rechercheOccasion: 0,
                     termines: 0,
                     totalDelay: 0,
-                    delayCount: 0  // Nombre de dossiers avec délai calculé
+                    delayCount: 0  // Nombre de dossiers avec délai calculé (exclut recherche occasion)
                 };
             });
             
@@ -1637,7 +1717,10 @@
                     } else if (status === 'commande_ferme') {
                         buyerStats[bid].commandeFerme++;
                         // ⚠️ NE PAS calculer le délai pour les commandes fermes
-                        // Elles sont exclues du calcul comme demandé
+                    } else if (status === 'recherche_occasion') {
+                        buyerStats[bid].rechercheOccasion = (buyerStats[bid].rechercheOccasion || 0) + 1;
+                        // ⚠️ Délai affiché mais EXCLU du délai moyen de l'acheteur
+                        // Le délai est calculé séparément
                     } else if (status === 'achat_termine') {
                         buyerStats[bid].termines++;
                         // Utiliser le délai stocké OU calculer depuis validationDate
@@ -1719,6 +1802,9 @@
                         </td>
                         <td class="px-4 py-4 text-center">
                             <span class="inline-flex items-center px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-bold">${b.commandeFerme}</span>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs font-bold">${b.rechercheOccasion || 0}</span>
                         </td>
                         <td class="px-4 py-4 text-center">
                             <span class="inline-flex items-center px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold">${b.termines}</span>
