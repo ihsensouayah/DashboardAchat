@@ -248,6 +248,9 @@
                     </div>
                 </div>
 
+                <!-- Alertes Accompagnement -->
+                <div id="dashboardAccompAlerts" class="mb-8"></div>
+
                 <!-- Stats par Marque -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border mb-8 overflow-hidden">
                     <div class="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
@@ -460,6 +463,9 @@
 
             <!-- ACCOMPAGNEMENT ASSURÉ VIEW -->
             <div id="view-accompagnement" class="view-section">
+                <!-- Alertes critiques -->
+                <div id="criticalAlerts" class="mb-6"></div>
+                
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
@@ -471,20 +477,24 @@
                             Dossiers avec délai supérieur à 3 jours - Suivi client
                         </p>
                     </div>
-                    <div class="flex flex-wrap gap-3">
-                        <select id="filterAccompagnementStatus" onchange="renderAccompagnementTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500 transition-all">
-                            <option value="">Tous les statuts</option>
-                            <option value="a_contacter">À contacter</option>
-                            <option value="contacte">Contacté</option>
-                            <option value="rdv_propose">RDV proposé</option>
-                            <option value="termine">Terminé</option>
-                        </select>
-                        <select id="filterReclamation" onchange="renderAccompagnementTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500 transition-all">
-                            <option value="">Toutes réclamations</option>
-                            <option value="oui">Réclamation (Oui)</option>
-                            <option value="non">Sans réclamation</option>
-                        </select>
-                    </div>
+                <div class="flex flex-wrap gap-3">
+                    <select id="filterAccompagnementStatus" onchange="renderAccompagnementTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500 transition-all">
+                        <option value="">Tous les statuts</option>
+                        <option value="a_contacter">À contacter</option>
+                        <option value="contacte">Contacté</option>
+                        <option value="rdv_propose">RDV proposé</option>
+                        <option value="termine">Terminé</option>
+                    </select>
+                    <select id="filterReclamation" onchange="renderAccompagnementTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500 transition-all">
+                        <option value="">Toutes réclamations</option>
+                        <option value="oui">Réclamation (Oui)</option>
+                        <option value="non">Sans réclamation</option>
+                    </select>
+                    <button onclick="resetAccompagnementNotifications()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-xs" title="Réinitialiser les notifications">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 inline mr-1"></i>
+                        Reset Notifs
+                    </button>
+                </div>
                 </div>
 
                 <!-- KPIs Accompagnement -->
@@ -1117,9 +1127,15 @@
                 renderRecentOrders(); 
                 renderWeeklySummary();
                 renderBrandStats();
+                renderDashboardAccompAlerts();
             }
             if (view === 'accompagnement') {
                 loadAccompagnement();
+            }
+            
+            // Vérifier les notifications à chaque changement de vue
+            if (view === 'dashboard' || view === 'orders') {
+                setTimeout(() => checkAccompagnementNotifications(), 1000);
             }
         }
 
@@ -2539,32 +2555,80 @@
             panel.classList.toggle('hidden');
         }
 
-        function addNotification(message, type = 'info') {
+        function addNotification(message, type = 'info', storageKey = null) {
+            // Sauvegarder dans localStorage pour éviter les doublons
+            if (storageKey) {
+                localStorage.setItem(storageKey, new Date().toISOString());
+            }
+            
             notifications.unshift({ message, type, time: new Date() });
             updateNotificationBadge();
             renderNotifications();
+            
+            // Afficher toast pour notifications importantes
+            if (type === 'warning' || type === 'error') {
+                showToast(message, type);
+            }
         }
 
         function updateNotificationBadge() {
             const badge = document.getElementById('notificationBadge');
-            badge.textContent = notifications.length;
+            
+            // Compter les notifications non-lues (critiques + warnings)
+            const criticalCount = notifications.filter(n => n.type === 'error' || n.type === 'warning').length;
+            badge.textContent = criticalCount > 0 ? criticalCount : notifications.length;
             badge.classList.toggle('hidden', notifications.length === 0);
+            
+            // Animation pour notifications critiques
+            if (criticalCount > 0) {
+                badge.classList.add('animate-pulse', 'bg-red-600');
+                badge.classList.remove('bg-red-500');
+            }
         }
 
         function renderNotifications() {
             const list = document.getElementById('notificationsList');
-            list.innerHTML = notifications.map(n => `
-                <div class="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">
-                    <p class="text-sm">${n.message}</p>
-                    <p class="text-xs text-gray-500 mt-1">${n.time.toLocaleTimeString('fr-FR')}</p>
-                </div>
-            `).join('');
+            list.innerHTML = notifications.map(n => {
+                let bgColor = 'bg-gray-50 dark:bg-gray-700';
+                let icon = '📢';
+                
+                if (n.type === 'warning') {
+                    bgColor = 'bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500';
+                    icon = '️';
+                } else if (n.type === 'error') {
+                    bgColor = 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500';
+                    icon = '🚨';
+                } else if (n.type === 'success') {
+                    bgColor = 'bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500';
+                    icon = '✅';
+                }
+                
+                return `
+                    <div class="p-3 ${bgColor} rounded-lg mb-2">
+                        <div class="flex items-start space-x-2">
+                            <span class="text-lg">${icon}</span>
+                            <div class="flex-1">
+                                <p class="text-sm text-gray-900 dark:text-white">${n.message}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${n.time.toLocaleDateString('fr-FR')} ${n.time.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         function clearNotifications() {
             notifications = [];
             updateNotificationBadge();
             renderNotifications();
+        }
+
+        // Réinitialiser les notifications d'accompagnement (pour test)
+        function resetAccompagnementNotifications() {
+            const keys = Object.keys(localStorage).filter(k => k.startsWith('accomp_'));
+            keys.forEach(k => localStorage.removeItem(k));
+            showToast('Notifications réinitialisées', 'success');
+            loadAccompagnement();
         }
 
         // Toast
@@ -2733,6 +2797,49 @@
         };
 
         // Rendu des statistiques par marque
+        // Afficher les alertes d'accompagnement sur le dashboard
+        function renderDashboardAccompAlerts() {
+            const container = document.getElementById('dashboardAccompAlerts');
+            if (!container) return;
+            
+            // Compter les dossiers > 3 jours
+            const delayedOrders = orders.filter(o => {
+                const status = normalizeStatus(o.partsStatus);
+                return status === 'en_cours' && o.validationDate && calculateDelay(o.validationDate) > 3;
+            });
+            
+            if (delayedOrders.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            const critical = delayedOrders.filter(o => {
+                return o.estimatedEndDate && new Date(o.estimatedEndDate) < new Date();
+            });
+            
+            container.innerHTML = `
+                <div class="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-6 text-white shadow-xl">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-14 h-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+                                <i data-lucide="headphones" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold">${delayedOrders.length} dossier(s) nécessitent un accompagnement</h3>
+                                <p class="text-sm opacity-90 mt-1">Délai > 3 jours - Acheteur et accompagnateur doivent agir</p>
+                                ${critical.length > 0 ? `<p class="text-sm font-bold mt-2 text-red-200">⚠️ ${critical.length} en retard critique !</p>` : ''}
+                            </div>
+                        </div>
+                        <button onclick="navigateTo('accompagnement')" class="px-6 py-3 bg-white/20 hover:bg-white/30 rounded-xl font-semibold transition-all flex items-center space-x-2">
+                            <span>Voir les dossiers</span>
+                            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+
         function renderBrandStats() {
             const container = document.getElementById('brandStats');
             if (!container) return;
@@ -2836,6 +2943,7 @@
             renderWeeklyClosedByBuyer();
             renderWeeklySummary();
             renderBrandStats();
+            renderDashboardAccompAlerts();
             renderUploadHistory();
             renderRecentOrders();
             renderOrdersTable();
@@ -2883,6 +2991,91 @@
             
             renderAccompagnementTable();
             renderAccompagnementKpis();
+            
+            // Vérifier et afficher les notifications
+            checkAccompagnementNotifications();
+        }
+
+        // Vérifier les notifications d'accompagnement
+        function checkAccompagnementNotifications() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            accompagnementList.forEach(a => {
+                // Notification 1: Délai > 3 jours - Acheteur doit remplir date fin
+                if (a.delay > 3 && (!a.estimatedEndDate || a.estimatedEndDate === '')) {
+                    const notifKey = 'accomp_delay_' + a.orderId;
+                    if (!localStorage.getItem(notifKey)) {
+                        addNotification(
+                            '🔔 ' + a.reference + ' - Délai > 3j : Acheteur doit renseigner date fin d\'achat',
+                            'warning',
+                            notifKey
+                        );
+                    }
+                }
+                
+                // Notification 2: Accompagnateur doit contacter (pas de 1er contact)
+                if (a.delay > 3 && (!a.firstContactDate || a.firstContactDate === '')) {
+                    const notifKey = 'accomp_contact_' + a.orderId;
+                    if (!localStorage.getItem(notifKey)) {
+                        addNotification(
+                            '📞 ' + a.reference + ' - Accompagnateur : 1er contact client requis',
+                            'warning',
+                            notifKey
+                        );
+                    }
+                }
+                
+                // Notification 3: CRITIQUE - Date estimée dépassée
+                if (a.estimatedEndDate) {
+                    const estimatedEnd = new Date(a.estimatedEndDate);
+                    estimatedEnd.setHours(0, 0, 0, 0);
+                    
+                    if (today > estimatedEnd) {
+                        const daysOverdue = Math.ceil((today - estimatedEnd) / (1000 * 60 * 60 * 24));
+                        const notifKey = 'accomp_critical_' + a.orderId;
+                        
+                        if (!localStorage.getItem(notifKey)) {
+                            addNotification(
+                                '🚨 CRITIQUE : ' + a.reference + ' - Date fin dépassée de ' + daysOverdue + 'j !',
+                                'error',
+                                notifKey
+                            );
+                        }
+                        
+                        // Notification persistante pour critique
+                        addCriticalNotification(a.reference, daysOverdue);
+                    }
+                }
+            });
+        }
+
+        // Ajouter une notification critique persistante
+        function addCriticalNotification(reference, daysOverdue) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            
+            // Vérifier si notification déjà affichée
+            const existing = document.getElementById('critical-' + reference.replace(/\//g, '-'));
+            if (existing) return;
+            
+            const toast = document.createElement('div');
+            toast.id = 'critical-' + reference.replace(/\//g, '-');
+            toast.className = 'px-6 py-4 rounded-xl shadow-2xl text-white bg-gradient-to-r from-red-600 to-red-700 animate-fade-in border-2 border-red-400';
+            toast.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <i data-lucide="alert-triangle" class="w-6 h-6 flex-shrink-0"></i>
+                    <div class="flex-1">
+                        <p class="font-bold text-sm">⚠️ RETARD CRITIQUE</p>
+                        <p class="text-xs mt-1">${reference} - Date fin dépassée de ${daysOverdue} jour(s)</p>
+                        <button onclick="this.parentElement.parentElement.remove()" class="mt-2 text-xs underline hover:text-red-200">Fermer</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => lucide.createIcons(), 100);
+            
+            // Ne pas auto-supprimer (reste affiché tant que pas fermé)
         }
 
         // Afficher le tableau d'accompagnement
@@ -2910,8 +3103,12 @@
                 const reclamationText = a.reclamation ? 'OUI' : 'NON';
                 const delayClass = a.delay > 14 ? 'text-red-600 font-bold' : a.delay > 7 ? 'text-orange-600 font-semibold' : 'text-green-600 font-medium';
                 
+                // Vérifier si date estimée dépassée
+                const isCritical = a.estimatedEndDate && new Date(a.estimatedEndDate) < new Date();
+                const criticalClass = isCritical ? 'bg-red-100 dark:bg-red-900/20 border-l-4 border-l-red-500' : '';
+                
                 return `
-                    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-all duration-200 ${a.reclamation ? 'bg-red-50 dark:bg-red-900/10' : ''}">
+                    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-all duration-200 ${a.reclamation ? 'bg-red-50 dark:bg-red-900/10' : ''} ${criticalClass}">
                         <td class="px-4 py-4">
                             <span class="font-semibold text-gray-900 dark:text-white">${a.reference}</span>
                         </td>
@@ -2925,16 +3122,21 @@
                             <span class="${delayClass}">${a.delay}j</span>
                         </td>
                         <td class="px-4 py-4">
-                            ${a.estimatedEndDate ? `<span class="text-sm text-gray-700 dark:text-gray-300">${new Date(a.estimatedEndDate).toLocaleDateString('fr-FR')}</span>` : '<span class="text-gray-400 text-xs">-</span>'}
+                            ${a.estimatedEndDate ? `
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">${new Date(a.estimatedEndDate).toLocaleDateString('fr-FR')}</span>
+                                    ${isCritical ? '<i data-lucide="alert-circle" class="w-4 h-4 text-red-500"></i>' : ''}
+                                </div>
+                            ` : '<span class="text-xs text-orange-500 font-semibold">⚠️ À remplir</span>'}
                         </td>
                         <td class="px-4 py-4">
                             ${a.buyerComment ? `<span class="text-xs text-gray-600 dark:text-gray-400 italic" title="${a.buyerComment}">${a.buyerComment.substring(0, 30)}${a.buyerComment.length > 30 ? '...' : ''}</span>` : '<span class="text-gray-400 text-xs">-</span>'}
                         </td>
                         <td class="px-4 py-4">
-                            ${a.firstContactDate ? `<span class="text-sm text-gray-700 dark:text-gray-300">${new Date(a.firstContactDate).toLocaleDateString('fr-FR')}</span>` : '<span class="text-gray-400 text-xs">-</span>'}
+                            ${a.firstContactDate ? `<span class="text-sm text-gray-700 dark:text-gray-300">${new Date(a.firstContactDate).toLocaleDateString('fr-FR')}</span>` : '<span class="text-xs text-blue-500 font-semibold"> À faire</span>'}
                         </td>
                         <td class="px-4 py-4">
-                            ${a.secondContactDate ? `<span class="text-sm text-gray-700 dark:text-gray-300">${new Date(a.secondContactDate).toLocaleDateString('fr-FR')}</span>` : '<span class="text-gray-400 text-xs">-</span>'}
+                            ${a.secondContactDate ? `<span class="text-sm text-gray-700 dark:text-gray-300">${new Date(a.secondContactDate).toLocaleDateString('fr-FR')}</span>` : (a.firstContactDate ? '<span class="text-xs text-gray-400">-</span>' : '<span class="text-xs text-gray-400">-</span>')}
                         </td>
                         <td class="px-4 py-4">
                             ${a.proposedRdvDate ? `<span class="text-sm text-gray-700 dark:text-gray-300">${new Date(a.proposedRdvDate).toLocaleDateString('fr-FR')}</span>` : '<span class="text-gray-400 text-xs">-</span>'}
@@ -2965,6 +3167,113 @@
             document.getElementById('accompKpiContacte').textContent = contacte;
             document.getElementById('accompKpiRdvPropose').textContent = rdvPropose;
             document.getElementById('accompKpiReclamation').textContent = reclamation;
+            
+            // Afficher les alertes critiques
+            renderCriticalAlerts();
+        }
+
+        // Afficher les alertes critiques en haut de page
+        function renderCriticalAlerts() {
+            const container = document.getElementById('criticalAlerts');
+            if (!container) return;
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Trouver les dossiers avec date estimée dépassée
+            const critical = accompagnementList.filter(a => {
+                if (!a.estimatedEndDate) return false;
+                const estimatedEnd = new Date(a.estimatedEndDate);
+                estimatedEnd.setHours(0, 0, 0, 0);
+                return today > estimatedEnd;
+            });
+            
+            // Trouver les dossiers sans date estimée (acheteur doit remplir)
+            const missingDate = accompagnementList.filter(a => !a.estimatedEndDate || a.estimatedEndDate === '');
+            
+            // Trouver les dossiers sans 1er contact
+            const noContact = accompagnementList.filter(a => !a.firstContactDate || a.firstContactDate === '');
+            
+            if (critical.length === 0 && missingDate.length === 0 && noContact.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            let html = '<div class="space-y-3">';
+            
+            // Alertes critiques (rouge)
+            if (critical.length > 0) {
+                html += `
+                    <div class="bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl p-4 shadow-lg animate-pulse">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                                <div>
+                                    <p class="font-bold text-lg">🚨 ${critical.length} dossier(s) en RETARD CRITIQUE</p>
+                                    <p class="text-sm opacity-90">Date fin d'achat dépassée - Action immédiate requise</p>
+                                </div>
+                            </div>
+                            <button onclick="document.getElementById('filterReclamation').value='oui'; renderAccompagnementTable();" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-all">
+                                Voir les dossiers
+                            </button>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            ${critical.slice(0, 5).map(a => `
+                                <span class="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold">${a.reference}</span>
+                            `).join('')}
+                            ${critical.length > 5 ? `<span class="px-3 py-1 bg-white/20 rounded-full text-xs">+${critical.length - 5} autres</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Alertes acheteur (orange)
+            if (missingDate.length > 0) {
+                html += `
+                    <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-4 shadow-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="calendar-x" class="w-6 h-6"></i>
+                                <div>
+                                    <p class="font-bold">${missingDate.length} dossier(s) - Acheteur doit remplir date fin</p>
+                                    <p class="text-sm opacity-90">Délai > 3 jours sans estimation de fin</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            ${missingDate.slice(0, 5).map(a => `
+                                <span class="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold">${a.reference} (${a.buyerName || 'Non assigné'})</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Alertes accompagnateur (bleu)
+            if (noContact.length > 0) {
+                html += `
+                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="phone" class="w-6 h-6"></i>
+                                <div>
+                                    <p class="font-bold">${noContact.length} dossier(s) - 1er contact client à faire</p>
+                                    <p class="text-sm opacity-90">Accompagnateur doit contacter l'assuré</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            ${noContact.slice(0, 5).map(a => `
+                                <span class="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold">${a.reference}</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+            setTimeout(() => lucide.createIcons(), 100);
         }
 
         // Ouvrir la modal de suivi
