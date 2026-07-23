@@ -88,7 +88,7 @@
                 <p class="text-gray-500 dark:text-gray-400 mt-2">Connexion à votre espace</p>
             </div>
             
-            <form id="loginForm" class="space-y-4" novalidate>
+            <form id="loginForm" class="space-y-4" novalidate onsubmit="return false;">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                     <input type="email" id="loginEmail" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500" placeholder="votre@email.com">
@@ -98,7 +98,7 @@
                     <input type="password" id="loginPassword" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500" placeholder="••••••••">
                 </div>
                 <div id="loginError" class="text-red-600 text-sm hidden"></div>
-                <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
+                <button type="button" onclick="console.log('CLICK!'); handleLoginClick();" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
                     <i data-lucide="log-in" class="w-5 h-5"></i>
                     <span>Se connecter</span>
                 </button>
@@ -730,7 +730,7 @@
 
     <!-- MODAL: Accompagnement Assuré -->
     <div id="accompagnementModal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-4xl mx-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-3xl mx-4 animate-fade-in max-h-[85vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center">
                     <i data-lucide="headphones" class="w-6 h-6 mr-2 text-orange-500"></i>
@@ -782,12 +782,21 @@
                         <p class="text-xs text-gray-500 mt-1">Date à laquelle l'achat sera terminé</p>
                     </div>
 
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="formNoCertainDate" class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <label for="formNoCertainDate" class="text-sm text-gray-700 dark:text-gray-300">
+                            <i data-lucide="circle-help" class="w-4 h-4 inline mr-1"></i>
+                            Pas de date certaine pour le moment
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Cochez si vous ne pouvez pas estimer la date fin (considéré comme une réponse à la notification)</p>
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             <i data-lucide="message-square" class="w-4 h-4 inline mr-1"></i>
                             Commentaire pour l'accompagnateur
                         </label>
-                        <textarea id="formBuyerComment" rows="3" placeholder="Ex: Pièces en attente, fournisseur en retard..." class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500"></textarea>
+                        <textarea id="formBuyerComment" rows="2" placeholder="Ex: Pièces en attente, fournisseur en retard..." class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500"></textarea>
                         <p class="text-xs text-gray-500 mt-1">Informations importantes à communiquer au client</p>
                     </div>
                 </div>
@@ -867,6 +876,20 @@
     </div>
 
     <script>
+        // Gestionnaire d'erreurs global - pour diagnostiquer les problèmes
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('🚨 ERREUR GLOBALE:', msg, 'ligne:', lineNo, 'col:', columnNo);
+            const errDiv = document.getElementById('loginError');
+            if (errDiv) {
+                errDiv.textContent = 'Erreur JS ligne ' + lineNo + ': ' + msg;
+                errDiv.classList.remove('hidden');
+                errDiv.style.background = '#fee';
+                errDiv.style.padding = '8px';
+                errDiv.style.borderRadius = '6px';
+            }
+            return false;
+        };
+        
         // Configuration Firebase - PROJET AUTOPACHAT
         const firebaseConfig = {
             apiKey: "AIzaSyDjaYzS64cTQ63ozYzSgRZSyqPgqpmJgGI",
@@ -943,66 +966,54 @@
         }
 
         auth.onAuthStateChanged(user => {
+            console.log(' Auth state changed:', user ? user.email : 'Déconnecté');
             if (user) {
+                console.log('✅ Utilisateur connecté, affichage de l\'app...');
                 currentUser = user;
                 showMainApp();
                 loadData();
             } else {
+                console.log('️ Utilisateur déconnecté, affichage du login...');
                 currentUser = null;
-                document.getElementById('mainApp').classList.add('hidden');
-                document.getElementById('loginPage').classList.remove('hidden');
+                const mainApp = document.getElementById('mainApp');
+                const loginPage = document.getElementById('loginPage');
+                if (mainApp) mainApp.classList.add('hidden');
+                if (loginPage) loginPage.classList.remove('hidden');
             }
         });
 
-        // Attacher l'événement seulement si le formulaire existe
-        const loginForm = document.getElementById('loginForm');
-        if (loginForm) {
-            console.log('✅ Formulaire de connexion trouvé et prêt');
-            loginForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
+        // Gestion du formulaire de connexion
+        window.handleLoginClick = function() {
+            console.log('🔐 Connexion attempt...');
             
             const email = document.getElementById('loginEmail').value.trim();
             const password = document.getElementById('loginPassword').value;
             const errorDiv = document.getElementById('loginError');
-            const submitBtn = this.querySelector('button[type="submit"]');
+            const submitBtn = document.querySelector('#loginForm button');
             
-            console.log('🔐 Tentative de connexion avec:', email);
-            
-            // Validation manuelle
             if (!email || !password) {
                 errorDiv.textContent = 'Veuillez remplir tous les champs';
                 errorDiv.classList.remove('hidden');
                 return;
             }
             
-            // Désactiver le bouton pendant la connexion
+            // Afficher état de chargement
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i><span>Connexion...</span>';
-            lucide.createIcons();
+            submitBtn.innerHTML = '<span>Connexion...</span>';
             
             auth.signInWithEmailAndPassword(email, password)
                 .then((userCredential) => {
-                    console.log('✅ Connecté avec succès:', userCredential.user.email);
-                    errorDiv.classList.add('hidden');
+                    console.log('✅ Connecté:', userCredential.user.email);
+                    setTimeout(() => window.location.reload(), 500);
                 })
                 .catch(error => {
-                    console.error('❌ Erreur de connexion:', error.code, error.message);
-                    let msg = error.message;
-                    if (error.code === 'auth/user-not-found') msg = 'Aucun compte trouvé avec cet email';
-                    else if (error.code === 'auth/wrong-password') msg = 'Mot de passe incorrect';
-                    else if (error.code === 'auth/invalid-email') msg = 'Email invalide';
-                    else if (error.code === 'auth/too-many-requests') msg = 'Trop de tentatives, réessayez plus tard';
-                    
-                    errorDiv.textContent = msg;
+                    console.error('❌ Erreur:', error.code, error.message);
+                    errorDiv.textContent = error.message;
                     errorDiv.classList.remove('hidden');
-                    
-                    // Réactiver le bouton
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i data-lucide="log-in" class="w-5 h-5"></i><span>Se connecter</span>';
                     lucide.createIcons();
                 });
-            });
         }
 
         document.getElementById('createAccountForm').addEventListener('submit', function(e) {
@@ -2258,6 +2269,9 @@
                 if (o.buyerComment) {
                     document.getElementById('formBuyerComment').value = o.buyerComment;
                 }
+                if (o.noCertainDate) {
+                    document.getElementById('formNoCertainDate').checked = o.noCertainDate;
+                }
             } else {
                 accompSection?.classList.add('hidden');
             }
@@ -2384,12 +2398,16 @@
             // Ajouter les informations pour accompagnement (date fin estimée + commentaire)
             const estimatedEndDate = document.getElementById('formEstimatedEndDate').value;
             const buyerComment = document.getElementById('formBuyerComment').value;
+            const noCertainDate = document.getElementById('formNoCertainDate').checked;
             
             if (estimatedEndDate) {
                 orderData.estimatedEndDate = estimatedEndDate;
             }
             if (buyerComment) {
                 orderData.buyerComment = buyerComment;
+            }
+            if (noCertainDate) {
+                orderData.noCertainDate = true;
             }
             
             if (eid) { 
@@ -3102,6 +3120,7 @@
                             validationDate: o.validationDate,
                             // Champs acheteur
                             estimatedEndDate: o.estimatedEndDate || '',
+                            noCertainDate: o.noCertainDate || false,
                             buyerComment: o.buyerComment || '',
                             // Champs accompagnateur
                             firstContactDate: o.firstContactDate || '',
@@ -3128,7 +3147,8 @@
             
             accompagnementList.forEach(a => {
                 // Notification 1: Délai > 3 jours - Acheteur doit remplir date fin
-                if (a.delay > 3 && (!a.estimatedEndDate || a.estimatedEndDate === '')) {
+                // Pas de notification si "Pas de date certaine" est coché
+                if (a.delay > 3 && (!a.estimatedEndDate || a.estimatedEndDate === '') && !a.noCertainDate) {
                     const notifKey = 'accomp_delay_' + a.orderId;
                     if (!localStorage.getItem(notifKey)) {
                         addNotification(
@@ -3252,7 +3272,7 @@
                                     <span class="text-sm text-gray-700 dark:text-gray-300">${new Date(a.estimatedEndDate).toLocaleDateString('fr-FR')}</span>
                                     ${isCritical ? '<i data-lucide="alert-circle" class="w-4 h-4 text-red-500"></i>' : ''}
                                 </div>
-                            ` : '<span class="text-xs text-orange-500 font-semibold">⚠️ À remplir</span>'}
+                            ` : (a.noCertainDate ? '<span class="text-xs text-blue-600 dark:text-blue-400 font-semibold">Date incertaine</span>' : '<span class="text-xs text-orange-500 font-semibold">⚠️ À remplir</span>')}
                         </td>
                         <td class="px-4 py-4">
                             ${a.buyerComment ? `
@@ -3333,7 +3353,10 @@
                 
                 byBuyer[key].totalDossiers++;
                 
-                if (a.estimatedEndDate && a.estimatedEndDate !== '') {
+                // Considérer comme "répondu" si :
+                // 1. Date estimée remplie
+                // 2. OU case "Pas de date certaine" cochée
+                if ((a.estimatedEndDate && a.estimatedEndDate !== '') || (a.noCertainDate === true)) {
                     byBuyer[key].datesRemplies++;
                 } else {
                     byBuyer[key].nonReponses++;
@@ -3534,6 +3557,8 @@
             const accomp = accompagnementList.find(a => a.orderId === orderId);
             if (!accomp) return;
             
+            console.log('📂 Opening modal for:', orderId, accomp);
+            
             document.getElementById('accompOrderId').value = orderId;
             document.getElementById('accompReference').textContent = accomp.reference;
             document.getElementById('accompVehicle').textContent = accomp.vehicle;
@@ -3543,6 +3568,7 @@
             // Champs acheteur (déjà remplis si l'acheteur les a mis dans Commandes)
             document.getElementById('formEstimatedEndDate').value = accomp.estimatedEndDate ? accomp.estimatedEndDate.split('T')[0] : '';
             document.getElementById('formBuyerComment').value = accomp.buyerComment || '';
+            document.getElementById('formNoCertainDate').checked = accomp.noCertainDate || false;
             
             // Champs accompagnateur
             document.getElementById('formFirstContact').value = accomp.firstContactDate ? accomp.firstContactDate.split('T')[0] : '';
@@ -3562,8 +3588,18 @@
             const accomp = accompagnementList.find(a => a.orderId === orderId);
             if (!accomp) return;
             
+            const noCertainDate = document.getElementById('formNoCertainDate').checked;
+            const estimatedEndDate = document.getElementById('formEstimatedEndDate').value;
+            
+            // Validation : soit une date, soit la case "Pas de date certaine"
+            if (!estimatedEndDate && !noCertainDate) {
+                showToast('Veuillez remplir une date OU cocher "Pas de date certaine"', 'warning');
+                return;
+            }
+            
             const updates = {
-                estimatedEndDate: document.getElementById('formEstimatedEndDate').value || null,
+                estimatedEndDate: estimatedEndDate || null,
+                noCertainDate: noCertainDate,
                 buyerComment: document.getElementById('formBuyerComment').value || null,
                 firstContactDate: document.getElementById('formFirstContact').value || null,
                 secondContactDate: document.getElementById('formSecondContact').value || null,
@@ -3573,12 +3609,16 @@
                 updatedAt: new Date().toISOString()
             };
             
+            console.log('📝 Sauvegarde accompagnement:', orderId, updates);
+            
             // Mettre à jour dans Firestore
             try {
                 await db.collection('orders').doc(orderId).update(updates);
+                console.log('✅ Firestore update successful');
                 
                 // Mettre à jour la liste locale
                 Object.assign(accomp, updates);
+                console.log('✅ Local list updated:', accomp);
                 
                 showToast('Suivi enregistré avec succès', 'success');
                 document.getElementById('accompagnementModal').classList.add('hidden');
@@ -3589,13 +3629,22 @@
                 // Rafraîchir aussi la page Commandes si ouvert
                 renderOrdersTable();
             } catch (error) {
-                console.error('Erreur sauvegarde:', error);
-                showToast('Erreur lors de la sauvegarde', 'error');
+                console.error('❌ Erreur sauvegarde:', error);
+                showToast('Erreur lors de la sauvegarde: ' + error.message, 'error');
             }
         }
 
         // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 DOMContentLoaded - Initialisation...');
+            
+            // Vérifier que Firebase est initialisé
+            console.log(' Firebase:', typeof firebase !== 'undefined' ? 'OK' : 'NON INITIALISÉ');
+            console.log(' Auth:', typeof auth !== 'undefined' ? 'OK' : 'NON INITIALISÉ');
+            
+            // Le gestionnaire de connexion est attaché via onclick sur le bouton
+            console.log('✅ Gestionnaire de connexion prêt (onclick)');
+            
             const backdrop = document.getElementById('modalBackdrop');
             if (backdrop) {
                 backdrop.addEventListener('click', function(e) {
@@ -3609,6 +3658,8 @@
             }
             populateBuyerSelect();
             lucide.createIcons();
+            
+            console.log('✅ Initialisation terminée');
         });
     </script>
 </body>
