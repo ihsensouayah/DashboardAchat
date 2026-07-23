@@ -498,7 +498,7 @@
                 </div>
 
                 <!-- KPIs Accompagnement -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                     <div class="stat-card bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
                         <div class="flex justify-between items-start">
                             <div>
@@ -546,6 +546,48 @@
                                 <i data-lucide="alert-circle" class="w-7 h-7"></i>
                             </div>
                         </div>
+                    </div>
+                    <div class="stat-card bg-gradient-to-br from-pink-500 to-pink-600 rounded-2xl p-6 text-white shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm opacity-90">Non-Réponses</p>
+                                <p class="text-4xl font-bold mt-2" id="accompKpiNonReponse">0</p>
+                                <p class="text-xs opacity-75 mt-2">Acheteurs</p>
+                            </div>
+                            <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
+                                <i data-lucide="user-x" class="w-7 h-7"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Acheteurs - Réactivité Notifications -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border overflow-hidden mb-8">
+                    <div class="p-6 border-b bg-gradient-to-r from-pink-50 to-red-50 dark:from-gray-800 dark:to-gray-900">
+                        <h3 class="font-bold text-gray-900 dark:text-white flex items-center">
+                            <i data-lucide="activity" class="w-5 h-5 mr-2 text-pink-600"></i>
+                            Performance Acheteurs - Réactivité aux Notifications
+                        </h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+                            Acheteurs qui n'ont PAS rempli la date fin d'achat après notification
+                        </p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">#</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Acheteur</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Dossiers > 3j</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Dates Remplies</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Non-Réponses</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Taux Réactivité</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="buyerReactivityTable" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -623,6 +665,32 @@
                 <div><label class="block text-sm font-medium mb-1">Date Validation Expert</label><input type="datetime-local" id="formValidationDate" required class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
                 <div><label class="block text-sm font-medium mb-1">Statut Achat</label><select id="formStatus" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="en_cours">En cours d'achat</option><option value="commande_ferme">Commande ferme</option><option value="recherche_occasion">Recherche en occasion</option><option value="achat_termine">Achat terminé</option></select></div>
                 <div id="finishedDateDiv" class="hidden"><label class="block text-sm font-medium mb-1">Date Achat Terminé</label><input type="date" id="formFinishedDate" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></div>
+                
+                <!-- Section Accompagnement (visible si délai > 3 jours ou statut en cours) -->
+                <div id="accompSection" class="hidden border-t pt-4 mt-4">
+                    <h4 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                        <i data-lucide="headphones" class="w-4 h-4 mr-2 text-orange-500"></i>
+                        Informations pour Accompagnement
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
+                                Date fin d'achat estimée
+                            </label>
+                            <input type="date" id="formEstimatedEndDate" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                            <p class="text-xs text-gray-500 mt-1">Pour informer l'accompagnateur</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <i data-lucide="message-square" class="w-4 h-4 inline mr-1"></i>
+                                Commentaire
+                            </label>
+                            <input type="text" id="formBuyerComment" placeholder="Ex: Pièces en attente..." class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                            <p class="text-xs text-gray-500 mt-1">Info pour l'accompagnateur</p>
+                        </div>
+                    </div>
+                </div>
                 <div><label class="block text-sm font-medium mb-1">Acheteur</label><select id="formBuyer" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"></select></div>
                 <div class="flex space-x-3 pt-4"><button type="button" onclick="closeModal()" class="flex-1 py-3 border rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button><button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Enregistrer</button></div>
             </form>
@@ -1131,6 +1199,10 @@
             }
             if (view === 'accompagnement') {
                 loadAccompagnement();
+            }
+            
+            if (view === 'analytics') {
+                renderAnalytics();
             }
             
             // Vérifier les notifications à chaque changement de vue
@@ -1949,7 +2021,7 @@
                     </div>
                 `;
             }).join('') || '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Aucun dossier clôturé</p>';
-            
+
             // --- 4. Tableau de performance par acheteur ---
             const buyerStats = {};
             
@@ -2132,6 +2204,11 @@
             document.getElementById('modalTitle').textContent = 'Ajouter un dossier';
             document.getElementById('orderForm').reset();
             document.getElementById('editOrderId').value = '';
+            
+            // Masquer la section accompagnement pour un nouveau dossier
+            const accompSection = document.getElementById('accompSection');
+            accompSection?.classList.add('hidden');
+            
             populateBuyerSelect();
             document.getElementById('orderModal').classList.remove('hidden');
             document.getElementById('modalBackdrop').classList.remove('hidden');
@@ -2167,6 +2244,22 @@
                 document.getElementById('formFinishedDate').value = o.finishedDate.split('T')[0];
             } else {
                 finishedDateDiv?.classList.add('hidden');
+            }
+            
+            // Afficher section accompagnement si délai > 3 jours
+            const accompSection = document.getElementById('accompSection');
+            const delay = calculateDelay(o.validationDate);
+            if (delay > 3 || o.partsStatus === 'en_cours') {
+                accompSection?.classList.remove('hidden');
+                // Remplir les champs si déjà renseignés
+                if (o.estimatedEndDate) {
+                    document.getElementById('formEstimatedEndDate').value = o.estimatedEndDate.split('T')[0];
+                }
+                if (o.buyerComment) {
+                    document.getElementById('formBuyerComment').value = o.buyerComment;
+                }
+            } else {
+                accompSection?.classList.add('hidden');
             }
             
             populateBuyerSelect();
@@ -2221,12 +2314,33 @@
         // Afficher/masquer le champ date d'achat terminé selon le statut
         document.getElementById('formStatus')?.addEventListener('change', function() {
             const finishedDateDiv = document.getElementById('finishedDateDiv');
+            const accompSection = document.getElementById('accompSection');
+            
             if (this.value === 'achat_termine') {
                 finishedDateDiv?.classList.remove('hidden');
             } else {
                 finishedDateDiv?.classList.add('hidden');
             }
         });
+        
+        // Afficher section accompagnement selon le statut
+        function toggleAccompSection() {
+            const status = document.getElementById('formStatus').value;
+            const validationDate = document.getElementById('formValidationDate').value;
+            const accompSection = document.getElementById('accompSection');
+            
+            if (status === 'en_cours' && validationDate) {
+                const delay = calculateDelay(validationDate);
+                if (delay > 3) {
+                    accompSection?.classList.remove('hidden');
+                    return;
+                }
+            }
+            accompSection?.classList.add('hidden');
+        }
+        
+        document.getElementById('formStatus')?.addEventListener('change', toggleAccompSection);
+        document.getElementById('formValidationDate')?.addEventListener('change', toggleAccompSection);
 
         document.getElementById('orderForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -2265,6 +2379,17 @@
             // Ajouter la date d'achat terminé si applicable
             if (status === 'achat_termine' && finishedDate) {
                 orderData.finishedDate = finishedDate;
+            }
+            
+            // Ajouter les informations pour accompagnement (date fin estimée + commentaire)
+            const estimatedEndDate = document.getElementById('formEstimatedEndDate').value;
+            const buyerComment = document.getElementById('formBuyerComment').value;
+            
+            if (estimatedEndDate) {
+                orderData.estimatedEndDate = estimatedEndDate;
+            }
+            if (buyerComment) {
+                orderData.buyerComment = buyerComment;
             }
             
             if (eid) { 
@@ -3130,7 +3255,11 @@
                             ` : '<span class="text-xs text-orange-500 font-semibold">⚠️ À remplir</span>'}
                         </td>
                         <td class="px-4 py-4">
-                            ${a.buyerComment ? `<span class="text-xs text-gray-600 dark:text-gray-400 italic" title="${a.buyerComment}">${a.buyerComment.substring(0, 30)}${a.buyerComment.length > 30 ? '...' : ''}</span>` : '<span class="text-gray-400 text-xs">-</span>'}
+                            ${a.buyerComment ? `
+                <div class="max-w-xs">
+                    <span class="text-xs text-gray-600 dark:text-gray-400 italic" title="${a.buyerComment}">${a.buyerComment.substring(0, 40)}${a.buyerComment.length > 40 ? '...' : ''}</span>
+                </div>
+            ` : '<span class="text-xs text-gray-400">-</span>'}
                         </td>
                         <td class="px-4 py-4">
                             ${a.firstContactDate ? `<span class="text-sm text-gray-700 dark:text-gray-300">${new Date(a.firstContactDate).toLocaleDateString('fr-FR')}</span>` : '<span class="text-xs text-blue-500 font-semibold"> À faire</span>'}
@@ -3163,13 +3292,137 @@
             const rdvPropose = accompagnementList.filter(a => a.accompagnementStatus === 'rdv_propose').length;
             const reclamation = accompagnementList.filter(a => a.reclamation === true).length;
             
+            // Calculer les non-réponses (acheteurs sans date estimée)
+            const nonReponse = accompagnementList.filter(a => !a.estimatedEndDate || a.estimatedEndDate === '').length;
+            
             document.getElementById('accompKpiAContacter').textContent = aContacter;
             document.getElementById('accompKpiContacte').textContent = contacte;
             document.getElementById('accompKpiRdvPropose').textContent = rdvPropose;
             document.getElementById('accompKpiReclamation').textContent = reclamation;
+            document.getElementById('accompKpiNonReponse').textContent = nonReponse;
             
             // Afficher les alertes critiques
             renderCriticalAlerts();
+            
+            // Afficher la performance des acheteurs
+            renderBuyerReactivityTable();
+        }
+
+        // Tableau de performance - Réactivité des acheteurs
+        function renderBuyerReactivityTable() {
+            const tbody = document.getElementById('buyerReactivityTable');
+            if (!tbody) return;
+            
+            // Grouper par acheteur
+            const byBuyer = {};
+            
+            accompagnementList.forEach(a => {
+                const buyerName = a.buyerName || 'Non assigné';
+                const buyerId = a.buyerId || 'unassigned';
+                const key = buyerId + '_' + buyerName;
+                
+                if (!byBuyer[key]) {
+                    byBuyer[key] = {
+                        id: buyerId,
+                        name: buyerName,
+                        totalDossiers: 0,
+                        datesRemplies: 0,
+                        nonReponses: 0
+                    };
+                }
+                
+                byBuyer[key].totalDossiers++;
+                
+                if (a.estimatedEndDate && a.estimatedEndDate !== '') {
+                    byBuyer[key].datesRemplies++;
+                } else {
+                    byBuyer[key].nonReponses++;
+                }
+            });
+            
+            // Calculer le taux de réactivité et trier
+            const buyerList = Object.values(byBuyer)
+                .map(b => ({
+                    ...b,
+                    tauxReactivite: b.totalDossiers > 0 ? Math.round((b.datesRemplies / b.totalDossiers) * 100) : 0
+                }))
+                .sort((a, b) => a.tauxReactivite - b.tauxReactivite); // Les pires en premier
+            
+            if (buyerList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400"><i data-lucide="check-circle" class="w-12 h-12 mx-auto mb-4 opacity-50"></i><p class="text-lg font-medium">Tous les acheteurs sont à jour !</p><p class="text-sm mt-2">Aucune notification en attente</p></td></tr>';
+                setTimeout(() => lucide.createIcons(), 100);
+                return;
+            }
+            
+            tbody.innerHTML = buyerList.map((b, i) => {
+                // Déterminer la couleur de performance
+                let perfClass = '';
+                let perfText = '';
+                let perfBg = '';
+                
+                if (b.tauxReactivite >= 80) {
+                    perfClass = 'text-green-700 dark:text-green-400';
+                    perfText = 'Bon';
+                    perfBg = 'bg-green-100 dark:bg-green-900/30';
+                } else if (b.tauxReactivite >= 50) {
+                    perfClass = 'text-orange-700 dark:text-orange-400';
+                    perfText = 'Moyen';
+                    perfBg = 'bg-orange-100 dark:bg-orange-900/30';
+                } else {
+                    perfClass = 'text-red-700 dark:text-red-400';
+                    perfText = 'Critique';
+                    perfBg = 'bg-red-100 dark:bg-red-900/30';
+                }
+                
+                // Rang avec médaille pour les meilleurs
+                const rankClass = b.tauxReactivite >= 80 ? 'bg-gradient-to-br from-green-400 to-green-600' : b.tauxReactivite >= 50 ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gradient-to-br from-red-400 to-red-600';
+                
+                return `
+                    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-all duration-200 ${b.nonReponses > 0 ? 'bg-red-50 dark:bg-red-900/10' : ''}">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-center w-8 h-8 rounded-full ${rankClass} text-white text-sm font-bold shadow-md">
+                                ${i + 1}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                                    ${b.name === 'Non assigné' ? '?' : b.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-900 dark:text-white">${b.name}</p>
+                                    ${b.nonReponses > 0 ? '<p class="text-xs text-red-500 font-semibold">⚠️ Doit remplir ' + b.nonReponses + ' date(s)</p>' : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold">${b.totalDossiers}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold">${b.datesRemplies}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            ${b.nonReponses > 0 ? 
+                                `<span class="inline-flex items-center px-3 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold animate-pulse">${b.nonReponses}</span>` : 
+                                `<span class="text-gray-400 text-xs">-</span>`
+                            }
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex items-center justify-center space-x-2">
+                                <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                                    <div class="h-2 rounded-full ${b.tauxReactivite >= 80 ? 'bg-green-500' : b.tauxReactivite >= 50 ? 'bg-orange-500' : 'bg-red-500'} transition-all duration-500" style="width: ${b.tauxReactivite}%"></div>
+                                </div>
+                                <span class="text-sm font-bold ${perfClass}">${b.tauxReactivite}%</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-full ${perfBg} ${perfClass} text-xs font-bold">${perfText}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            setTimeout(() => lucide.createIcons(), 100);
         }
 
         // Afficher les alertes critiques en haut de page
@@ -3287,7 +3540,7 @@
             document.getElementById('accompBuyer').textContent = accomp.buyerName || 'Non assigné';
             document.getElementById('accompDelay').textContent = accomp.delay + ' jours';
             
-            // Champs acheteur
+            // Champs acheteur (déjà remplis si l'acheteur les a mis dans Commandes)
             document.getElementById('formEstimatedEndDate').value = accomp.estimatedEndDate ? accomp.estimatedEndDate.split('T')[0] : '';
             document.getElementById('formBuyerComment').value = accomp.buyerComment || '';
             
@@ -3332,6 +3585,9 @@
                 document.getElementById('modalBackdrop').classList.add('hidden');
                 renderAccompagnementTable();
                 renderAccompagnementKpis();
+                
+                // Rafraîchir aussi la page Commandes si ouvert
+                renderOrdersTable();
             } catch (error) {
                 console.error('Erreur sauvegarde:', error);
                 showToast('Erreur lors de la sauvegarde', 'error');
