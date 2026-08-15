@@ -214,10 +214,6 @@
             
             <form id="createAccountForm" class="space-y-4" novalidate>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom complet</label>
-                    <input type="text" id="createName" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500" placeholder="Votre nom">
-                </div>
-                <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                     <input type="email" id="createEmail" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500" placeholder="votre@email.com">
                 </div>
@@ -227,10 +223,22 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rôle</label>
-                    <select id="createRole" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500">
-                        <option value="manager">Manager (accès total)</option>
-                        <option value="buyer">Acheteur (accès limité)</option>
+                    <select id="createRole" onchange="toggleCreateNameField()" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500">
+                        <option value="directeur">Directeur (accès total, tous les dossiers)</option>
+                        <option value="responsable">Responsable (accès total, tous les dossiers)</option>
+                        <option value="acheteur" selected>Acheteur (accès limité à ses propres dossiers)</option>
                     </select>
+                </div>
+                <div id="createBuyerNameWrap">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Acheteur</label>
+                    <select id="createBuyerName" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500">
+                        <option value="">Sélectionner votre nom…</option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Détermine les dossiers que vous pourrez modifier.</p>
+                </div>
+                <div id="createNameWrap" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom complet</label>
+                    <input type="text" id="createName" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500" placeholder="Votre nom">
                 </div>
                 <div id="createError" class="text-red-600 text-sm hidden"></div>
                 <div class="flex space-x-3">
@@ -262,10 +270,19 @@
                     <button onclick="navigateTo('marge')" id="nav-marge" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"><i data-lucide="percent" class="w-4 h-4 inline mr-1"></i>Analyse Marge</button>
                 </nav>
                 <div class="flex items-center space-x-3">
+                    <span id="syncIndicator" class="hidden sm:flex items-center gap-1.5 text-xs text-gray-400" title="Heure de la dernière mise à jour reçue de Firestore">
+                        <span id="syncDot" class="w-2 h-2 rounded-full bg-gray-300"></span>
+                        <span id="syncText">Non synchronisé</span>
+                    </span>
+                    <button onclick="location.reload()" class="p-2 hover:bg-gray-100 rounded-lg" title="Actualiser la page"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
                     <button onclick="toggleNotifications()" class="relative p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="bell" class="w-5 h-5"></i><span id="notificationBadge" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">0</span></button>
                     <button onclick="toggleDarkMode()" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="moon" class="w-5 h-5"></i></button>
                     <div class="flex items-center space-x-2">
-                        <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium" id="userAvatar">IS</div>
+                        <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium" id="userAvatar">?</div>
+                        <div class="hidden sm:block leading-tight">
+                            <p class="text-sm font-semibold text-gray-800 dark:text-gray-100" id="userNameLabel">-</p>
+                            <p class="text-xs text-gray-400" id="userRoleLabel">-</p>
+                        </div>
                         <button onclick="logout()" class="text-sm text-gray-600 hover:text-red-600" title="Déconnexion"><i data-lucide="log-out" class="w-5 h-5"></i></button>
                     </div>
                 </div>
@@ -636,6 +653,15 @@
 
                 <!-- Import + Filtres -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border mb-8 overflow-hidden">
+                    <div id="margeMigrationBanner" class="hidden p-4 border-b bg-amber-50 dark:bg-amber-900/20 flex flex-wrap items-center justify-between gap-3">
+                        <p class="text-sm text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                            <i data-lucide="database" class="w-4 h-4"></i>
+                            Ces données ne sont pas encore partagées en temps réel. Cliquez pour les enregistrer une fois pour toutes.
+                        </p>
+                        <button onclick="margeMigrateEmbeddedToFirestore()" id="margeMigrateBtn" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-xl transition-all">
+                            Activer la synchronisation
+                        </button>
+                    </div>
                     <div class="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 flex flex-wrap items-center justify-between gap-3">
                         <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center space-x-2">
                             <i data-lucide="filter" class="w-5 h-5 text-blue-600"></i><span>Filtres</span>
@@ -935,8 +961,9 @@
                     <button onclick="navigateTo('orders')" class="p-2 hover:bg-gray-100 rounded-lg"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
                     <h2 class="text-2xl font-bold">Détails du Dossier</h2>
                     <div class="flex-1"></div>
-                    <button onclick="editCurrentOrder()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="edit" class="w-4 h-4"></i><span>Modifier</span></button>
-                    <button onclick="deleteCurrentOrder()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="trash" class="w-4 h-4"></i><span>Supprimer</span></button>
+                    <button id="detailEditBtn" onclick="editCurrentOrder()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="edit" class="w-4 h-4"></i><span>Modifier</span></button>
+                    <button id="detailDeleteBtn" onclick="deleteCurrentOrder()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center space-x-2"><i data-lucide="trash" class="w-4 h-4"></i><span>Supprimer</span></button>
+                    <span id="detailLockedNote" class="hidden text-sm text-gray-400 flex items-center gap-1.5"><i data-lucide="lock" class="w-4 h-4"></i>Réservé à l'acheteur assigné, au responsable ou au directeur</span>
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
@@ -1192,13 +1219,18 @@
         // Gestionnaire d'erreurs global - pour diagnostiquer les problèmes
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             console.error('🚨 ERREUR GLOBALE:', msg, 'ligne:', lineNo, 'col:', columnNo);
+            // Affiche l'erreur sur le formulaire de login si visible (avant connexion)...
             const errDiv = document.getElementById('loginError');
-            if (errDiv) {
+            if (errDiv && !document.getElementById('loginPage').classList.contains('hidden')) {
                 errDiv.textContent = 'Erreur JS ligne ' + lineNo + ': ' + msg;
                 errDiv.classList.remove('hidden');
                 errDiv.style.background = '#fee';
                 errDiv.style.padding = '8px';
                 errDiv.style.borderRadius = '6px';
+            } else if (typeof showToast === 'function') {
+                // ...sinon (une fois dans l'app), affiche un toast visible pour ne jamais
+                // laisser une erreur passer inaperçue silencieusement.
+                try { showToast('Erreur technique : ' + msg + ' (voir la console pour plus de détails)', 'error'); } catch (e) {}
             }
             return false;
         };
@@ -1236,6 +1268,7 @@
 
         // Variables globales
         let currentUser = null;
+        let currentUserProfile = null;
         let orders = [];
         let buyers = [];
         let uploadHistory = [];
@@ -1266,6 +1299,7 @@
         function showCreateAccount() {
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('createAccountPage').classList.remove('hidden');
+            populateCreateBuyerNameOptions();
         }
 
         function showLogin() {
@@ -1283,17 +1317,78 @@
             if (user) {
                 console.log('✅ Utilisateur connecté, affichage de l\'app...');
                 currentUser = user;
-                showMainApp();
-                loadData();
+                db.collection('users').doc(user.uid).get()
+                    .then(doc => {
+                        if (doc.exists) {
+                            currentUserProfile = doc.data();
+                        } else {
+                            console.warn('⚠️ Profil introuvable pour', user.email, '- accès restreint par défaut.');
+                            currentUserProfile = { name: user.email, role: 'acheteur' };
+                        }
+                    })
+                    .catch(err => {
+                        console.error('❌ Erreur chargement profil utilisateur:', err);
+                        currentUserProfile = { name: user.email, role: 'acheteur' };
+                    })
+                    .finally(() => {
+                        showMainApp();
+                        renderUserBadge();
+                        loadData();
+                    });
             } else {
                 console.log('️ Utilisateur déconnecté, affichage du login...');
                 currentUser = null;
+                currentUserProfile = null;
                 const mainApp = document.getElementById('mainApp');
                 const loginPage = document.getElementById('loginPage');
                 if (mainApp) mainApp.classList.add('hidden');
                 if (loginPage) loginPage.classList.remove('hidden');
             }
         });
+
+        // ---------- Droits d'accès par rôle ----------
+        // directeur / responsable : accès total (peuvent traiter n'importe quel dossier,
+        // par exemple en l'absence de l'acheteur assigné). acheteur : uniquement ses
+        // propres dossiers. Protection côté écran uniquement (comme le code PIN), pas une
+        // vraie sécurité serveur puisque ce fichier est un HTML statique.
+        const FULL_ACCESS_ROLES = ['directeur', 'responsable', 'manager'];
+        function isFullAccessUser() {
+            return !!(currentUserProfile && FULL_ACCESS_ROLES.includes(currentUserProfile.role));
+        }
+        function normalizeNameCompare(s) {
+            return (s || '').toString().trim().toLowerCase();
+        }
+        function canEditOrder(order) {
+            if (!currentUserProfile || !order) return false;
+            if (isFullAccessUser()) return true;
+            return normalizeNameCompare(order.buyerName) === normalizeNameCompare(currentUserProfile.name);
+        }
+        // Indicateur visuel de synchronisation temps réel (preuve que Firestore pousse
+        // bien les mises à jour sans avoir besoin de rafraîchir la page).
+        function markSynced() {
+            const dot = document.getElementById('syncDot');
+            const text = document.getElementById('syncText');
+            if (dot) { dot.classList.remove('bg-gray-300', 'bg-red-400'); dot.classList.add('bg-green-500'); }
+            if (text) text.textContent = 'Synchronisé à ' + new Date().toLocaleTimeString('fr-FR');
+        }
+        function markSyncError() {
+            const dot = document.getElementById('syncDot');
+            const text = document.getElementById('syncText');
+            if (dot) { dot.classList.remove('bg-gray-300', 'bg-green-500'); dot.classList.add('bg-red-400'); }
+            if (text) text.textContent = 'Erreur de synchronisation';
+        }
+
+        function renderUserBadge() {
+            if (!currentUserProfile) return;
+            const ROLE_LABELS = { directeur: 'Directeur', responsable: 'Responsable', manager: 'Manager', acheteur: 'Acheteur', buyer: 'Acheteur' };
+            const initials = currentUserProfile.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+            const avatar = document.getElementById('userAvatar');
+            const nameLabel = document.getElementById('userNameLabel');
+            const roleLabel = document.getElementById('userRoleLabel');
+            if (avatar) avatar.textContent = initials;
+            if (nameLabel) nameLabel.textContent = currentUserProfile.name;
+            if (roleLabel) roleLabel.textContent = ROLE_LABELS[currentUserProfile.role] || currentUserProfile.role;
+        }
 
         // Gestion du formulaire de connexion
         window.handleLoginClick = function() {
@@ -1329,13 +1424,42 @@
                 });
         }
 
+        // Remplit le sélecteur d'acheteur avec la liste officielle, et bascule le champ
+        // "Nom" affiché selon le rôle choisi (acheteur = liste fermée, direction = texte libre).
+        function populateCreateBuyerNameOptions() {
+            const sel = document.getElementById('createBuyerName');
+            if (!sel || sel.options.length > 1) return;
+            OFFICIAL_BUYERS.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.name;
+                opt.textContent = b.name;
+                sel.appendChild(opt);
+            });
+        }
+        function toggleCreateNameField() {
+            const role = document.getElementById('createRole').value;
+            populateCreateBuyerNameOptions();
+            if (role === 'acheteur') {
+                document.getElementById('createBuyerNameWrap').classList.remove('hidden');
+                document.getElementById('createNameWrap').classList.add('hidden');
+            } else {
+                document.getElementById('createBuyerNameWrap').classList.add('hidden');
+                document.getElementById('createNameWrap').classList.remove('hidden');
+            }
+        }
         document.getElementById('createAccountForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const name = document.getElementById('createName').value;
+            const role = document.getElementById('createRole').value;
+            const name = role === 'acheteur' ? document.getElementById('createBuyerName').value : document.getElementById('createName').value.trim();
             const email = document.getElementById('createEmail').value;
             const password = document.getElementById('createPassword').value;
-            const role = document.getElementById('createRole').value;
             const errorDiv = document.getElementById('createError');
+
+            if (!name) {
+                errorDiv.textContent = role === 'acheteur' ? 'Veuillez sélectionner votre nom dans la liste' : 'Veuillez indiquer votre nom';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
             
             auth.createUserWithEmailAndPassword(email, password)
                 .then(cred => {
@@ -1471,11 +1595,13 @@
                 console.log('📦 Commandes chargées:', snapshot.size);
                 orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderAll();
+                markSynced();
                 
                 // Charger l'accompagnement
                 loadAccompagnement();
             }, error => {
                 console.error('❌ Erreur chargement orders:', error);
+                markSyncError();
             });
 
             db.collection('buyers').onSnapshot(snapshot => {
@@ -1997,6 +2123,7 @@
                         </td>
                         <td class="px-6 py-4">
                             <div class="relative">
+                                ${canEditOrder(o) ? `
                                 <button onclick="showStatusDropdown('${o.id}', this)" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${statusColor} hover:shadow-lg transition-all duration-200 transform hover:scale-105">
                                     <span>${statusLabel}</span>
                                     <i data-lucide="chevron-down" class="w-3 h-3 ml-1"></i>
@@ -2019,6 +2146,11 @@
                                         <span class="text-gray-700 dark:text-gray-300 font-medium">Achat terminé</span>
                                     </button>
                                 </div>
+                                ` : `
+                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${statusColor} opacity-80 cursor-not-allowed" title="Seul l'acheteur assigné (ou un responsable/directeur) peut changer ce statut">
+                                    <i data-lucide="lock" class="w-3 h-3 mr-1"></i><span>${statusLabel}</span>
+                                </span>
+                                `}
                             </div>
                         </td>
                         <td class="px-6 py-4">
@@ -2026,12 +2158,18 @@
                                 <button onclick="openOrderDetail('${o.id}')" class="p-2 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg text-blue-600 dark:text-blue-400 transition-colors" title="Voir les détails">
                                     <i data-lucide="eye" class="w-4 h-4"></i>
                                 </button>
+                                ${canEditOrder(o) ? `
                                 <button onclick="editOrder('${o.id}')" class="p-2 hover:bg-green-50 dark:hover:bg-gray-700 rounded-lg text-green-600 dark:text-green-400 transition-colors" title="Modifier">
                                     <i data-lucide="edit" class="w-4 h-4"></i>
                                 </button>
                                 <button onclick="deleteOrder('${o.id}')" class="p-2 hover:bg-red-50 dark:hover:bg-gray-700 rounded-lg text-red-600 dark:text-red-400 transition-colors" title="Supprimer">
                                     <i data-lucide="trash" class="w-4 h-4"></i>
                                 </button>
+                                ` : `
+                                <span class="p-2 text-gray-300 dark:text-gray-600" title="Réservé à l'acheteur assigné, au responsable ou au directeur">
+                                    <i data-lucide="lock" class="w-4 h-4"></i>
+                                </span>
+                                `}
                             </div>
                         </td>
                     </tr>
@@ -2525,6 +2663,11 @@
                 document.getElementById('detailBuyerAvatar').textContent = '?';
             }
 
+            const allowed = canEditOrder(o);
+            document.getElementById('detailEditBtn').classList.toggle('hidden', !allowed);
+            document.getElementById('detailDeleteBtn').classList.toggle('hidden', !allowed);
+            document.getElementById('detailLockedNote').classList.toggle('hidden', allowed);
+
             navigateTo('detail');
         }
 
@@ -2546,6 +2689,7 @@
         function editOrder(id) { 
             const o = orders.find(x => x.id === id); 
             if (!o) return; 
+            if (!canEditOrder(o)) { showToast("Vous n'êtes pas autorisé à modifier ce dossier", 'error'); return; }
             currentOrderId = id; 
             document.getElementById('modalTitle').textContent = 'Modifier le dossier'; 
             document.getElementById('editOrderId').value = o.id; 
@@ -2616,6 +2760,9 @@
         }
 
         function deleteOrder(id) {
+            const o = orders.find(x => x.id === id);
+            if (!o) return;
+            if (!canEditOrder(o)) { showToast("Vous n'êtes pas autorisé à supprimer ce dossier", 'error'); return; }
             orderToDelete = id;
             document.getElementById('deleteModal').classList.remove('hidden');
             document.getElementById('modalBackdrop').classList.remove('hidden');
@@ -3175,6 +3322,7 @@
             try {
                 const order = orders.find(o => o.id === orderId);
                 if (!order) return;
+                if (!canEditOrder(order)) { showToast("Vous n'êtes pas autorisé à modifier ce dossier", 'error'); return; }
                 
                 const updateData = {
                     partsStatus: newStatus,
@@ -4591,6 +4739,66 @@
             }
         });
 
+        // ---------- Persistance Firestore (Analyse Marge) ----------
+        // Sans ceci, les imports ne vivaient que dans la mémoire du navigateur : perdus au
+        // rafraîchissement et invisibles pour les autres utilisateurs. Chaque dossier est
+        // stocké comme un document Firestore, avec un identifiant dérivé de ses données
+        // (n° de dossier si connu, sinon empreinte des montants) pour qu'un ré-import du
+        // même fichier écrase la ligne existante au lieu de la dupliquer.
+        let margeFirestoreListenerAttached = false;
+        function margeSanitizeId(s) {
+            return String(s || '').trim().toUpperCase().replace(/[\/\.\#\$\[\]\s]+/g, '_').slice(0, 400) || 'X';
+        }
+        function margeRowId(r) {
+            if (r.dossier) return margeSanitizeId((r.mois || '') + '_' + (r.assurance || '') + '_' + r.dossier);
+            return margeSanitizeId(['C', r.date, r.assurance_brute, r.garantie, r.modele_brut, r.pieces_vente_ht, r.pdt_vente_ht, r.pieces_achat_ht, r.pdt_achat_ht].join('_'));
+        }
+        function margeAttachFirestoreListener() {
+            if (margeFirestoreListenerAttached) return;
+            margeFirestoreListenerAttached = true;
+            db.collection('margeData').onSnapshot(function(snapshot) {
+                if (snapshot.empty) {
+                    if (window.MARGE_EMBEDDED_DATA && window.MARGE_EMBEDDED_DATA.length) {
+                        document.getElementById('margeMigrationBanner').classList.remove('hidden');
+                    }
+                    return; // garde les données embarquées affichées tant que rien n'est migré
+                }
+                document.getElementById('margeMigrationBanner').classList.add('hidden');
+                margeAllData = snapshot.docs.map(function(d) { return d.data(); });
+                margeRefresh();
+                markSynced();
+            }, function(err) {
+                console.error('❌ Erreur synchronisation Analyse Marge:', err);
+                if (typeof showToast === 'function') showToast('Erreur de synchronisation Analyse Marge (voir console)', 'error');
+            });
+        }
+        // Migration unique : envoie les données embarquées dans Firestore. Après ce clic,
+        // le module ne dépend plus jamais du contenu figé dans le fichier HTML.
+        async function margeMigrateEmbeddedToFirestore() {
+            const btn = document.getElementById('margeMigrateBtn');
+            const rows = window.MARGE_EMBEDDED_DATA || [];
+            if (!rows.length) return;
+            btn.disabled = true;
+            btn.textContent = 'Envoi en cours…';
+            try {
+                const CHUNK = 400;
+                for (let i = 0; i < rows.length; i += CHUNK) {
+                    const batch = db.batch();
+                    rows.slice(i, i + CHUNK).forEach(function(r) {
+                        batch.set(db.collection('margeData').doc(margeRowId(r)), r);
+                    });
+                    await batch.commit();
+                    btn.textContent = 'Envoi… ' + Math.min(i + CHUNK, rows.length) + '/' + rows.length;
+                }
+                showToast(rows.length + ' dossier(s) synchronisé(s) avec succès', 'success');
+            } catch (err) {
+                console.error('❌ Erreur migration Analyse Marge:', err);
+                showToast('Échec de la synchronisation : ' + err.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Activer la synchronisation';
+            }
+        }
+
         function initMargeModule() {
             if (margeInitialized) { margeRefresh(); return; }
             margeInitialized = true;
@@ -4649,22 +4857,43 @@
                         }
 
                         // Import mensuel : les mois présents dans le fichier remplacent entièrement
-                        // les données déjà chargées pour ces mêmes mois (au lieu de les cumuler),
+                        // les données déjà enregistrées pour ces mêmes mois (au lieu de les cumuler),
                         // pour rester cohérent quel que soit le nombre de fois où un fichier est réimporté.
+                        // Écrit directement dans Firestore : tout le monde voit l'import en direct,
+                        // sans avoir besoin de retélécharger un nouveau fichier HTML.
                         const moisImportes = Array.from(new Set(parsed.map(r => r.mois).filter(Boolean)));
-                        const avantTotal = margeAllData.length;
-                        const avantMoisConcernes = margeAllData.filter(r => moisImportes.includes(r.mois)).length;
-                        margeAllData = margeAllData.filter(r => !moisImportes.includes(r.mois));
-                        margeAllData = margeAllData.concat(parsed);
 
-                        margeRefresh();
+                        (async () => {
+                            try {
+                                let supprimees = 0;
+                                if (moisImportes.length) {
+                                    const existing = await db.collection('margeData').where('mois', 'in', moisImportes.slice(0, 10)).get();
+                                    const toDelete = existing.docs;
+                                    for (let i = 0; i < toDelete.length; i += 400) {
+                                        const batch = db.batch();
+                                        toDelete.slice(i, i + 400).forEach(doc => batch.delete(doc.ref));
+                                        await batch.commit();
+                                    }
+                                    supprimees = toDelete.length;
+                                }
+                                for (let i = 0; i < parsed.length; i += 400) {
+                                    const batch = db.batch();
+                                    parsed.slice(i, i + 400).forEach(r => batch.set(db.collection('margeData').doc(margeRowId(r)), r));
+                                    await batch.commit();
+                                }
 
-                        let msg = parsed.length + ' ligne(s) importée(s) pour ' +
-                            (moisImportes.length > 1 ? 'les mois ' + moisImportes.join(', ') : 'le mois ' + (moisImportes[0] || '—')) +
-                            ' (' + file.name + ')';
-                        if (avantMoisConcernes) msg += ' — ' + avantMoisConcernes + ' ancienne(s) ligne(s) de ces mois remplacée(s)';
-                        if (invalides) msg += ' — ' + invalides + ' ligne(s) invalide(s) ignorée(s)';
-                        if (typeof showToast === 'function') showToast(msg); else alert(msg);
+                                let msg = parsed.length + ' ligne(s) importée(s) pour ' +
+                                    (moisImportes.length > 1 ? 'les mois ' + moisImportes.join(', ') : 'le mois ' + (moisImportes[0] || '—')) +
+                                    ' (' + file.name + ')';
+                                if (supprimees) msg += ' — ' + supprimees + ' ancienne(s) ligne(s) de ces mois remplacée(s)';
+                                if (invalides) msg += ' — ' + invalides + ' ligne(s) invalide(s) ignorée(s)';
+                                showToast(msg);
+                                // margeRefresh() se déclenche automatiquement via l'écoute Firestore
+                            } catch (err) {
+                                console.error('Erreur écriture Firestore (Analyse Marge):', err);
+                                showToast("Échec de l'enregistrement de l'import : " + err.message, 'error');
+                            }
+                        })();
                     } catch (err) {
                         console.error('Erreur import Excel (Analyse Marge):', err);
                         const msg = "Échec de l'import du fichier « " + file.name + " » : " + err.message + ". Vérifiez que le format des colonnes correspond au modèle attendu.";
@@ -4681,6 +4910,7 @@
             });
 
             margeRefresh();
+            margeAttachFirestoreListener();
         }
 
         function downloadMargeDashboard() {
