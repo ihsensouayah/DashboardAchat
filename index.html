@@ -91,6 +91,54 @@
         .animate-scale-in { animation: scaleIn 0.4s ease-out forwards; }
         .animate-pulse { animation: pulse 2s infinite; }
         .animate-shimmer { animation: shimmer 2s infinite linear; }
+
+        /* ---------- Sidebar de navigation AUTOP (droite) ---------- */
+        @keyframes navItemIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes navPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+        @keyframes navActiveSweep { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+        .sidebar-nav {
+            background: linear-gradient(165deg, #1c2536 0%, #131a27 55%, #0f141e 100%);
+            border-right: 3px solid;
+            border-image: linear-gradient(180deg, #ffb205, #db0c15, #ffb205) 1;
+            box-shadow: 8px 0 24px -8px rgba(0,0,0,0.25);
+        }
+        .sidebar-brand-dot { background: linear-gradient(135deg, #ffb205, #db0c15); }
+        .nav-btn {
+            position: relative;
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.7rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.875rem; font-weight: 500;
+            color: #8b96ab;
+            overflow: hidden;
+            transition: color .25s ease, background .25s ease, transform .25s cubic-bezier(.4,0,.2,1);
+            animation: navItemIn .45s cubic-bezier(.4,0,.2,1) backwards;
+        }
+        .nav-btn::before {
+            content: ''; position: absolute; right: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 3px;
+            background: linear-gradient(180deg, #ffb205, #db0c15);
+            transform: scaleY(0); transform-origin: center;
+            transition: transform .3s cubic-bezier(.4,0,.2,1);
+        }
+        .nav-btn:hover:not(.active) { background: rgba(255,255,255,0.07); color: #f1f5f9; transform: translateX(5px); }
+        .nav-btn .nav-btn-icon { display: flex; transition: transform .3s cubic-bezier(.4,0,.2,1); }
+        .nav-btn:hover:not(.active) .nav-btn-icon { transform: scale(1.15) rotate(6deg); }
+        .nav-btn.active {
+            color: #fff;
+            background: linear-gradient(120deg, #db0c15, #a80a10, #db0c15);
+            background-size: 200% 200%;
+            animation: navItemIn .45s cubic-bezier(.4,0,.2,1) backwards, navActiveSweep 3s ease infinite;
+            box-shadow: 0 6px 16px -4px rgba(219,12,21,0.55);
+        }
+        .nav-btn.active::before { transform: scaleY(1); background: linear-gradient(180deg, #ffec00, #ffb205); }
+        .nav-btn.active .nav-btn-icon { animation: navPulse 2.2s ease-in-out infinite; }
+        .nav-btn-label { white-space: nowrap; }
+
+        /* Barre de navigation mobile (icônes en bas, la sidebar étant réservée au desktop) */
+        .bottom-nav { background: linear-gradient(90deg, #1c2536, #131a27); border-top: 2px solid #db0c15; }
+        .bottom-nav-btn { color: #8b96ab; transition: color .2s ease, transform .2s ease; }
+        .bottom-nav-btn.active { color: #ffb205; transform: translateY(-3px); }
+        .bottom-nav-btn:active { transform: scale(0.9); }
         
         .drag-active { border-color: #3b82f6 !important; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)) !important; transform: scale(1.02); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .view-section { display: none; }
@@ -261,14 +309,12 @@
                         <p class="text-xs text-gray-500">Gestion Achats</p>
                     </div>
                 </div>
-                <nav class="hidden md:flex space-x-1">
-                    <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700"><i data-lucide="layout-dashboard" class="w-4 h-4 inline mr-1"></i>Dashboard</button>
-                    <button onclick="navigateTo('orders')" id="nav-orders" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>Commandes</button>
-                    <button onclick="navigateTo('accompagnement')" id="nav-accompagnement" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"><i data-lucide="headphones" class="w-4 h-4 inline mr-1"></i>Accompagnement</button>
-                    <button onclick="navigateTo('buyers')" id="nav-buyers" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>Acheteurs</button>
-                    <button onclick="navigateTo('analytics')" id="nav-analytics" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"><i data-lucide="bar-chart-3" class="w-4 h-4 inline mr-1"></i>Analytics</button>
-                    <button onclick="navigateTo('marge')" id="nav-marge" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"><i data-lucide="percent" class="w-4 h-4 inline mr-1"></i>Analyse Marge</button>
-                </nav>
+
+                <div class="hidden md:flex flex-col items-center flex-1 px-4 select-none">
+                    <h2 id="headerPageTitle" class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">Dashboard</h2>
+                    <p id="headerWelcome" class="text-xs text-gray-400 mt-0.5">-</p>
+                </div>
+
                 <div class="flex items-center space-x-3">
                     <span id="syncIndicator" class="hidden sm:flex items-center gap-1.5 text-xs text-gray-400" title="Heure de la dernière mise à jour reçue de Firestore">
                         <span id="syncDot" class="w-2 h-2 rounded-full bg-gray-300"></span>
@@ -295,7 +341,19 @@
         </div>
         <div id="toastContainer" class="fixed top-20 right-4 z-50 space-y-2"></div>
 
-        <main class="max-w-7xl mx-auto px-4 py-8">
+        <div class="flex flex-col md:flex-row">
+        <aside class="sidebar-nav hidden md:flex md:flex-col md:w-60 md:shrink-0 md:sticky md:top-[81px] md:h-[calc(100vh-81px)] md:overflow-y-auto p-4 space-y-1.5">
+            <p class="px-3 pb-2 pt-1 text-[11px] font-bold uppercase tracking-widest text-gray-500 flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full sidebar-brand-dot"></span>Navigation
+            </p>
+            <button data-view="dashboard" onclick="navigateTo('dashboard')" class="nav-btn active" style="animation-delay:0ms"><span class="nav-btn-icon"><i data-lucide="layout-dashboard" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Dashboard</span></button>
+            <button data-view="orders" onclick="navigateTo('orders')" class="nav-btn" style="animation-delay:40ms"><span class="nav-btn-icon"><i data-lucide="file-text" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Commandes</span></button>
+            <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="nav-btn" style="animation-delay:80ms"><span class="nav-btn-icon"><i data-lucide="headphones" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Accompagnement</span></button>
+            <button data-view="buyers" onclick="navigateTo('buyers')" class="nav-btn" style="animation-delay:120ms"><span class="nav-btn-icon"><i data-lucide="users" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Acheteurs</span></button>
+            <button data-view="analytics" onclick="navigateTo('analytics')" class="nav-btn" style="animation-delay:160ms"><span class="nav-btn-icon"><i data-lucide="bar-chart-3" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Analytics</span></button>
+            <button data-view="marge" onclick="navigateTo('marge')" class="nav-btn" style="animation-delay:200ms"><span class="nav-btn-icon"><i data-lucide="percent" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Analyse Marge</span></button>
+        </aside>
+        <main class="max-w-7xl mx-auto px-4 py-8 flex-1 pb-24 md:pb-8">
             <!-- DASHBOARD -->
             <div id="view-dashboard" class="view-section active">
                 <!-- KPI Cards -->
@@ -988,6 +1046,17 @@
                 </div>
             </div>
         </main>
+        </div>
+
+        <!-- Navigation mobile (icônes en bas) -->
+        <nav class="bottom-nav md:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch justify-around px-1 py-2">
+            <button data-view="dashboard" onclick="navigateTo('dashboard')" class="bottom-nav-btn active flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="layout-dashboard" class="w-5 h-5"></i><span class="text-[10px] font-medium">Dashboard</span></button>
+            <button data-view="orders" onclick="navigateTo('orders')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="file-text" class="w-5 h-5"></i><span class="text-[10px] font-medium">Commandes</span></button>
+            <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="headphones" class="w-5 h-5"></i><span class="text-[10px] font-medium">Accomp.</span></button>
+            <button data-view="buyers" onclick="navigateTo('buyers')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="users" class="w-5 h-5"></i><span class="text-[10px] font-medium">Acheteurs</span></button>
+            <button data-view="analytics" onclick="navigateTo('analytics')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="bar-chart-3" class="w-5 h-5"></i><span class="text-[10px] font-medium">Analytics</span></button>
+            <button data-view="marge" onclick="navigateTo('marge')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="percent" class="w-5 h-5"></i><span class="text-[10px] font-medium">Marge</span></button>
+        </nav>
     </div>
 
     <!-- MODAL: Add/Edit Order -->
@@ -1388,6 +1457,15 @@
             if (avatar) avatar.textContent = initials;
             if (nameLabel) nameLabel.textContent = currentUserProfile.name;
             if (roleLabel) roleLabel.textContent = ROLE_LABELS[currentUserProfile.role] || currentUserProfile.role;
+            renderWelcomeMessage();
+        }
+
+        function renderWelcomeMessage() {
+            const el = document.getElementById('headerWelcome');
+            if (!el || !currentUserProfile) return;
+            const firstName = (currentUserProfile.name || '').trim().split(/\s+/)[0] || '';
+            const dateStr = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+            el.textContent = 'Bonjour ' + firstName + ' 👋 · ' + dateStr;
         }
 
         // Gestion du formulaire de connexion
@@ -1620,20 +1698,28 @@
         }
 
         // Navigation
+        const PAGE_TITLES = {
+            dashboard: { label: 'Dashboard', icon: 'layout-dashboard' },
+            orders: { label: 'Commandes', icon: 'file-text' },
+            accompagnement: { label: 'Accompagnement Assuré', icon: 'headphones' },
+            buyers: { label: 'Acheteurs', icon: 'users' },
+            analytics: { label: 'Analytics', icon: 'bar-chart-3' },
+            marge: { label: 'Analyse Marge', icon: 'percent' }
+        };
         function navigateTo(view) {
             currentView = view;
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById('view-' + view).classList.add('active');
             
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('bg-blue-100', 'text-blue-700');
-                btn.classList.add('text-gray-600', 'hover:bg-gray-100');
+            document.querySelectorAll('.nav-btn, .bottom-nav-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === view);
             });
-            
-            const navBtn = document.getElementById('nav-' + view);
-            if (navBtn) {
-                navBtn.classList.remove('text-gray-600', 'hover:bg-gray-100');
-                navBtn.classList.add('bg-blue-100', 'text-blue-700');
+
+            const titleInfo = PAGE_TITLES[view];
+            const titleEl = document.getElementById('headerPageTitle');
+            if (titleEl && titleInfo) {
+                titleEl.innerHTML = '<i data-lucide="' + titleInfo.icon + '" class="w-4 h-4 text-red-600"></i>' + titleInfo.label;
+                setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 50);
             }
             
             if (view === 'orders') renderOrdersTable();
