@@ -3123,6 +3123,10 @@
             });
         }
 
+        function normalizeReference(ref) {
+            return String(ref || '').trim().toUpperCase().replace(/\s+/g, ' ');
+        }
+
         function processExcelFile(file) {
             console.log('📂 Début de l\'import du fichier:', file.name);
             
@@ -3143,12 +3147,30 @@
                         showToast('Fichier Excel vide !', 'error');
                         return;
                     }
+
+                    // Récupère TOUS les dossiers déjà existants en une seule fois (au lieu d'une
+                    // requête par ligne) et indexe-les par référence normalisée (espaces/casse
+                    // ignorés) ET par une clé de repli (client+véhicule+date de validation), pour
+                    // reconnaître un dossier déjà connu même si sa référence a une variation
+                    // mineure. Objectif : ne JAMAIS créer de doublon vide pour un dossier existant,
+                    // ce qui écraserait visuellement le suivi accompagnement déjà saisi dessus.
+                    const existingSnapshot = await db.collection('orders').get();
+                    const existingByRef = new Map();
+                    const existingByFallback = new Map();
+                    existingSnapshot.forEach(doc => {
+                        const d = doc.data();
+                        if (d.reference) existingByRef.set(normalizeReference(d.reference), doc.id);
+                        const fk = (d.client || '') + '|' + (d.vehicle || '') + '|' + (d.validationDate || '').slice(0, 10);
+                        existingByFallback.set(fk, doc.id);
+                    });
                     
                     const cw = getCurrentWeekName();
                     const newOrders = [];
+                    let skippedExisting = 0;
+                    let missingReference = 0;
 
                     for (const row of jsonData) {
-                        const ref = row['Référence interne'] || row['reference_interne'] || 'REF-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                        const refRaw = row['Référence interne'] || row['reference_interne'] || '';
                         const client = row['Client'] || 'Client inconnu';
                         const veh = row['Véhicule'] || row['vehicule'] || '';
                         const task = row['Tâche courante'] || row['tache_courante'] || 'Tâche non spécifiée';
@@ -3175,13 +3197,28 @@
                         
                         // DEBUG: Log matching results
                         if (lub) {
-                            console.log('📋 Ligne Excel:', ref);
+                            console.log('📋 Ligne Excel:', refRaw || '(sans référence)');
                             console.log('  Nom Excel:', lub);
                             console.log('  Match trouvé:', mb ? mb.name : '❌ AUCUN');
                         }
 
-                        const existingOrder = await db.collection('orders').where('reference', '==', ref).get();
-                        if (existingOrder.empty) {
+                        let isNew;
+                        let ref = refRaw;
+                        if (refRaw) {
+                            isNew = !existingByRef.has(normalizeReference(refRaw));
+                        } else {
+                            // Pas de référence dans le fichier source : on retombe sur une clé
+                            // stable (client+véhicule+date) plutôt qu'un identifiant aléatoire,
+                            // pour reconnaître ce même dossier lors d'un prochain réimport et ne
+                            // pas créer un nouveau doublon à chaque fois. On génère quand même une
+                            // référence lisible pour l'affichage.
+                            missingReference++;
+                            const fk = client + '|' + veh + '|' + vdate.slice(0, 10);
+                            isNew = !existingByFallback.has(fk);
+                            ref = 'REF-' + client.replace(/\s+/g, '').slice(0, 10).toUpperCase() + '-' + vdate.slice(0, 10);
+                        }
+
+                        if (isNew) {
                             newOrders.push({
                                 reference: ref,
                                 client,
@@ -3197,10 +3234,12 @@
                                 importDate: new Date().toISOString().split('T')[0],
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
+                        } else {
+                            skippedExisting++;
                         }
                     }
 
-                    console.log('📦 Nouvelles commandes à ajouter:', newOrders.length);
+                    console.log('📦 Nouvelles commandes à ajouter:', newOrders.length, '— déjà existants (ignorés, suivi préservé):', skippedExisting);
 
                     // Ajouter les nouvelles commandes
                     if (newOrders.length > 0) {
@@ -3230,9 +3269,15 @@
 
                     // Pas de liste "à valider" - seuls les acheteurs officiels sont reconnus
                     
-                    const msg = newOrders.length + ' dossier(s) ajouté(s)';
+                    let msg = newOrders.length + ' dossier(s) ajouté(s)';
+                    if (skippedExisting) msg += ' — ' + skippedExisting + ' déjà existant(s) (ignoré(s), suivi accompagnement préservé)';
                     showToast(msg, 'success');
                     console.log('✅ ' + msg);
+                    if (missingReference) {
+                        const warnMsg = missingReference + ' ligne(s) sans "Référence interne" dans le fichier — reconnaissance par client+véhicule+date en repli, moins fiable. Vérifiez cette colonne dans le fichier source.';
+                        showToast(warnMsg, 'warning');
+                        console.warn('⚠️ ' + warnMsg);
+                    }
                     
                     addNotification(newOrders.length + ' dossiers importés', 'success');
                     
