@@ -4602,8 +4602,34 @@
             return firstClean || first;
         }
 
+        // Table de correspondance des garanties - fusionne les variantes/fautes de frappe
+        // vers une seule et même garantie canonique (ex: HPC / H PEC / HP -> HORS PEC).
+        const MARGE_GARANTIE_MAP = {
+            'HORS PEC':'HORS PEC','HPC':'HORS PEC','H PEC':'HORS PEC','HP':'HORS PEC','H.PEC':'HORS PEC','HPEC':'HORS PEC',
+            'IDA':'IDA','HIDA':'IDA','IIDA':'IDA','I':'IDA',
+            'IDA EXERCEE':'IDA','IDA EXERCE':'IDA','IDAE':'IDA',
+            'MAE':'IDA','DEFENSE/IDA':'IDA','DEFENSE IDA':'IDA',
+            'TR':'TR','DC':'DC','CONNEXE':'CONNEXE',
+            'BRIS DE GLACE':'BRIS DE GLACE','BRIS DE GLACES':'BRIS DE GLACE','BDG':'BRIS DE GLACE',
+            'NON SPECIFIE':'NON SPECIFIE','NON SPECIFIEE':'NON SPECIFIE','N/A':'NON SPECIFIE'
+        };
+        function normalizeGarantieName(raw) {
+            const key = margeNormKey(raw);
+            if (!key) return 'NON SPECIFIE';
+            return MARGE_GARANTIE_MAP[key] || key;
+        }
+        // Normalise le champ "garantie" des données déjà chargées (embarquées ou Firestore),
+        // car celles-ci ne repassent pas forcément par margeNormalizeRowArr.
+        function margeApplyGarantieNormalization(rows) {
+            if (!rows) return rows;
+            rows.forEach(function(r) { if (r) r.garantie = normalizeGarantieName(r.garantie); });
+            return rows;
+        }
+        margeAllData = margeApplyGarantieNormalization(margeAllData);
+
         function margeNormalizeRowArr(row) {
             // Format réel du fichier "verif.xlsx" (13 colonnes) :
+
             // [0 date, 1 ASSURANCE, 2 GARANTIE, 3 N° DOSSIER, 4 MARQUE, 5 adhérant, 6 C/feur,
             //  7 total facturer, 8 total vente piece, 9 total charge, 10 total achat piece,
             //  11 MARGE PIECES EN %, 12 MARGE TOTALE EN %]
@@ -4639,7 +4665,7 @@
             return {
                 date: dateStr, mois: moisStr,
                 assurance: normalizeAssuranceName(assuranceRaw), assurance_brute: assuranceRaw,
-                garantie: garantieRaw || 'NON SPECIFIE',
+                garantie: normalizeGarantieName(garantieRaw),
                 modele_brut: marqueRaw, marque: marqueRaw ? normalizeMarqueName(marqueRaw) : 'NON SPECIFIEE',
                 pieces_vente_ht: num(row[8]), pdt_vente_ht: num(row[7]),
                 pieces_achat_ht: num(row[10]), pdt_achat_ht: num(row[9]),
@@ -5080,7 +5106,7 @@
                     }
                 } else {
                     document.getElementById('margeMigrationBanner').classList.add('hidden');
-                    margeAllData = snapshot.docs.map(function(d) { return d.data(); });
+                    margeAllData = margeApplyGarantieNormalization(snapshot.docs.map(function(d) { return d.data(); }));
                     markSynced();
                 }
                 // Ne recalcule le module Analyse Marge complet (graphiques, etc.) que si
