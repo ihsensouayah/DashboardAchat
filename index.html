@@ -4571,8 +4571,9 @@
             'GELLY':'GEELY',
             'GREATWALL':'GREAT WALL',
             'MINICOPEER':'MINI',
-            'PHORTHING':'FORTHING',
-            'DONGFONG':'DONGFENG',
+            'PHORTHING':'DONGFENG','FORTHING':'DONGFENG',
+            'DONGFONG':'DONGFENG','DONGFENG':'DONGFENG',
+            'DFM':'DONGFENG','DFK':'DONGFENG','DFSK':'DONGFENG',
             'FORF':'FORD',
             'TIGGO':'CHERY'
         };
@@ -4618,11 +4619,15 @@
             if (!key) return 'NON SPECIFIE';
             return MARGE_GARANTIE_MAP[key] || key;
         }
-        // Normalise le champ "garantie" des données déjà chargées (embarquées ou Firestore),
-        // car celles-ci ne repassent pas forcément par margeNormalizeRowArr.
+        // Normalise le champ "garantie" (et "marque") des données déjà chargées (embarquées
+        // ou Firestore), car celles-ci ne repassent pas forcément par margeNormalizeRowArr.
         function margeApplyGarantieNormalization(rows) {
             if (!rows) return rows;
-            rows.forEach(function(r) { if (r) r.garantie = normalizeGarantieName(r.garantie); });
+            rows.forEach(function(r) {
+                if (!r) return;
+                r.garantie = normalizeGarantieName(r.garantie);
+                if (r.marque) r.marque = normalizeMarqueName(r.marque);
+            });
             return rows;
         }
         margeAllData = margeApplyGarantieNormalization(margeAllData);
