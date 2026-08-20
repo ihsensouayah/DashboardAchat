@@ -4257,12 +4257,14 @@
                 }
             });
             
-            // Calculer le taux de réactivité et trier
+            // Calculer le taux de réactivité, ne garder que les acheteurs ayant au moins un
+            // dossier sans date de fin d'achat renseignée (taux 100% = rien à signaler)
             const buyerList = Object.values(byBuyer)
                 .map(b => ({
                     ...b,
                     tauxReactivite: b.totalDossiers > 0 ? Math.round((b.datesRemplies / b.totalDossiers) * 100) : 0
                 }))
+                .filter(b => b.tauxReactivite < 100)
                 .sort((a, b) => a.tauxReactivite - b.tauxReactivite); // Les pires en premier
             
             if (buyerList.length === 0) {
