@@ -3814,7 +3814,9 @@
                 const status = normalizeStatus(o.partsStatus);
                 if (status === 'achat_termine') return; // déjà compté via Analyse Marge
                 const brand = canonicalizeBrand(o.vehicleBrand, o.vehicle);
-                addToBrand(brand, status === 'en_cours' ? 'enCours' : status === 'commande_ferme' ? 'commandeFerme' : null);
+                // "Recherche occasion" est aussi un dossier pas encore terminé : rangé avec
+                // "en cours" pour que vert + orange retombe toujours sur le total affiché.
+                addToBrand(brand, status === 'commande_ferme' ? 'commandeFerme' : 'enCours');
             });
             
             // Ne garder que les marques avec au moins 15 dossiers (facturés + en cours
