@@ -4603,20 +4603,36 @@
         }
 
         async function cmImportOdooCorrection(sheetsData, fileName) {
+            // Relit l'intégralité du registre directement depuis Firestore au moment du clic
+            // (plutôt que de faire confiance à cmLedger, alimenté par un écouteur en direct
+            // qui peut ne pas avoir fini de tout charger si on clique juste après avoir ouvert
+            // l'onglet) : garantit qu'aucun dossier existant n'est manqué, quel que soit le
+            // moment où la correction est lancée.
+            let freshLedger;
+            try {
+                const snap = await db.collection('controleMarge').get();
+                freshLedger = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+            } catch (err) {
+                console.error('Erreur lecture complète du registre avant correction Odoo:', err);
+                showToast("Impossible de relire le registre complet avant correction : " + err.message, 'error');
+                return;
+            }
+
             // Construit une correspondance dossier -> enregistrement(s) existants, pour
             // retrouver rapidement quoi corriger sans jamais toucher aux montants.
             const byDossier = new Map();
-            cmLedger.forEach(function(r) {
+            freshLedger.forEach(function(r) {
                 const key = cmNormalizeDossierKey(r.dossier);
                 if (!byDossier.has(key)) byDossier.set(key, []);
                 byDossier.get(key).push(r);
             });
 
-            let matched = 0, added = 0, skippedAssurance = 0, skippedInvalid = 0, correctedAssurance = 0, skippedSheets = [];
+            let matched = 0, added = 0, skippedAssurance = 0, skippedInvalid = 0, correctedAssurance = 0, correctedGarage = 0, skippedSheets = [];
             const odooDossierKeys = new Set();
             const matchedIds = new Set();
             const updates = [];
             const newRecords = [];
+            const toDeleteGhosts = [];
 
             sheetsData.forEach(function(sheetInfo) {
                 const rowsArr = sheetInfo.rows;
@@ -4661,21 +4677,41 @@
                     const key = cmNormalizeDossierKey(dossier);
                     odooDossierKeys.add(key);
                     const candidates = byDossier.get(key) || [];
-                    const match = candidates.find(function(c) { return c.assuranceKey === accountKey; }) || (candidates.length === 1 ? candidates[0] : null);
+                    // Priorité : un dossier avec un vrai détail de marge (moAutop non nul) est
+                    // toujours plus fiable qu'un "fantôme" sans détail créé par un rapprochement
+                    // précédent — même si sa compagnie ne correspond pas encore à Odoo. Sans ça,
+                    // un fantôme déjà "bien étiqueté" prenait la priorité sur le vrai dossier.
+                    const realCandidates = candidates.filter(function(c) { return !c.sansDetailMarge; });
+                    const ghostCandidates = candidates.filter(function(c) { return c.sansDetailMarge; });
+                    let match = realCandidates.find(function(c) { return c.assuranceKey === accountKey; })
+                        || (realCandidates.length === 1 ? realCandidates[0] : null)
+                        || candidates.find(function(c) { return c.assuranceKey === accountKey; })
+                        || (candidates.length === 1 ? candidates[0] : null);
 
                     if (match) {
                         matchedIds.add(match.id);
                         const upd = { id: match.id, dateFacturation: dateInfo.iso, dateFacturationMs: dateInfo.ms };
-                        // Dossier trouvé sans ambiguïté (un seul candidat pour ce numéro) mais
-                        // rattaché à une autre compagnie chez nous : Odoo fait foi, on corrige
-                        // aussi la compagnie plutôt que de laisser l'erreur de saisie en place.
+                        // Dossier trouvé sans ambiguïté (un seul candidat "réel" pour ce numéro)
+                        // mais rattaché à une autre compagnie chez nous : Odoo fait foi, on
+                        // corrige aussi la compagnie plutôt que de laisser l'erreur de saisie.
                         if (match.assuranceKey !== accountKey) {
                             upd.assuranceKey = accountKey;
                             upd.assurance = account.label;
                             correctedAssurance++;
                         }
+                        // Idem pour le garage (Dossier Sinistre/Adhérent côté Odoo) : ne touche
+                        // jamais MO/Pièces/marge, seulement l'identité du garage.
+                        if (garage && match.garage !== garage) {
+                            upd.garage = garage;
+                            correctedGarage++;
+                        }
                         updates.push(upd);
                         matched++;
+                        // Un ou plusieurs fantômes du même dossier devenus redondants : à
+                        // supprimer (sans jamais toucher au dossier réel qu'on vient de corriger).
+                        ghostCandidates.forEach(function(g) {
+                            if (g.id !== match.id) { toDeleteGhosts.push(g.id); matchedIds.add(g.id); }
+                        });
                     } else {
                         newRecords.push({
                             assuranceKey: accountKey, assurance: account.label,
@@ -4708,7 +4744,7 @@
             const odooMonths = new Set();
             updates.forEach(function(u) { odooMonths.add(u.dateFacturation.slice(0, 7)); });
             newRecords.forEach(function(n) { odooMonths.add(n.dateFacturation.slice(0, 7)); });
-            const toVerify = cmLedger.filter(function(r) {
+            const toVerify = freshLedger.filter(function(r) {
                 if (r.sansDetailMarge) return false;
                 if (matchedIds.has(r.id)) return false;
                 const refMois = (r.dateFacturation || '').slice(0, 7) || (r.mois || '');
@@ -4716,21 +4752,28 @@
             });
 
             try {
+                const uniqueGhosts = Array.from(new Set(toDeleteGhosts));
                 const allOps = updates.map(function(u) {
                     const data = { dateFacturation: u.dateFacturation, dateFacturationMs: u.dateFacturationMs };
                     if (u.assuranceKey) { data.assuranceKey = u.assuranceKey; data.assurance = u.assurance; }
+                    if (u.garage) { data.garage = u.garage; }
                     return { type: 'update', id: u.id, data: data };
-                }).concat(newRecords.map(function(n) { return { type: 'add', data: n }; }));
+                }).concat(newRecords.map(function(n) { return { type: 'add', data: n }; }))
+                  .concat(uniqueGhosts.map(function(id) { return { type: 'delete', id: id }; }));
                 for (let i = 0; i < allOps.length; i += 400) {
                     const batch = db.batch();
                     allOps.slice(i, i + 400).forEach(function(op) {
-                        if (op.type === 'update') batch.update(db.collection('controleMarge').doc(op.id), op.data);
-                        else batch.set(db.collection('controleMarge').doc(), op.data);
+                        const ref = db.collection('controleMarge').doc(op.id);
+                        if (op.type === 'update') batch.update(ref, op.data);
+                        else if (op.type === 'delete') batch.delete(ref);
+                        else batch.set(ref, op.data);
                     });
                     await batch.commit();
                 }
                 let msg = matched + ' date(s) de facturation corrigée(s), ' + added + ' dossier(s) ajouté(s) (facturés selon Odoo mais absents de notre registre)';
                 if (correctedAssurance) msg += ' — 🏢 ' + correctedAssurance + ' compagnie(s) corrigée(s) selon Odoo (numéro de dossier reconnu sans ambiguïté)';
+                if (correctedGarage) msg += ' — 🔧 ' + correctedGarage + ' garage(s) mis à jour selon Odoo';
+                if (uniqueGhosts.length) msg += ' — 🧹 ' + uniqueGhosts.length + ' dossier(s) fantôme(s) (doublons d\'un rapprochement précédent) supprimé(s)';
                 if (skippedAssurance) msg += ' — ' + skippedAssurance + ' ligne(s) ignorée(s) (assurance hors des 6 comptes gérés)';
                 if (toVerify.length) msg += ' — ⚠️ ' + toVerify.length + ' dossier(s) chez nous introuvable(s) dans Odoo pour ces mois, à vérifier manuellement';
                 showToast(msg, 'success');
@@ -4749,8 +4792,19 @@
         // reprenant sa date de facturation si besoin), puis supprime le doublon. Ne touche
         // jamais un dossier qui a son propre détail de marge.
         async function cmCleanupOdooDuplicates() {
+            // Même précaution que la correction Odoo : relire l'intégralité du registre
+            // depuis Firestore au moment du clic, pour ne manquer aucun doublon.
+            let freshLedger;
+            try {
+                const snap = await db.collection('controleMarge').get();
+                freshLedger = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+            } catch (err) {
+                console.error('Erreur lecture complète du registre avant nettoyage:', err);
+                showToast("Impossible de relire le registre complet : " + err.message, 'error');
+                return;
+            }
             const groups = new Map();
-            cmLedger.forEach(function(r) {
+            freshLedger.forEach(function(r) {
                 const key = r.assuranceKey + '|' + cmNormalizeDossierKey(r.dossier);
                 if (!groups.has(key)) groups.set(key, []);
                 groups.get(key).push(r);
