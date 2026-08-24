@@ -890,10 +890,11 @@
                 <div id="cmWelcome">
                     <h2 id="cmGreeting" class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Bonjour 👋</h2>
                     <p class="text-gray-500 dark:text-gray-400 mb-6">Qu'est-ce qu'on va facturer aujourd'hui ?</p>
-                    <div id="cmAccountsGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+                    <div id="cmAccountsGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10"></div>
                 </div>
 
                     <!-- Récapitulatif global -->
+                    <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Vue d'ensemble</p>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                         <div class="stat-card bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-5 text-white shadow-lg">
                             <p class="text-xs opacity-90 uppercase tracking-wide">Total dossiers</p>
@@ -955,6 +956,14 @@
                                 <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Garage</label>
                                 <input type="text" id="cmFilterGarage" oninput="cmRenderLedger()" placeholder="Ex: Laatiri" class="px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                             </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Date de facturation — du</label>
+                                <input type="date" id="cmFilterDateFrom" onchange="cmRenderLedger()" class="px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">au</label>
+                                <input type="date" id="cmFilterDateTo" onchange="cmRenderLedger()" class="px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
                             <button onclick="cmResetFilters()" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 flex items-center gap-1">
                                 <i data-lucide="rotate-ccw" class="w-4 h-4"></i>Réinitialiser
                             </button>
@@ -968,6 +977,13 @@
                             </h3>
                             <div class="flex items-center gap-3">
                                 <span id="cmLedgerCount" class="text-xs text-gray-400"></span>
+                                <label class="inline-flex items-center px-3 py-2 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-xs font-semibold rounded-lg cursor-pointer transition-all" title="Corrige la date de facturation et le comptage à partir de l'export Odoo, une fois par mois">
+                                    <i data-lucide="shield-check" class="w-3.5 h-3.5 mr-1.5"></i>Correction mensuelle (Odoo)
+                                    <input type="file" id="cmOdooFileInput" accept=".xlsx,.xls" class="hidden">
+                                </label>
+                                <button onclick="cmCleanupOdooDuplicates()" class="inline-flex items-center px-3 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 text-xs font-semibold rounded-lg transition-all" title="Supprime les doublons créés par un rapprochement Odoo précédent, sans toucher aux vraies marges">
+                                    <i data-lucide="git-merge" class="w-3.5 h-3.5 mr-1.5"></i>Nettoyer les doublons
+                                </button>
                                 <label class="inline-flex items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-lg cursor-pointer transition-all">
                                     <i data-lucide="upload" class="w-3.5 h-3.5 mr-1.5"></i>Importer un tableau Excel
                                     <input type="file" id="cmFileInput" accept=".xlsx,.xls" class="hidden">
@@ -980,6 +996,7 @@
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Dossier</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Compagnie</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Date facturation</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Garantie</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Marque</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Garage</th>
@@ -4036,6 +4053,7 @@
             renderCmWelcome();
             cmAttachFirestoreListeners();
             cmSetupFileImportHandler();
+            cmSetupOdooFileImportHandler();
             cmPopulateFilterOptions();
         }
 
@@ -4110,6 +4128,8 @@
             document.getElementById('cmFilterGarantie').value = '';
             document.getElementById('cmFilterMarque').value = '';
             document.getElementById('cmFilterGarage').value = '';
+            document.getElementById('cmFilterDateFrom').value = '';
+            document.getElementById('cmFilterDateTo').value = '';
             cmRenderLedger();
         }
 
@@ -4201,6 +4221,7 @@
         // Couleur de fond légère + liseré selon la marge globale, pour repérer les dossiers
         // faibles/forts en un coup d'œil (vert bon, orange à surveiller, rouge faible).
         function cmRowAccent(pct) {
+            if (pct === null || pct === undefined) return 'border-l-4 border-l-gray-300 dark:border-l-gray-600';
             if (pct >= 30) return 'border-l-4 border-l-green-400 bg-green-50/40 dark:bg-green-900/10';
             if (pct >= 15) return 'border-l-4 border-l-orange-400 bg-orange-50/40 dark:bg-orange-900/10';
             return 'border-l-4 border-l-red-400 bg-red-50/40 dark:bg-red-900/10';
@@ -4211,18 +4232,22 @@
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
 
+        function cmRefMs(r) { return r.dateFacturationMs || r.createdAtMs || 0; }
+
         // Récapitulatif global : total, aujourd'hui, ce mois, moyenne/jour + répartition
         // par compte. Toujours calculé sur l'ensemble des dossiers (non filtré), pour donner
         // une vue d'ensemble fiable quels que soient les filtres actifs sur le tableau.
+        // S'appuie sur la date de facturation (Odoo) quand elle est confirmée, sinon sur la
+        // date de saisie dans l'app en attendant la correction mensuelle.
         function cmRenderRecap() {
             const todayKey = cmDateKey(Date.now());
             const monthKey = todayKey.slice(0, 7);
             const total = cmLedger.length;
-            const today = cmLedger.filter(function(r) { return cmDateKey(r.createdAtMs) === todayKey; }).length;
-            const thisMonth = cmLedger.filter(function(r) { return cmDateKey(r.createdAtMs).slice(0, 7) === monthKey; }).length;
+            const today = cmLedger.filter(function(r) { return cmDateKey(cmRefMs(r)) === todayKey; }).length;
+            const thisMonth = cmLedger.filter(function(r) { return cmDateKey(cmRefMs(r)).slice(0, 7) === monthKey; }).length;
 
             const since30 = Date.now() - 30 * 86400000;
-            const last30 = cmLedger.filter(function(r) { return (r.createdAtMs || 0) >= since30; }).length;
+            const last30 = cmLedger.filter(function(r) { return cmRefMs(r) >= since30; }).length;
             const avgDay = Math.round((last30 / 30) * 10) / 10;
 
             document.getElementById('cmKpiTotal').textContent = total.toLocaleString('fr-FR');
@@ -4274,7 +4299,7 @@
                     counts.push(0);
                 }
                 cmLedger.forEach(function(r) {
-                    const key = cmDateKey(r.createdAtMs);
+                    const key = cmDateKey(cmRefMs(r));
                     const idx = days.indexOf(key);
                     if (idx !== -1) counts[idx]++;
                 });
@@ -4325,6 +4350,15 @@
             });
         }
 
+        function cmMarginBadge(val) {
+            if (val === null || val === undefined) return '<span class="text-gray-300 dark:text-gray-600 text-xs">—</span>';
+            return '<span class="marge-badge ' + cmBadgeClass(val) + '">' + val.toFixed(1) + '%</span>';
+        }
+        function cmAmountCell(val) {
+            if (val === null || val === undefined) return '<span class="text-gray-300 dark:text-gray-600">—</span>';
+            return cmFmt(val);
+        }
+
         function cmRenderLedger() {
             cmRenderRecap();
 
@@ -4332,37 +4366,50 @@
             const fGarantie = document.getElementById('cmFilterGarantie').value;
             const fMarque = (document.getElementById('cmFilterMarque').value || '').trim().toUpperCase();
             const fGarage = (document.getElementById('cmFilterGarage').value || '').trim().toUpperCase();
+            const fDateFrom = document.getElementById('cmFilterDateFrom').value;
+            const fDateTo = document.getElementById('cmFilterDateTo').value;
+            const fFromMs = fDateFrom ? new Date(fDateFrom + 'T00:00:00').getTime() : null;
+            const fToMs = fDateTo ? new Date(fDateTo + 'T23:59:59').getTime() : null;
 
             const rows = cmLedger.filter(function(r) {
                 if (fAssurance && r.assuranceKey !== fAssurance) return false;
                 if (fGarantie && r.garantie !== fGarantie) return false;
                 if (fMarque && String(r.marque || '').toUpperCase().indexOf(fMarque) === -1) return false;
                 if (fGarage && String(r.garage || '').toUpperCase().indexOf(fGarage) === -1) return false;
+                if (fFromMs || fToMs) {
+                    const ref = r.dateFacturationMs || r.createdAtMs || 0;
+                    if (fFromMs && ref < fFromMs) return false;
+                    if (fToMs && ref > fToMs) return false;
+                }
                 return true;
-            }).sort(function(a, b) { return (b.createdAtMs || 0) - (a.createdAtMs || 0); });
+            }).sort(function(a, b) { return (b.dateFacturationMs || b.createdAtMs || 0) - (a.dateFacturationMs || a.createdAtMs || 0); });
 
             document.getElementById('cmLedgerCount').textContent = rows.length + ' dossier(s)';
             document.getElementById('cmLedgerBody').innerHTML = rows.map(function(r, i) {
+                const dateFactDisplay = r.dateFacturation
+                    ? '<span class="inline-flex items-center gap-1"><i data-lucide="shield-check" class="w-3 h-3 text-green-600"></i>' + new Date(r.dateFacturation).toLocaleDateString('fr-FR') + '</span>'
+                    : '<span class="text-gray-300 dark:text-gray-600 text-xs">non confirmée</span>';
                 return '<tr class="animate-fade-in transition-all duration-200 hover:brightness-95 hover:shadow-sm ' + cmRowAccent(r.margeGlobale) + '" style="animation-delay:' + (Math.min(i, 20) * 30) + 'ms">' +
                     '<td class="px-4 py-2.5 font-medium text-gray-800 dark:text-gray-100">' + r.dossier + '</td>' +
                     '<td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">' + (r.assurance || '') + '</td>' +
+                    '<td class="px-4 py-2.5 text-sm">' + dateFactDisplay + '</td>' +
                     '<td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">' + r.garantie + '</td>' +
                     '<td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">' + r.marque + '</td>' +
                     '<td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">' + r.garage + '</td>' +
-                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmFmt(r.moAutop) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmFmt(r.moGarage) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmFmt(r.piecesVendues) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmFmt(r.piecesAchetees) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right"><span class="marge-badge ' + cmBadgeClass(r.margeMo) + '">' + r.margeMo.toFixed(1) + '%</span></td>' +
-                    '<td class="px-4 py-2.5 text-right"><span class="marge-badge ' + cmBadgeClass(r.margePieces) + '">' + r.margePieces.toFixed(1) + '%</span></td>' +
-                    '<td class="px-4 py-2.5 text-right"><span class="marge-badge ' + cmBadgeClass(r.margeGlobale) + '">' + r.margeGlobale.toFixed(1) + '%</span></td>' +
+                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmAmountCell(r.moAutop) + '</td>' +
+                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmAmountCell(r.moGarage) + '</td>' +
+                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmAmountCell(r.piecesVendues) + '</td>' +
+                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmAmountCell(r.piecesAchetees) + '</td>' +
+                    '<td class="px-4 py-2.5 text-right">' + cmMarginBadge(r.margeMo) + '</td>' +
+                    '<td class="px-4 py-2.5 text-right">' + cmMarginBadge(r.margePieces) + '</td>' +
+                    '<td class="px-4 py-2.5 text-right">' + cmMarginBadge(r.margeGlobale) + '</td>' +
                     '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + (r.ristourneMontant ? cmFmt(r.ristourneMontant) + ' DT' : '-') + '</td>' +
                     '<td class="px-4 py-2.5 text-center">' +
                         '<button onclick="cmEditRow(\'' + r.id + '\')" class="p-1.5 hover:bg-blue-100 dark:hover:bg-gray-600 rounded-lg text-blue-600 dark:text-blue-400 transition-colors" title="Modifier">' +
                             '<i data-lucide="edit" class="w-4 h-4"></i></button>' +
                     '</td>' +
                     '</tr>';
-            }).join('') || '<tr><td colspan="14" class="px-4 py-8 text-center text-gray-400">Aucun dossier ne correspond à ces filtres</td></tr>';
+            }).join('') || '<tr><td colspan="15" class="px-4 py-8 text-center text-gray-400">Aucun dossier ne correspond à ces filtres</td></tr>';
             setTimeout(function() { if (window.lucide) lucide.createIcons(); }, 50);
         }
 
@@ -4492,6 +4539,249 @@
                 reader.onerror = function() { showToast('Impossible de lire le fichier ' + file.name + '.', 'error'); };
                 reader.readAsBinaryString(file);
             });
+        }
+
+        // ---------- Correction mensuelle (export Odoo "account_move") ----------
+        // Ne touche JAMAIS aux montants MO/Pièces déjà saisis manuellement : corrige
+        // uniquement la date de facturation (donc le comptage par jour) d'un dossier déjà
+        // connu, retrouvé par son numéro. Un dossier facturé selon Odoo mais absent de notre
+        // registre est ajouté à titre informatif (sans détail de marge), pour que le
+        // comptage total reflète la réalité — sans jamais rien supprimer automatiquement.
+        function cmSetupOdooFileImportHandler() {
+            const input = document.getElementById('cmOdooFileInput');
+            if (input.dataset.handlerAttached) return;
+            input.dataset.handlerAttached = '1';
+            input.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    try {
+                        const wb = XLSX.read(evt.target.result, { type: 'binary', cellDates: true });
+                        const sheetsData = wb.SheetNames.map(function(name) {
+                            return {
+                                name: name,
+                                rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', raw: true })
+                            };
+                        });
+                        cmImportOdooCorrection(sheetsData, file.name);
+                    } catch (err) {
+                        console.error('Erreur correction Odoo:', err);
+                        showToast("Impossible de lire le fichier « " + file.name + " » : " + err.message, 'error');
+                    } finally {
+                        input.value = '';
+                    }
+                };
+                reader.onerror = function() { showToast('Impossible de lire le fichier ' + file.name + '.', 'error'); };
+                reader.readAsBinaryString(file);
+            });
+        }
+
+        function cmParseOdooDate(v) {
+            let d = null;
+            if (v instanceof Date) d = v;
+            else if (typeof v === 'string' && v.trim()) d = new Date(v);
+            if (!d || isNaN(d.getTime())) return null;
+            return { iso: d.toISOString().slice(0, 10), ms: d.getTime() };
+        }
+
+        // Le numéro de dossier Odoo ("DS0142/2026") et le numéro interne ("142/2026")
+        // désignent le même dossier mais avec un préfixe "DS" et des zéros de tête en plus
+        // côté Odoo : on retire les deux avant de comparer, sous peine de ne jamais faire
+        // correspondre les dossiers déjà connus et de créer des doublons.
+        function cmNormalizeDossierKey(d) {
+            let s = String(d || '').trim().toUpperCase();
+            if (s.indexOf('DS') === 0) s = s.slice(2);
+            const parts = s.split('/');
+            if (parts.length === 2) {
+                const num = parts[0].replace(/^0+/, '') || '0';
+                return num + '/' + parts[1].trim();
+            }
+            return s.replace(/^0+/, '') || s;
+        }
+
+        async function cmImportOdooCorrection(sheetsData, fileName) {
+            // Construit une correspondance dossier -> enregistrement(s) existants, pour
+            // retrouver rapidement quoi corriger sans jamais toucher aux montants.
+            const byDossier = new Map();
+            cmLedger.forEach(function(r) {
+                const key = cmNormalizeDossierKey(r.dossier);
+                if (!byDossier.has(key)) byDossier.set(key, []);
+                byDossier.get(key).push(r);
+            });
+
+            let matched = 0, added = 0, skippedAssurance = 0, skippedInvalid = 0, skippedSheets = [];
+            const odooDossierKeys = new Set();
+            const updates = [];
+            const newRecords = [];
+
+            sheetsData.forEach(function(sheetInfo) {
+                const rowsArr = sheetInfo.rows;
+                let headerRowIdx = -1;
+                for (let i = 0; i < Math.min(rowsArr.length, 10); i++) {
+                    if ((rowsArr[i] || []).some(function(c) { return /dossier sinistre/i.test(String(c || '')); })) { headerRowIdx = i; break; }
+                }
+                if (headerRowIdx === -1) { skippedSheets.push(sheetInfo.name); return; }
+
+                const header = rowsArr[headerRowIdx].map(function(h) { return String(h || '').trim(); });
+                function idxOf(re) { return header.findIndex(function(h) { return re.test(h); }); }
+                const idxAssurance = idxOf(/dossier sinistre.*client/i);
+                const idxDossier = header.findIndex(function(h) { return /^dossier sinistre$/i.test(h); });
+                const idxDate = idxOf(/date.*facturation/i);
+                const idxGarage = idxOf(/adh[ée]rent/i);
+                const idxGarantie = idxOf(/garantie/i);
+                const idxVehicule = idxOf(/v[ée]hicule/i);
+
+                if (idxDossier === -1 || idxDate === -1) { skippedSheets.push(sheetInfo.name); return; }
+
+                for (let r = headerRowIdx + 1; r < rowsArr.length; r++) {
+                    const row = rowsArr[r];
+                    if (!row || !row.length) continue;
+                    const dossier = String(row[idxDossier] || '').trim();
+                    if (!dossier) continue; // sous-ligne technique Odoo (Abonnés, etc.) ou ligne vide
+
+                    const canonicalAssurance = idxAssurance !== -1 ? normalizeAssuranceName(row[idxAssurance]) : null;
+                    const accountKey = canonicalAssurance ? CM_ASSURANCE_IMPORT_MAP[canonicalAssurance] : null;
+                    if (!accountKey) { skippedAssurance++; continue; }
+                    const account = CM_ACCOUNTS.find(function(a) { return a.key === accountKey; });
+
+                    const dateInfo = cmParseOdooDate(row[idxDate]);
+                    if (!dateInfo) { skippedInvalid++; continue; }
+
+                    const garantieCanon = idxGarantie !== -1 ? normalizeGarantieName(row[idxGarantie]) : 'NON SPECIFIE';
+                    const garantie = CM_GARANTIE_IMPORT_MAP[garantieCanon] || 'Non spécifié';
+                    const garage = idxGarage !== -1 ? String(row[idxGarage] || '').trim() : '';
+                    const vehiculeRaw = idxVehicule !== -1 ? String(row[idxVehicule] || '') : '';
+                    const marqueBrute = vehiculeRaw.split('/')[0].trim();
+                    const marque = normalizeMarqueName(marqueBrute) || marqueBrute;
+
+                    const key = cmNormalizeDossierKey(dossier);
+                    odooDossierKeys.add(key);
+                    const candidates = byDossier.get(key) || [];
+                    const match = candidates.find(function(c) { return c.assuranceKey === accountKey; }) || (candidates.length === 1 ? candidates[0] : null);
+
+                    if (match) {
+                        updates.push({ id: match.id, dateFacturation: dateInfo.iso, dateFacturationMs: dateInfo.ms });
+                        matched++;
+                    } else {
+                        newRecords.push({
+                            assuranceKey: accountKey, assurance: account.label,
+                            dossier: dossier, garantie: garantie, marque: marque, garage: garage,
+                            moAutop: null, moGarage: null, piecesVendues: null, piecesAchetees: null,
+                            ristourneOui: false, ristournePct: null, ristourneMontant: 0,
+                            margePieces: null, margeMo: null, margeGlobale: null,
+                            sansDetailMarge: true,
+                            dateFacturation: dateInfo.iso, dateFacturationMs: dateInfo.ms,
+                            createdBy: currentUserProfile ? currentUserProfile.name : '',
+                            createdAtMs: Date.now(),
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            mois: dateInfo.iso.slice(0, 7),
+                            importedFrom: fileName
+                        });
+                        added++;
+                    }
+                }
+            });
+
+            if (!updates.length && !newRecords.length) {
+                const detail = skippedSheets.length ? ' (feuille(s) non reconnue(s) : ' + skippedSheets.join(', ') + ')' : '';
+                showToast("Aucune ligne exploitable trouvée dans « " + fileName + " »" + detail + '.', 'error');
+                return;
+            }
+
+            // Dossiers présents chez nous (avec détail de marge) dans les mois couverts par
+            // Odoo, mais absents du fichier Odoo : à vérifier manuellement, jamais supprimés
+            // automatiquement.
+            const odooMonths = new Set();
+            updates.forEach(function(u) { odooMonths.add(u.dateFacturation.slice(0, 7)); });
+            newRecords.forEach(function(n) { odooMonths.add(n.dateFacturation.slice(0, 7)); });
+            const toVerify = cmLedger.filter(function(r) {
+                if (r.sansDetailMarge) return false;
+                if (odooDossierKeys.has(cmNormalizeDossierKey(r.dossier))) return false;
+                const refMois = (r.dateFacturation || '').slice(0, 7) || (r.mois || '');
+                return odooMonths.has(refMois);
+            });
+
+            try {
+                const allOps = updates.map(function(u) { return { type: 'update', id: u.id, data: { dateFacturation: u.dateFacturation, dateFacturationMs: u.dateFacturationMs } }; })
+                    .concat(newRecords.map(function(n) { return { type: 'add', data: n }; }));
+                for (let i = 0; i < allOps.length; i += 400) {
+                    const batch = db.batch();
+                    allOps.slice(i, i + 400).forEach(function(op) {
+                        if (op.type === 'update') batch.update(db.collection('controleMarge').doc(op.id), op.data);
+                        else batch.set(db.collection('controleMarge').doc(), op.data);
+                    });
+                    await batch.commit();
+                }
+                let msg = matched + ' date(s) de facturation corrigée(s), ' + added + ' dossier(s) ajouté(s) (facturés selon Odoo mais absents de notre registre)';
+                if (skippedAssurance) msg += ' — ' + skippedAssurance + ' ligne(s) ignorée(s) (assurance hors des 6 comptes gérés)';
+                if (toVerify.length) msg += ' — ⚠️ ' + toVerify.length + ' dossier(s) chez nous introuvable(s) dans Odoo pour ces mois, à vérifier manuellement';
+                showToast(msg, 'success');
+                if (toVerify.length) {
+                    console.warn('Dossiers à vérifier (absents du fichier Odoo pour les mois couverts) :', toVerify.map(function(r) { return r.dossier + ' (' + r.assurance + ')'; }));
+                }
+            } catch (err) {
+                console.error('Erreur écriture correction Odoo:', err);
+                showToast("Échec de l'enregistrement de la correction : " + err.message, 'error');
+            }
+        }
+
+        // Nettoyage des doublons créés par un rapprochement qui n'aurait pas reconnu un
+        // dossier existant (ex. avant la correction du préfixe "DS"/zéros de tête) : fusionne
+        // chaque doublon "sans détail marge" dans le vrai dossier correspondant (en lui
+        // reprenant sa date de facturation si besoin), puis supprime le doublon. Ne touche
+        // jamais un dossier qui a son propre détail de marge.
+        async function cmCleanupOdooDuplicates() {
+            const groups = new Map();
+            cmLedger.forEach(function(r) {
+                const key = r.assuranceKey + '|' + cmNormalizeDossierKey(r.dossier);
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(r);
+            });
+
+            const toDelete = [];
+            const toUpdate = [];
+            groups.forEach(function(recs) {
+                if (recs.length < 2) return;
+                const real = recs.filter(function(r) { return !r.sansDetailMarge; });
+                const dupes = recs.filter(function(r) { return r.sansDetailMarge; });
+                if (real.length !== 1 || dupes.length === 0) return; // cas ambigu : on ne touche pas
+                const keep = real[0];
+                let bestDateIso = keep.dateFacturation || null;
+                let bestDateMs = keep.dateFacturationMs || null;
+                dupes.forEach(function(d) {
+                    if (!bestDateMs && d.dateFacturationMs) { bestDateMs = d.dateFacturationMs; bestDateIso = d.dateFacturation; }
+                    toDelete.push(d.id);
+                });
+                if (bestDateMs && bestDateMs !== keep.dateFacturationMs) {
+                    toUpdate.push({ id: keep.id, dateFacturation: bestDateIso, dateFacturationMs: bestDateMs });
+                }
+            });
+
+            if (!toDelete.length) {
+                showToast('Aucun doublon détecté.', 'success');
+                return;
+            }
+            if (!window.confirm(toDelete.length + ' doublon(s) détecté(s) (créés par un rapprochement Odoo précédent). Les supprimer et reprendre leur date de facturation sur le vrai dossier ?')) {
+                return;
+            }
+            try {
+                const ops = toUpdate.map(function(u) { return { type: 'update', id: u.id, data: { dateFacturation: u.dateFacturation, dateFacturationMs: u.dateFacturationMs } }; })
+                    .concat(toDelete.map(function(id) { return { type: 'delete', id: id }; }));
+                for (let i = 0; i < ops.length; i += 400) {
+                    const batch = db.batch();
+                    ops.slice(i, i + 400).forEach(function(op) {
+                        const ref = db.collection('controleMarge').doc(op.id);
+                        if (op.type === 'update') batch.update(ref, op.data);
+                        else batch.delete(ref);
+                    });
+                    await batch.commit();
+                }
+                showToast(toDelete.length + ' doublon(s) supprimé(s), marges d\'origine conservées', 'success');
+            } catch (err) {
+                console.error('Erreur nettoyage doublons Odoo:', err);
+                showToast('Échec du nettoyage : ' + err.message, 'error');
+            }
         }
 
         // Le fichier a deux colonnes "MO"/"PIECES"/"PDT HT" (une côté AUTOP, une côté
@@ -5457,11 +5747,11 @@
         // (EL AMANA TAKAFUL et AL BARAKA restent des compagnies distinctes, ATTAKAFULIA
         // n'est jamais fusionnée avec AMANA/BARAKA).
         const MARGE_ASSURANCE_MAP = {
-            'STRA':'STAR','MAE':'MAE',
-            'ATTAKAFULIA':'ATTAKAFULIA','AT-TAKAFULIA':'ATTAKAFULIA','ATAKAFULIA':'ATTAKAFULIA',
+            'STRA':'STAR','MAE':'MAE','STAR ASSURANCES':'STAR','MAE ASSURANCES':'MAE',
+            'ATTAKAFULIA':'ATTAKAFULIA','AT-TAKAFULIA':'ATTAKAFULIA','ATAKAFULIA':'ATTAKAFULIA','ATTAKAFULIA ASSURANCES':'ATTAKAFULIA',
             'AL AMENA TAKAFUL':'AMANA TAKAFUL','ELAMANA TAKAFUL':'AMANA TAKAFUL','EL AMENA TAKAFUL':'AMANA TAKAFUL','EL AMANA TAKAFUL':'AMANA TAKAFUL',
-            'ASTRRE':'ASTREE','ASTRE':'ASTREE','ASTREE':'ASTREE',
-            'AL BARAKA':'AMANA TAKAFUL','ALBARAKA':'AMANA TAKAFUL','EL BARAKA':'AMANA TAKAFUL','EL BARKA':'AMANA TAKAFUL',
+            'ASTRRE':'ASTREE','ASTRE':'ASTREE','ASTREE':'ASTREE','ASTREE ASSURANCES':'ASTREE',
+            'AL BARAKA':'AMANA TAKAFUL','ALBARAKA':'AMANA TAKAFUL','EL BARAKA':'AMANA TAKAFUL','EL BARKA':'AMANA TAKAFUL','AL BARAKA ASSURANCES':'AMANA TAKAFUL',
             'DOSSIER HORS PEC':'HORS PEC','DS HORS PEC':'HORS PEC','HPEC':'HORS PEC','DS HPEC':'HORS PEC',
             'H PEC':'HORS PEC','DS HORS PEC(AVEC REMISE)':'HORS PEC','HOES PEC':'HORS PEC','HORS PEDC':'HORS PEC',
             'DS H PEC':'HORS PEC','HORS PEC':'HORS PEC','PASSAGER':'HORS PEC'
@@ -5539,8 +5829,10 @@
             'IDA EXERCEE':'IDA','IDA EXERCE':'IDA','IDAE':'IDA',
             'MAE':'IDA','DEFENSE/IDA':'IDA','DEFENSE IDA':'IDA',
             'TR':'TR','DC':'DC','CONNEXE':'CONNEXE',
+            'DOMMAGE COLLISION':'DC','TOUS RISQUES':'TR',
             'BRIS DE GLACE':'BRIS DE GLACE','BRIS DE GLACES':'BRIS DE GLACE','BDG':'BRIS DE GLACE',
-            'NON SPECIFIE':'NON SPECIFIE','NON SPECIFIEE':'NON SPECIFIE','N/A':'NON SPECIFIE'
+            'NON SPECIFIE':'NON SPECIFIE','NON SPECIFIEE':'NON SPECIFIE','N/A':'NON SPECIFIE',
+            'SANS GARANTIE':'NON SPECIFIE','GARANTIE A IDENTIFIER':'NON SPECIFIE'
         };
         function normalizeGarantieName(raw) {
             const key = margeNormKey(raw);
