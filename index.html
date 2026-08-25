@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
     <script>
         // Chargement séquentiel et résilient de Chart.js + son plugin datalabels,
         // avec CDN de secours. Le plugin n'est chargé QUE si Chart.js a réussi à charger,
@@ -67,6 +68,30 @@
                     }
                     finish(true); // Chart.js seul suffit pour afficher les graphiques
                 });
+            });
+        };
+
+        window.__leafletState = 'idle'; // idle | loading | ready | failed
+        window.__leafletCallbacks = [];
+        window.ensureLeaflet = function(callback) {
+            if (window.__leafletState === 'ready') { callback(true); return; }
+            if (window.__leafletState === 'failed') { callback(false); return; }
+            window.__leafletCallbacks.push(callback);
+            if (window.__leafletState === 'loading') return;
+            window.__leafletState = 'loading';
+
+            var LEAFLET_CDNS = [
+                'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+                'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js'
+            ];
+
+            __loadFirstWorking(LEAFLET_CDNS).then(function(ok) {
+                var ready = ok && typeof window.L !== 'undefined';
+                window.__leafletState = ready ? 'ready' : 'failed';
+                if (!ready) console.error('Leaflet indisponible : aucun CDN accessible.');
+                window.__leafletCallbacks.forEach(function(cb) { cb(ready); });
+                window.__leafletCallbacks = [];
             });
         };
     </script>
@@ -383,6 +408,7 @@
             </p>
             <button data-view="dashboard" onclick="navigateTo('dashboard')" class="nav-btn active" style="animation-delay:0ms"><span class="nav-btn-icon"><i data-lucide="layout-dashboard" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Dashboard</span></button>
             <button data-view="orders" onclick="navigateTo('orders')" class="nav-btn" style="animation-delay:40ms"><span class="nav-btn-icon"><i data-lucide="file-text" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Commandes</span></button>
+            <button data-view="reparation" onclick="navigateTo('reparation')" class="nav-btn" style="animation-delay:60ms"><span class="nav-btn-icon"><i data-lucide="wrench" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Réparation</span></button>
             <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="nav-btn" style="animation-delay:80ms"><span class="nav-btn-icon"><i data-lucide="headphones" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Accompagnement</span></button>
             <button data-view="buyers" onclick="navigateTo('buyers')" class="nav-btn" style="animation-delay:120ms"><span class="nav-btn-icon"><i data-lucide="users" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Acheteurs</span></button>
             <button data-view="analytics" onclick="navigateTo('analytics')" class="nav-btn" style="animation-delay:160ms"><span class="nav-btn-icon"><i data-lucide="bar-chart-3" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Analytics</span></button>
@@ -550,6 +576,164 @@
                             <tbody id="ordersTableBody" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+
+            <div id="view-reparation" class="view-section">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-2 md:space-y-0">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+                            <i data-lucide="wrench" class="w-6 h-6 text-green-500"></i>
+                            <span>Voitures en Réparation</span>
+                        </h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+                            Dossiers dont l'achat des pièces est terminé — la voiture est désormais en cours de réparation à l'atelier. Commandes/atelier : semaine en cours. Dossiers importés depuis Odoo : toujours affichés, quelle que soit la semaine.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 text-white shadow-lg">
+                        <p class="text-sm opacity-90">Voitures en réparation</p>
+                        <p class="text-3xl font-bold mt-1" id="repKpiTotal">0</p>
+                        <p class="text-xs opacity-75 mt-1">Semaine en cours</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white shadow-lg">
+                        <p class="text-sm opacity-90">Délai réparation moyen</p>
+                        <p class="text-3xl font-bold mt-1" id="repKpiAvgDelay">0j</p>
+                        <p class="text-xs opacity-75 mt-1">Semaine en cours — début → fin</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl p-4 text-white shadow-lg">
+                        <p class="text-sm opacity-90">Délais respectés</p>
+                        <p class="text-3xl font-bold mt-1" id="repKpiOnTimePct">0%</p>
+                        <p class="text-xs opacity-75 mt-1" id="repKpiOnTimeSub">Dossiers clôturés cette semaine</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg">
+                        <div class="flex items-start justify-between">
+                            <p class="text-sm opacity-90">CA réalisé / Objectif</p>
+                            <button onclick="repEditObjectifCA()" title="Modifier l'objectif" class="opacity-75 hover:opacity-100 transition-opacity"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                        <p class="text-2xl font-bold mt-1" id="repKpiCA">0 / 0 TND</p>
+                        <div class="w-full bg-white/25 rounded-full h-1.5 mt-2 overflow-hidden"><div id="repKpiCABar" class="h-1.5 rounded-full bg-white transition-all duration-500" style="width:0%"></div></div>
+                    </div>
+                    <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-4 text-white shadow-lg">
+                        <p class="text-sm opacity-90">CA potentiel — en cours de réparation</p>
+                        <p class="text-2xl font-bold mt-1" id="repKpiCAPotentiel">0 TND</p>
+                        <p class="text-xs opacity-75 mt-1" id="repKpiCAPotentielSub">Véhicules actuellement au garage</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-rose-500 to-rose-600 rounded-2xl p-4 text-white shadow-lg">
+                        <p class="text-sm opacity-90">CA en attente — RDV réparation</p>
+                        <p class="text-2xl font-bold mt-1" id="repKpiCAAttente">0 TND</p>
+                        <p class="text-xs opacity-75 mt-1" id="repKpiCAAttenteSub">Pas encore entrés au garage</p>
+                    </div>
+                </div>
+
+                <!-- Carte des garages (Tunisie) -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6 mb-6">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+                        <h3 class="font-semibold flex items-center"><i data-lucide="map" class="w-5 h-5 mr-2 text-green-500"></i>Carte des garages</h3>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <div id="repZoneFilterButtons" class="flex items-center gap-1.5"></div>
+                            <div id="repMapActiveFilter" class="hidden"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2">
+                            <div id="repTunisiaMapContainer" class="w-full rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700" style="height: 440px;"></div>
+                            <div id="repMapFallback" class="hidden text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                                <i data-lucide="map-off" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                                Carte indisponible (pas de connexion au fond de carte). Réessaie plus tard.
+                            </div>
+                        </div>
+                        <div class="lg:col-span-1">
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Autres garages (zone non identifiée)</p>
+                            <div id="repUnlocatedGarages" class="space-y-1.5 max-h-[420px] overflow-y-auto pr-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+                        <h3 class="font-semibold mb-4 flex items-center"><i data-lucide="map-pin" class="w-5 h-5 mr-2 text-blue-500"></i>Répartition par Zone</h3>
+                        <div id="repByZoneChart" class="space-y-3"></div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+                        <h3 class="font-semibold mb-4 flex items-center"><i data-lucide="timer" class="w-5 h-5 mr-2 text-green-500"></i>Respect des délais</h3>
+                        <div id="repDelaiStatusChart" class="space-y-3"></div>
+                    </div>
+                </div>
+
+                <!-- Tableau détaillé -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border overflow-hidden">
+                    <div class="p-6 border-b bg-gradient-to-r from-green-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <h3 class="font-bold text-gray-900 dark:text-white flex items-center">
+                            <i data-lucide="list" class="w-5 h-5 mr-2 text-green-600"></i>
+                            Détail des dossiers en réparation
+                        </h3>
+                        <div class="flex flex-wrap gap-3">
+                            <div class="relative flex-1 min-w-[220px]">
+                                <input type="text" id="repSearchInput" oninput="renderReparationView()" placeholder="Rechercher (réf, client, garage...)" class="pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all w-full">
+                                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
+                            </div>
+                            <select id="repFilterStatus" onchange="renderReparationView()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 transition-all min-w-[180px]">
+                                <option value="">Tous statuts</option>
+                                <option value="attente">En attente RDV réparation</option>
+                                <option value="encours">En cours (au garage)</option>
+                                <option value="cloture">Clôturé (fin réparation)</option>
+                            </select>
+                            <select id="repFilterGarage" onchange="renderReparationView()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 transition-all min-w-[160px]">
+                                <option value="">Tous les garages</option>
+                            </select>
+                            <select id="repFilterZone" onchange="renderReparationView()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 transition-all min-w-[140px]">
+                                <option value="">Toutes zones</option>
+                                <option value="Nord">Zone Nord</option>
+                                <option value="Sahel">Zone Sahel</option>
+                                <option value="Sud">Zone Sud</option>
+                            </select>
+                            <select id="repSortOrder" onchange="renderReparationView()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 transition-all min-w-[170px]">
+                                <option value="">Tri : Plus récent</option>
+                                <option value="delay_asc">Délai réparation croissant</option>
+                                <option value="delay_desc">Délai réparation décroissant</option>
+                                <option value="client_asc">Client (A-Z)</option>
+                                <option value="client_desc">Client (Z-A)</option>
+                            </select>
+                            <button onclick="document.getElementById('atelierFileInput').click()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
+                                <i data-lucide="upload" class="w-4 h-4"></i>
+                                <span>Importer atelier</span>
+                            </button>
+                            <input type="file" id="atelierFileInput" accept=".xlsx,.xls,.csv" class="hidden">
+                            <button onclick="document.getElementById('odooSinistreFileInput').click()" title="Fichier Odoo (Dossier Sinistre, Montant HT, Adhérent, Tâche courante)" class="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
+                                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                                <span>Importer Odoo</span>
+                            </button>
+                            <input type="file" id="odooSinistreFileInput" accept=".xlsx,.xls,.csv" class="hidden">
+                            <button onclick="exportReparationToExcel()" class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                <span>Export</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Réf</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Marque</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Garage</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Devis validé</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Heures allouées</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Statut réparation</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Délai / Échéance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reparationTableBody" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                        </table>
+                    </div>
+                    <div class="px-6 py-3 text-xs text-gray-500 dark:text-gray-400 border-t" id="repCountNote"></div>
                 </div>
             </div>
 
@@ -1313,6 +1497,7 @@
         <nav class="bottom-nav md:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch justify-around px-1 py-2">
             <button data-view="dashboard" onclick="navigateTo('dashboard')" class="bottom-nav-btn active flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="layout-dashboard" class="w-5 h-5"></i><span class="text-[10px] font-medium">Dashboard</span></button>
             <button data-view="orders" onclick="navigateTo('orders')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="file-text" class="w-5 h-5"></i><span class="text-[10px] font-medium">Commandes</span></button>
+            <button data-view="reparation" onclick="navigateTo('reparation')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="wrench" class="w-5 h-5"></i><span class="text-[10px] font-medium">Réparation</span></button>
             <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="headphones" class="w-5 h-5"></i><span class="text-[10px] font-medium">Accomp.</span></button>
             <button data-view="buyers" onclick="navigateTo('buyers')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="users" class="w-5 h-5"></i><span class="text-[10px] font-medium">Acheteurs</span></button>
             <button data-view="analytics" onclick="navigateTo('analytics')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="bar-chart-3" class="w-5 h-5"></i><span class="text-[10px] font-medium">Analytics</span></button>
@@ -1604,6 +1789,7 @@
         let orders = [];
         let buyers = [];
         let uploadHistory = [];
+        let repairDossiers = []; // dossiers d'atelier importés (voitures en réparation, en plus des commandes)
         let currentView = 'dashboard';
         let currentOrderId = null;
         let orderToDelete = null;
@@ -1708,8 +1894,8 @@
         // manager) ne sont pas listés ici : getAllowedTabs() renvoie null pour eux, ce qui
         // signifie "tout est autorisé" plutôt que d'avoir à lister tous les onglets.
         const ROLE_TAB_ACCESS = {
-            acheteur: ['orders', 'accompagnement', 'buyers', 'analytics'],
-            buyer: ['orders', 'accompagnement', 'buyers', 'analytics'],
+            acheteur: ['orders', 'reparation', 'accompagnement', 'buyers', 'analytics'],
+            buyer: ['orders', 'reparation', 'accompagnement', 'buyers', 'analytics'],
             facturation: ['controle-marge']
         };
         function getAllowedTabs() {
@@ -2031,12 +2217,56 @@
             }, error => {
                 console.error('❌ Erreur chargement uploadHistory:', error);
             });
+
+            db.collection('repairDossiers').onSnapshot(snapshot => {
+                repairDossiers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderReparationView();
+            }, error => {
+                console.error('❌ Erreur chargement repairDossiers:', error);
+            });
+
+            // Liste des garages, partagée entre Contrôle Marge et Réparation.
+            db.collection('garages').orderBy('name').onSnapshot(snapshot => {
+                cmGarages = snapshot.docs.map(doc => doc.data().name);
+                cmGaragesAttached = true;
+                cmRenderGarageOptions();
+                populateReparationGarageFilter();
+                if (!cmGaragesSeeded) {
+                    cmGaragesSeeded = true;
+                    cmSeedGaragesIfNeeded(cmGarages);
+                }
+                if (!garageLocationsSeeded) {
+                    garageLocationsSeeded = true;
+                    seedGarageLocationsIfNeeded(cmGarages);
+                }
+                if (window.__cmPendingGarageSelect) {
+                    const sel = document.getElementById('cmGarage');
+                    if (sel && cmGarages.indexOf(window.__cmPendingGarageSelect) !== -1) {
+                        sel.value = window.__cmPendingGarageSelect;
+                        window.__cmPendingGarageSelect = null;
+                    }
+                }
+                renderReparationView();
+            }, error => {
+                console.error('❌ Erreur chargement garages:', error);
+            });
+
+            // Objectif de chiffre d'affaires hebdomadaire (module Réparation), modifiable
+            // via le crayon sur la carte KPI "CA réalisé / Objectif".
+            db.collection('settings').doc('reparation').onSnapshot(snapshot => {
+                const data = snapshot.data() || {};
+                repObjectifCA = typeof data.objectifCASemaine === 'number' ? data.objectifCASemaine : 0;
+                renderReparationView();
+            }, error => {
+                console.error('❌ Erreur chargement objectif CA réparation:', error);
+            });
         }
 
         // Navigation
         const PAGE_TITLES = {
             dashboard: { label: 'Dashboard', icon: 'layout-dashboard' },
             orders: { label: 'Commandes', icon: 'file-text' },
+            reparation: { label: 'Voitures en Réparation', icon: 'wrench' },
             accompagnement: { label: 'Accompagnement Assuré', icon: 'headphones' },
             buyers: { label: 'Acheteurs', icon: 'users' },
             analytics: { label: 'Analytics', icon: 'bar-chart-3' },
@@ -2092,6 +2322,17 @@
             
             if (view === 'analytics') {
                 renderAnalytics();
+            }
+
+            if (view === 'reparation') {
+                renderReparationView();
+                // Filet de sécurité : si la carte existe déjà mais a été mal dimensionnée
+                // lors de sa toute première apparition, on force un recalcul à chaque
+                // ouverture de l'onglet (sans jamais réinitialiser le zoom/déplacement choisi
+                // par l'utilisateur — invalidateSize seul ne touche pas au cadrage).
+                if (typeof __repLeafletMap !== 'undefined' && __repLeafletMap) {
+                    setTimeout(function() { __repLeafletMap.invalidateSize(); }, 100);
+                }
             }
 
             if (view === 'marge') {
@@ -4047,6 +4288,9 @@
         let cmGarages = [];
         let cmLedger = [];
         let cmGaragesAttached = false;
+        let cmGaragesSeeded = false;
+        let garageLocationsSeeded = false;
+        let repObjectifCA = 0; // objectif de CA hebdomadaire du module Réparation (TND), modifiable via le crayon sur la carte KPI
         let cmControleMargeAttached = false;
 
         function cmInit() {
@@ -4195,20 +4439,8 @@
         function cmBadgeClass(pct) { return pct >= 30 ? 'good' : (pct >= 15 ? 'warn' : 'bad'); }
 
         function cmAttachFirestoreListeners() {
-            if (!cmGaragesAttached) {
-                cmGaragesAttached = true;
-                db.collection('garages').orderBy('name').onSnapshot(function(snapshot) {
-                    cmGarages = snapshot.docs.map(function(d) { return d.data().name; });
-                    cmRenderGarageOptions();
-                    if (window.__cmPendingGarageSelect) {
-                        const sel = document.getElementById('cmGarage');
-                        if (cmGarages.indexOf(window.__cmPendingGarageSelect) !== -1) {
-                            sel.value = window.__cmPendingGarageSelect;
-                            window.__cmPendingGarageSelect = null;
-                        }
-                    }
-                }, function(err) { console.error('Erreur synchronisation garages:', err); });
-            }
+            // L'écoute des garages est démarrée dès le chargement de l'app dans loadData()
+            // (partagée avec Réparation), donc cmGaragesAttached est déjà vrai ici.
             if (!cmControleMargeAttached) {
                 cmControleMargeAttached = true;
                 db.collection('controleMarge').onSnapshot(function(snapshot) {
@@ -4669,7 +4901,8 @@
 
                     const garantieCanon = idxGarantie !== -1 ? normalizeGarantieName(row[idxGarantie]) : 'NON SPECIFIE';
                     const garantie = CM_GARANTIE_IMPORT_MAP[garantieCanon] || 'Non spécifié';
-                    const garage = idxGarage !== -1 ? String(row[idxGarage] || '').trim() : '';
+                    const garageRaw = idxGarage !== -1 ? String(row[idxGarage] || '').trim() : '';
+                    const garage = normalizeGarageName(garageRaw);
                     const vehiculeRaw = idxVehicule !== -1 ? String(row[idxVehicule] || '') : '';
                     const marqueBrute = vehiculeRaw.split('/')[0].trim();
                     const marque = normalizeMarqueName(marqueBrute) || marqueBrute;
@@ -4930,7 +5163,8 @@
                     const canonicalGarantie = cols.idxGarantie !== -1 ? normalizeGarantieName(row[cols.idxGarantie]) : 'NON SPECIFIE';
                     const garantie = CM_GARANTIE_IMPORT_MAP[canonicalGarantie] || 'Non spécifié';
                     const marque = normalizeMarqueName(row[cols.idxMarque]) || String(row[cols.idxMarque] || '').trim();
-                    const garage = cols.idxGarage !== -1 ? String(row[cols.idxGarage] || '').trim() : '';
+                    const garageRaw = cols.idxGarage !== -1 ? String(row[cols.idxGarage] || '').trim() : '';
+                    const garage = normalizeGarageName(garageRaw);
 
                     const moAutop = parseFloat(row[cols.moIdx[0]]) || 0;
                     const moGarage = parseFloat(row[cols.moIdx[1]]) || 0;
@@ -5159,6 +5393,7 @@
             renderUploadHistory();
             renderRecentOrders();
             renderOrdersTable();
+            renderReparationView();
             renderAnalytics();
             updateNotificationBadge();
             populateBuyerSelect();
@@ -6564,6 +6799,1523 @@
             a.download = 'analyse-marge-donnees.json';
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+        // ==================== VOITURES EN RÉPARATION (module ajouté) ====================
+        // Mots-clés de ville reconnus n'importe où dans un nom de garage brut (ex. l'import
+        // atelier utilise souvent des noms plus détaillés que le registre Contrôle Marge,
+        // du type "BOURAQ (VW JBEL JLOUD)" ou "CMCA (PEUGEOT MANNOUBA)"). Chaque mot-clé est
+        // recherché en entier (limites de mot), insensible à la casse et aux accents.
+        // ==================== CARTE DES GARAGES (TUNISIE) ====================
+        // Coordonnées GPS réelles (latitude, longitude) des villes repérées dans les noms
+        // de garages. Utilisées avec Leaflet + fond de carte OpenStreetMap pour afficher une
+        // carte réelle et interactive (pas un tracé schématique).
+        const TUNISIA_MAP_CENTER = [34.05, 9.6];
+        const TUNISIA_MAP_DEFAULT_ZOOM = 6;
+        // Emprise (sud-ouest / nord-est) utilisée pour cadrer la vue initiale et empêcher de
+        // sortir du territoire tunisien en déplaçant ou en dézoomant la carte.
+        const TUNISIA_BOUNDS = [[30.0, 6.8], [37.7, 12.2]];
+
+        const TUNISIA_CITIES = {
+            'Tunis': [36.8065, 10.1815], 'La Marsa': [36.8781, 10.3247], 'Mnihla': [36.8667, 10.1333],
+            'Oued Ellil': [36.8386, 9.9911], 'Ben Arous': [36.7531, 10.2189], 'Ezzahra': [36.7444, 10.3053],
+            'Soukra': [36.8886, 10.2333], 'El Menzah': [36.8492, 10.1728], 'Grombalia': [36.6083, 10.4989],
+            'Nabeul': [36.4561, 10.7376], 'Hammamet': [36.4000, 10.6167], 'Kelibia': [36.8472, 11.0942],
+            'Beja': [36.7256, 9.1817], 'Bizerte': [37.2744, 9.8739], 'Ras Jbal': [37.2167, 10.1167],
+            'Sousse': [35.8256, 10.6369], 'Akouda': [35.8667, 10.5667], 'Msaken': [35.7333, 10.5833],
+            'Monastir': [35.7780, 10.8262], 'Mahdia': [35.5047, 11.0622], 'Kairouan': [35.6781, 10.0963],
+            'Sfax': [34.7406, 10.7603], 'Gabes': [33.8815, 10.0982], 'Djerba': [33.8076, 10.8451],
+            'Manouba': [36.8081, 9.8756], 'Jbel Jloud': [36.7667, 10.1500],
+        };
+
+        const CITY_KEYWORDS = [
+            ['OUED ELLIL', 'Oued Ellil'], ['OUED ELIL', 'Oued Ellil'], ['WED ELIL', 'Oued Ellil'],
+            ['JBEL JLOUD', 'Jbel Jloud'], ['LA MARSA', 'La Marsa'], ['MARSA', 'La Marsa'],
+            ['MNIHLA', 'Mnihla'], ['BEN AROUS', 'Ben Arous'], ['EZZAHRA', 'Ezzahra'], ['EZAHRA', 'Ezzahra'],
+            ['SOUKRA', 'Soukra'], ['SOKRA', 'Soukra'], ['MENZAH', 'El Menzah'],
+            ['MANNOUBA', 'Manouba'], ['MANOUBA', 'Manouba'],
+            ['GROMBALIA', 'Grombalia'], ['NABEUL', 'Nabeul'], ['HAMMAMET', 'Hammamet'], ['HAMAMET', 'Hammamet'],
+            ['KELIBIA', 'Kelibia'], ['BEJA', 'Beja'], ['BIZERTE', 'Bizerte'], ['RAS JBAL', 'Ras Jbal'],
+            ['AKOUDA', 'Akouda'], ['MSAKEN', 'Msaken'], ['MONASTIR', 'Monastir'], ['MAHDIA', 'Mahdia'],
+            ['KAIROUAN', 'Kairouan'], ['KAIRAOUAN', 'Kairouan'], ['KAIROUANE', 'Kairouan'],
+            ['SFAX', 'Sfax'], ['GABES', 'Gabes'], ['DJERBA', 'Djerba'], ['JERBA', 'Djerba'],
+            ['SOUSSE', 'Sousse'], // avant "TUNIS" pour la priorité n'a pas d'importance (mots différents)
+            ['TUNIS', 'Tunis'],
+        ];
+        const CITY_KEYWORD_REGEX = CITY_KEYWORDS.map(([kw, city]) => [new RegExp('\\b' + kw.replace(/\s+/g, '\\s+') + '\\b', 'i'), city]);
+
+        // Correspondance garage (nom canonique Contrôle Marge) -> ville, établie à partir des
+        // noms explicites (ex. "KIA SFAX" -> Sfax). Sert de raccourci rapide ; repGarageCity()
+        // ci-dessous retombe ensuite sur CITY_KEYWORDS pour tout nom non listé ici (notamment
+        // les noms plus détaillés utilisés par l'import atelier).
+        const GARAGE_CITY_MAP = {
+            'AUTO SELF SFAX': 'Sfax', 'BSB TOYOTA SFAX': 'Sfax',
+            'KF MOTORS (SFAX)': 'Sfax', 'KIA SFAX': 'Sfax',
+            'SFAX MOTORS': 'Sfax', 'BSB SOUSSE': 'Sousse',
+            'STE AUTOMOBILE TAGOURTI (CHERY SOUSSE)': 'Sousse', 'T.SOUSSE': 'Sousse',
+            '3S HYUNDAI AKOUDA': 'Akouda', 'BACCOUCHE MOTORS (KIA AKOUDA)': 'Akouda',
+            'AUTO PRO (HYUNDAI NABEUL)': 'Nabeul', 'GODDI AUTO (KIA NABEUL)': 'Nabeul',
+            'VW NABEUL': 'Nabeul', 'BMB BEJA (VW)': 'Beja',
+            'BEST MECANIQUE BEJA': 'Beja', 'RENAULT BIZERTE': 'Bizerte',
+            'HYUNDAI MONASTIR': 'Monastir', 'KIA MONASTIR': 'Monastir',
+            'RENAULT MONASTIR': 'Monastir', 'AUTO PASSION (SAP)': 'Monastir',
+            'S2A (CHERY GABES)': 'Gabes', 'KIA KAIROUAN': 'Kairouan',
+            'KIA MAHDIA': 'Mahdia', 'ZENO AUTO (HYUNDAI DJERBA)': 'Djerba',
+            'THALASSA AUTO (FORD DJERBA)': 'Djerba', 'KIA BEN AROUS': 'Ben Arous',
+            'SAVES (VW BEN AROUS)': 'Ben Arous', 'SAHEL AUTO (VW MSAKEN)': 'Msaken',
+            'RENAULT MSAKEN': 'Msaken', 'CITROEN GROMBALIA': 'Grombalia',
+            'SEB (VW GROMBALIA)': 'Grombalia', 'RENAULT OUED ELLIL': 'Oued Ellil',
+            'BEST MOTORS OUED ELIL': 'Oued Ellil', 'RENAULT MARSA': 'La Marsa',
+            'BSB TOYOTA MARSA': 'La Marsa', 'HYUNDAI MNIHLA': 'Mnihla',
+            'GGP MNIHLA': 'Mnihla', 'ASH CITROEN HAMMAMET': 'Hammamet',
+            'VW HAMAMET': 'Hammamet', 'VW KELIBIA': 'Kelibia',
+            'VW RAS JBAL': 'Ras Jbal', 'FIAT EZZAHRA': 'Ezzahra',
+            'SOKRA BEST SERVICE': 'Soukra', 'KIA J.MENZAH (MS SAFETY)': 'El Menzah',
+            // Confirmés directement par l'utilisateur (nom exact tel qu'importé de l'atelier)
+            'STA (CHERY)': 'Tunis', 'STE RUSPINA GARAGE': 'Monastir',
+            'EAST WIND AUTO': 'Tunis', 'STE TUNISIENNE SERVICE AUTO': 'Tunis',
+        };
+
+
+        // ==================== ZONES GÉOGRAPHIQUES DES GARAGES ====================
+        // Source : export de la base partenaires (Odoo), validé manuellement le
+        // (garages réels uniquement — contacts individuels et doublons retirés).
+        // Chaque garage y a sa ville, son gouvernorat, sa zone (Nord / Sahel / Sud)
+        // et des coordonnées GPS approximatives (niveau ville), utilisées pour la
+        // carte du module Réparation. Cette liste est la source de référence pour
+        // les zones ; elle vient compléter (sans le remplacer) le registre de noms
+        // canoniques CM_GARAGE_SEED utilisé par Contrôle Marge.
+        const GARAGE_LOCATION_SEED = {
+            '3M SAHEL MOTORS': { ville: 'Monastir', gouvernorat: 'Monastir', zone: 'Sahel', lat: 35.778, lng: 10.8262 },
+            '3S MOTORS (HYUNDAI AKOUDA)': { ville: 'Sousse', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8256, lng: 10.6369 },
+            'ALPHA INTERNATIONAL (JLR)': { ville: 'Borj Ghorbel', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.766, lng: 10.274 },
+            'AMAL MRAD': { ville: 'Charguia 1', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8508, lng: 10.2258 },
+            'AMEN AUTO (VW SIDI BOUZID)': { ville: 'Sidi Bouzid', gouvernorat: 'Sidi Bouzid', zone: 'Sahel', lat: 35.0381, lng: 9.4858 },
+            'ASH (CITROEN HAMMAMET)': { ville: 'Hammamet Nord', gouvernorat: 'Nabeul', zone: 'Nord', lat: 36.42, lng: 10.62 },
+            'AUTO CONFIANCE': { ville: 'Tunis', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8065, lng: 10.1815 },
+            'AUTO PRO (HYUNDAI NABEUL)': { ville: 'Nabeul', gouvernorat: 'Nabeul', zone: 'Nord', lat: 36.4561, lng: 10.7376 },
+            'AUTO SELF (HYUNDAI SFAX)': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'AUTOREPAR(AGENCE OFFICIELLE KIA)': { ville: 'Ezzahra', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7444, lng: 10.3053 },
+            'AUTOS SERVICES KELIBIA (VW)': { ville: 'Kélibia', gouvernorat: 'Nabeul', zone: 'Nord', lat: 36.8472, lng: 11.0942 },
+            'BACCOUCHE & REKAYA (MERCEDES AKOUDA)': { ville: 'Akouda', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8667, lng: 10.5667 },
+            'BACCOUCHE AUTOMOBILES (BMW AKOUDA)': { ville: 'Akouda', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8667, lng: 10.5667 },
+            'BACCOUCHE MOTORS (KIA AKOUDA)': { ville: 'Akouda', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8667, lng: 10.5667 },
+            'BASSEM AUTO (FIAT MESSADINE)': { ville: 'Msaken', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.7333, lng: 10.5833 },
+            'BLUE MOTORS (FORD HAMMAMET)': { ville: 'Hammamet', gouvernorat: 'Nabeul', zone: 'Nord', lat: 36.4, lng: 10.6167 },
+            'BSB TOYOTA MARSA': { ville: 'La Marsa', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8781, lng: 10.3247 },
+            'BEN JEMAA MOTORS SFAX': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'CAR MASTER SERVICES': { ville: 'Riadh El Andalous', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.855, lng: 10.15 },
+            'CAR PRO': { ville: 'Tunis', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8065, lng: 10.1815 },
+            'CAR TECH (HONDA AKOUDA)': { ville: 'Akouda', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8667, lng: 10.5667 },
+            'CARTOLE': { ville: 'Charguia 2', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.856, lng: 10.23 },
+            'CPR AUTO (SFAX)': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'DAS AUTO REPAIR': { ville: 'Bardo', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8092, lng: 10.1394 },
+            'DREAM CAR (MERCEDES MNIHLA)': { ville: 'Mnihla', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.8667, lng: 10.1333 },
+            'EAST WIND AUTO': { ville: 'Mnihla', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.8667, lng: 10.1333 },
+            'EXPERT AUTO (SFAX)': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'FAST CAR SERVICES': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'FCVA': { ville: 'Tunis', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8065, lng: 10.1815 },
+            'GARAGE CONVENTIONNE': { ville: '', gouvernorat: 'Jendouba', zone: 'Nord', lat: 36.5011, lng: 8.7803 },
+            'GARAGE DES AMIS (RLT MARSA)': { ville: 'La Marsa', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8781, lng: 10.3247 },
+            'GERMAN GARAGE(AGENCE OFFICIELLE MERCEDES-BENZ)': { ville: 'Ezzahra', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7444, lng: 10.3053 },
+            'GODDI AUTO (KIA NABEUL)': { ville: 'Nabeul', gouvernorat: 'Nabeul', zone: 'Nord', lat: 36.4561, lng: 10.7376 },
+            'GTI ( CITROEN KAIROUEN)': { ville: 'Kairouan nord', gouvernorat: 'Kairouan', zone: 'Sahel', lat: 35.685, lng: 10.1 },
+            'HYUNDAI BEN AROUS': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'ITALCAR': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'ITALCAR SA-SERVICES': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'JMC (HONDA)': { ville: 'La Marsa', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8781, lng: 10.3247 },
+            'LCA FOR EVER « LE COIN D’AUTOMOBILES FOR EVER »': { ville: 'Djerba', gouvernorat: 'Médenine', zone: 'Sud', lat: 33.8076, lng: 10.8451 },
+            'LE GARAGE (AGENCE OFFICIELLE RENAULT)': { ville: 'Ezzahra', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7444, lng: 10.3053 },
+            'LE MOTEUR (MERCEDES CHARGUIA1)': { ville: 'Charguia 1', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8508, lng: 10.2258 },
+            'MAISON DE L\'AUTO (FORD CHARGUIA)': { ville: 'Charguia 1', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8508, lng: 10.2258 },
+            'MECANIQUE MODERNE (VW NABEUL)': { ville: 'Nabeul', gouvernorat: 'Nabeul', zone: 'Nord', lat: 36.4561, lng: 10.7376 },
+            'MECANIQUE MODERNE PLUS (VW HAMMAMET)': { ville: 'Hammamet', gouvernorat: 'Nabeul', zone: 'Nord', lat: 36.4, lng: 10.6167 },
+            'MECAREPA': { ville: 'Fouchana', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.6967, lng: 10.1636 },
+            'MIK AUTO HALTE (VW BIZERTE)': { ville: 'Zarzouna', gouvernorat: 'Bizerte', zone: 'Nord', lat: 37.2394, lng: 9.8567 },
+            'MIRACOLO AUTO': { ville: 'Ariana', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.8625, lng: 10.1956 },
+            'MKSA (CITROEN LE KEF)': { ville: 'Le Kef', gouvernorat: 'Le Kef', zone: 'Nord', lat: 36.1826, lng: 8.7148 },
+            'PERFECT CAR (TOYOTA BEN AROUS)': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'PRO 1 AUTO': { ville: 'Mnihla', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.8667, lng: 10.1333 },
+            'PROREPAR (HYUNDAI KRAM)': { ville: 'Le Kram', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8386, lng: 10.3178 },
+            'QUICK AUTO': { ville: 'Akouda', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8667, lng: 10.5667 },
+            'RENAULT CHOTRANA': { ville: 'La Soukra', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8886, lng: 10.2333 },
+            'SAHEL AUTO PASSION (VW M\'SAKEN)': { ville: 'Msaken', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.7333, lng: 10.5833 },
+            'SAVES (RLT & HYUNDAI EZZAHRA)': { ville: 'Ezzahra', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7444, lng: 10.3053 },
+            'SAVES+ (VW BEN AROUS)': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'SBS AUTO PRO': { ville: 'Tunis', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8065, lng: 10.1815 },
+            'SEB (VW GROMBALIA)': { ville: 'Grombalia', gouvernorat: 'Nabeul', zone: 'Nord', lat: 36.6083, lng: 10.4989 },
+            'SELECT CAR (SUZUKI SFAX)': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'SERVICE RAPIDE MEDNINE': { ville: 'Médenine', gouvernorat: 'Médenine', zone: 'Sud', lat: 33.3399, lng: 10.4959 },
+            'SFAX MOTORS (FIAT)': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'SMA (CITROËN MONASTIR)': { ville: 'Monastir', gouvernorat: 'Monastir', zone: 'Sahel', lat: 35.778, lng: 10.8262 },
+            'SMAOUI AUTO (PEUGEOT M\'NIHLA)': { ville: 'Mnihla', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.8667, lng: 10.1333 },
+            'SOCIETE AUTO SERVICE (KIA MAHDIA)': { ville: 'Mahdia', gouvernorat: 'Mahdia', zone: 'Sahel', lat: 35.5047, lng: 11.0622 },
+            'SOMAS (CITROËN MNIHLA)': { ville: 'Mnihla', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.8667, lng: 10.1333 },
+            'SOMASERV (RENAULT SFAX)': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'STA (CHERY)': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'STE AUTO LION (PEUGEOT SFAX)': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'STE BADREDDINE AUTO': { ville: 'Oued Ellil', gouvernorat: 'Manouba', zone: 'Nord', lat: 36.8386, lng: 9.9911 },
+            'STE ELVITRO VOITURE': { ville: 'Djerba', gouvernorat: 'Médenine', zone: 'Sud', lat: 33.8076, lng: 10.8451 },
+            'STE ESSOR AUTO (KIA GABES)': { ville: 'Gabès', gouvernorat: 'Gabès', zone: 'Sud', lat: 33.8815, lng: 10.0982 },
+            'STE GGP': { ville: 'Ariana', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.8625, lng: 10.1956 },
+            'STE HELALI': { ville: 'Tunis', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8065, lng: 10.1815 },
+            'STE K2EM AUTO': { ville: 'Charguia 1', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8508, lng: 10.2258 },
+            'STE KAANICH AUTO PRO': { ville: 'La Soukra', gouvernorat: 'Nabeul', zone: 'Nord', lat: 36.8886, lng: 10.2333 },
+            'STE KHOULOUD': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'STE MAKIA (KIA MONASTIR)': { ville: 'Monastir', gouvernorat: 'Monastir', zone: 'Sahel', lat: 35.778, lng: 10.8262 },
+            'STE MAS (HYUNDAI MANOUBA)': { ville: 'Manouba', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8081, lng: 9.8756 },
+            'STE MG AUTO': { ville: 'Teboursouk', gouvernorat: 'Béja', zone: 'Nord', lat: 36.4667, lng: 9.2333 },
+            'STE NACEUR AUTOMOBILES SERVICES': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'STE NIMR (DFSK & DONGFENG)': { ville: 'Charguia 2', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.856, lng: 10.23 },
+            'STE PRIM AUTO SFAX': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'STE S2A (CHERY GABES)': { ville: 'Bouchemma', gouvernorat: 'Gabès', zone: 'Sud', lat: 33.9, lng: 10.08 },
+            'STE SGMG': { ville: 'Jendouba', gouvernorat: 'Jendouba', zone: 'Nord', lat: 36.5011, lng: 8.7803 },
+            'SGMG': { ville: 'Jendouba', gouvernorat: 'Jendouba', zone: 'Nord', lat: 36.5011, lng: 8.7803 },
+            'STE SLK (VW BEN AROUS)': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'SUPER CAR SERVICE': { ville: 'Carthage Yasmina', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.87, lng: 10.28 },
+            'TAGOURTI CHERY SOUSSE': { ville: 'Akouda', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8667, lng: 10.5667 },
+            'TECHNO AUTO': { ville: 'Ezzahra', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7444, lng: 10.3053 },
+            'TECHNO CAR (RLT MSAKEN)': { ville: 'Msaken', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.7333, lng: 10.5833 },
+            'TECHNO CAR PLUS': { ville: '', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'TECHNO MOTORS (RLT KRAM)': { ville: 'Le Kram', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8386, lng: 10.3178 },
+            'THALASSA(FORD DJERBA)': { ville: 'Mellita Djerba', gouvernorat: 'Médenine', zone: 'Sud', lat: 33.87, lng: 10.8 },
+            'TOP CARROSSIERE': { ville: 'Tunis', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8065, lng: 10.1815 },
+            'TOYOTA SFAX': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'TOYOTA SOUSSE': { ville: 'Akouda', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8667, lng: 10.5667 },
+            'WALLYSCAR': { ville: 'Kabaria', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.75, lng: 10.19 },
+            'ZENO AUTO (HYUNDAI DJERBA)': { ville: 'Djerba', gouvernorat: 'Médenine', zone: 'Sud', lat: 33.8076, lng: 10.8451 },
+
+            // Garages complémentaires (hors export Odoo), localisation donnée directement
+            // par l'utilisateur le 25/08/2026.
+            'LAATIRI AUTO': { ville: 'Akouda', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8667, lng: 10.5667 },
+            'STE TUNISIENNE': { ville: 'Soukra', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8886, lng: 10.2333 },
+            'STE TUNISIENNE SERVICE AUTO': { ville: 'Soukra', gouvernorat: 'Tunis', zone: 'Nord', lat: 36.8886, lng: 10.2333 },
+            'KIA J.MENZAH (MS SAFETY)': { ville: 'Jardin El Menzah', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.84, lng: 10.1728 },
+            'MS SAFETY (KIA J MENZEH)': { ville: 'Jardin El Menzah', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.84, lng: 10.1728 },
+            'ZOGHLAMI AUTO': { ville: 'Le Kef', gouvernorat: 'Le Kef', zone: 'Nord', lat: 36.1826, lng: 8.7148 },
+            '2HZ': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'ALL4 CARS': { ville: 'Borj Louzir', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.86, lng: 10.195 },
+            'CARPROMAX': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'CARPRO MAX': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'ALPHA FORD': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
+            'AUTO GOLD': { ville: 'Médina Jadida (Zone Industrielle)', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.745, lng: 10.225 },
+            'RUSPINA GARAGE': { ville: 'Monastir', gouvernorat: 'Monastir', zone: 'Sahel', lat: 35.778, lng: 10.8262 },
+            'STE RUSPINA GARAGE': { ville: 'Monastir', gouvernorat: 'Monastir', zone: 'Sahel', lat: 35.778, lng: 10.8262 },
+            'LE GRAND GARAGE (HYUNDAI M\'NIHLA)': { ville: 'Mnihla', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.8667, lng: 10.1333 },
+        };
+
+        // Zone par défaut pour un gouvernorat non couvert explicitement ci-dessus
+        // (permet de classer automatiquement un nouveau garage tant qu'il n'a pas
+        // été ajouté à GARAGE_LOCATION_SEED).
+        const GOUVERNORAT_ZONE = {
+            'Tunis': 'Nord', 'Ariana': 'Nord', 'Ben Arous': 'Nord', 'Manouba': 'Nord',
+            'Bizerte': 'Nord', 'Béja': 'Nord', 'Jendouba': 'Nord', 'Le Kef': 'Nord',
+            'Zaghouan': 'Nord', 'Nabeul': 'Nord',
+            'Sousse': 'Sahel', 'Monastir': 'Sahel', 'Mahdia': 'Sahel', 'Kairouan': 'Sahel',
+            'Sidi Bouzid': 'Sahel', 'Kasserine': 'Sahel',
+            'Sfax': 'Sud', 'Gabès': 'Sud', 'Médenine': 'Sud', 'Tataouine': 'Sud',
+            'Kébili': 'Sud', 'Tozeur': 'Sud', 'Gafsa': 'Sud',
+        };
+
+        const ZONE_COLORS = { 'Nord': '#3b82f6', 'Sahel': '#f59e0b', 'Sud': '#8b5cf6' };
+        const ZONE_LABELS = ['Nord', 'Sahel', 'Sud'];
+
+        // Résout la localisation d'un garage (zone + coordonnées) à partir de son nom
+        // brut (tel qu'importé dans "adherent"/"garage"). Essaie, dans l'ordre :
+        // 1) correspondance exacte dans GARAGE_LOCATION_SEED (nom normalisé) ;
+        // 2) repli sur l'ancien système ville-par-mot-clé (repGarageCity) + zone du
+        //    gouvernorat déduite de TUNISIA_CITIES si la ville est connue.
+        // Retourne null si le garage reste totalement non localisable (apparaît alors
+        // dans "Autres garages" côté carte).
+        const TUNISIA_CITY_GOUVERNORAT = {
+            'Tunis': 'Tunis', 'La Marsa': 'Tunis', 'Mnihla': 'Ariana', 'Oued Ellil': 'Manouba',
+            'Ben Arous': 'Ben Arous', 'Ezzahra': 'Ben Arous', 'Soukra': 'Tunis', 'Nabeul': 'Nabeul',
+            'Hammamet': 'Nabeul', 'Kelibia': 'Nabeul', 'Beja': 'Béja', 'Bizerte': 'Bizerte',
+            'Ras Jbal': 'Bizerte', 'Sousse': 'Sousse', 'Akouda': 'Sousse', 'Msaken': 'Sousse',
+            'Monastir': 'Monastir', 'Mahdia': 'Mahdia', 'Kairouan': 'Kairouan', 'Sfax': 'Sfax',
+            'Gabes': 'Gabès', 'Djerba': 'Médenine', 'Manouba': 'Manouba', 'Jbel Jloud': 'Manouba',
+            'Grombalia': 'Nabeul', 'El Menzah': 'Ariana',
+        };
+
+        function getGarageLocation(garageNameRaw) {
+            if (!garageNameRaw) return null;
+            const cleaned = String(garageNameRaw).trim().replace(/\s+/g, ' ');
+            if (!cleaned) return null;
+            const key = cleaned.toUpperCase();
+
+            // 1) Correspondance exacte dans la liste de référence
+            let seeded = GARAGE_LOCATION_SEED[key];
+
+            // 2) Sinon, passage par le système d'alias déjà utilisé par Contrôle Marge
+            //    (CM_GARAGE_ALIASES), qui connaît déjà de nombreuses variantes de saisie
+            //    (ex. "STE 2HZ" -> "2HZ", "ALL 4 CARS" -> "ALL4 CARS").
+            if (!seeded && typeof CM_GARAGE_ALIASES !== 'undefined' && CM_GARAGE_ALIASES[key]) {
+                seeded = GARAGE_LOCATION_SEED[CM_GARAGE_ALIASES[key].toUpperCase()];
+            }
+
+            // 3) Sinon, correspondance par préfixe commun : un nom de garage réel est
+            //    souvent une variante plus longue ou plus courte du nom de référence
+            //    (ex. "LAATIRI AUTO SERVICE" contient "LAATIRI AUTO", "ZOGHLAMI AUTO
+            //    (PEUGEOT KEF)" contient "ZOGHLAMI AUTO"). Limité aux préfixes d'au
+            //    moins 6 caractères pour éviter les faux positifs sur des noms courts,
+            //    et on retient le plus long préfixe trouvé (le plus spécifique).
+            if (!seeded) {
+                let bestKey = null;
+                Object.keys(GARAGE_LOCATION_SEED).forEach(function(seedKey) {
+                    if (seedKey.length < 6) return;
+                    if ((key.indexOf(seedKey) === 0 || seedKey.indexOf(key) === 0) && (!bestKey || seedKey.length > bestKey.length)) {
+                        bestKey = seedKey;
+                    }
+                });
+                if (bestKey) seeded = GARAGE_LOCATION_SEED[bestKey];
+            }
+
+            if (seeded && seeded.lat != null && seeded.lng != null) {
+                return { zone: seeded.zone, lat: seeded.lat, lng: seeded.lng, ville: seeded.ville, source: 'seed' };
+            }
+            // Repli : déduction par ville reconnue dans le nom (ancien système, gardé
+            // pour les garages importés côté atelier qui n'ont pas encore été ajoutés
+            // à la liste de référence ci-dessus).
+            const city = repGarageCity(garageNameRaw);
+            if (city && TUNISIA_CITIES[city]) {
+                const gouv = TUNISIA_CITY_GOUVERNORAT[city] || '';
+                const zone = GOUVERNORAT_ZONE[gouv] || '';
+                const [lat, lng] = TUNISIA_CITIES[city];
+                return { zone: zone, lat: lat, lng: lng, ville: city, source: 'fallback' };
+            }
+            return null;
+        }
+
+        // ==================== VOITURES EN RÉPARATION ====================
+        // Un dossier est considéré "en réparation" de trois façons possibles :
+        // 1) un dossier "Commandes" dont l'achat (partsStatus) est passé à
+        //    'achat_termine' : les pièces sont là, la voiture est désormais
+        //    entre les mains de l'atelier (limité à la semaine en cours) ;
+        // 2) un dossier importé depuis un export atelier (bouton "Importer
+        //    atelier"), identifié par sa référence interne (limité à la semaine
+        //    en cours) ;
+        // 3) un dossier venant de l'import Odoo (bouton "Importer Odoo",
+        //    importSource === 'odoo_sinistre') : ce fichier reflète l'état RÉEL
+        //    actuel de tous les dossiers sinistre ouverts, pas l'activité d'une
+        //    semaine précise — ces dossiers comptent donc TOUJOURS, indépendamment
+        //    de la semaine, tant qu'ils n'ont pas été re-liés à une commande/dossier
+        //    d'atelier classique.
+        function getReparationOrders() {
+            const currentWeek = getCurrentWeekName();
+            const fromOrders = orders
+                .filter(o => normalizeStatus(o.partsStatus) === 'achat_termine' && o.week === currentWeek)
+                .map(o => ({ ...o, source: 'orders' }));
+            const fromDossiers = repairDossiers
+                .filter(d => d.week === currentWeek || d.importSource === 'odoo_sinistre')
+                .map(d => ({ ...d, source: 'dossier' }));
+            return fromOrders.concat(fromDossiers);
+        }
+
+        // Déduit la ville d'un garage à partir de son nom (utilisé en repli par
+        // getGarageLocation() pour les garages absents de GARAGE_LOCATION_SEED).
+        function repGarageCity(garageName) {
+            if (!garageName) return null;
+            const raw = String(garageName).trim();
+            const upper = raw.toUpperCase();
+            // 1) Correspondance exacte (nom canonique Contrôle Marge)
+            const exact = GARAGE_CITY_MAP[upper] || GARAGE_CITY_MAP[raw];
+            if (exact) return exact;
+            // 2) Repli : recherche d'un nom de ville mentionné n'importe où dans le texte
+            //    (ex. "BOURAQ (VW JBEL JLOUD)", "CMCA (PEUGEOT MANNOUBA)")
+            for (const [regex, city] of CITY_KEYWORD_REGEX) {
+                if (regex.test(upper)) return city;
+            }
+            return null;
+        }
+
+        // Regroupe un statut de réparation détaillé dans l'une des 3 catégories du
+        // filtre "Statut" : en attente de RDV (pas encore au garage), en cours (au
+        // garage), ou clôturé (fin de réparation).
+        function repStatusCategory(status) {
+            if (status === 'fin') return 'cloture';
+            if (status === 'debut') return 'encours';
+            return 'attente'; // 'rdv' et 'aucun'
+        }
+
+        function getFilteredReparationOrders() {
+            const searchEl = document.getElementById('repSearchInput');
+            const statusEl = document.getElementById('repFilterStatus');
+            const garageEl = document.getElementById('repFilterGarage');
+            const zoneEl = document.getElementById('repFilterZone');
+            const sortEl = document.getElementById('repSortOrder');
+
+            const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+            const statusFilter = statusEl ? statusEl.value : '';
+            const garageFilter = garageEl ? garageEl.value : '';
+            const zoneFilter = zoneEl ? zoneEl.value : '';
+            const sortOrder = sortEl ? sortEl.value : '';
+
+            let list = getReparationOrders().filter(o => {
+                const matchesSearch = !search ||
+                    o.reference?.toLowerCase().includes(search) ||
+                    o.client?.toLowerCase().includes(search) ||
+                    o.adherent?.toLowerCase().includes(search);
+                const matchesStatus = !statusFilter || repStatusCategory(o.repairStatus || 'aucun') === statusFilter;
+                const matchesGarage = !garageFilter || (o.adherent || '') === garageFilter;
+                const loc = zoneFilter ? getGarageLocation(o.adherent) : null;
+                const matchesZone = !zoneFilter || (loc && loc.zone === zoneFilter);
+                return matchesSearch && matchesStatus && matchesGarage && matchesZone;
+            });
+
+            const repDelayOf = (o) => (o.repairStatus === 'fin' && o.repairStartDate && o.repairEndDate) ? calculateRepairDelay(o.repairStartDate, o.repairEndDate) : -1;
+            if (sortOrder === 'delay_asc') {
+                list = list.slice().sort((a, b) => repDelayOf(a) - repDelayOf(b));
+            } else if (sortOrder === 'delay_desc') {
+                list = list.slice().sort((a, b) => repDelayOf(b) - repDelayOf(a));
+            } else if (sortOrder === 'client_asc') {
+                list = list.slice().sort((a, b) => (a.client || '').localeCompare(b.client || ''));
+            } else if (sortOrder === 'client_desc') {
+                list = list.slice().sort((a, b) => (b.client || '').localeCompare(a.client || ''));
+            } else {
+                list = list.slice().sort((a, b) => new Date(b.finishedDate || b.openDate || b.validationDate || 0) - new Date(a.finishedDate || a.openDate || a.validationDate || 0));
+            }
+
+            return list;
+        }
+
+        // Filtre "Garage" de la vue Réparation : s'appuie sur la liste partagée de garages
+        // (cmGarages, alimentée par la collection Firestore 'garages' / CM_GARAGE_SEED +
+        // GARAGE_LOCATION_SEED), la même que celle utilisée dans Contrôle Marge.
+        function populateReparationGarageFilter() {
+            const garageEl = document.getElementById('repFilterGarage');
+            if (!garageEl) return;
+            const currentValue = garageEl.value;
+            const list = (typeof cmGarages !== 'undefined' && cmGarages.length) ? cmGarages.slice().sort((a, b) => a.localeCompare(b)) : [];
+            garageEl.innerHTML = '<option value="">Tous les garages</option>' +
+                list.map(g => `<option value="${g}">${g}</option>`).join('');
+            if (list.includes(currentValue)) garageEl.value = currentValue;
+        }
+
+        // Boutons de raccourci Nord / Sahel / Sud / Toutes au-dessus de la carte,
+        // synchronisés avec le select "repFilterZone" (source de vérité unique du
+        // filtre zone, partagée entre la carte et le tableau).
+        function repSetZoneFilter(zone) {
+            const zoneEl = document.getElementById('repFilterZone');
+            if (!zoneEl) return;
+            zoneEl.value = (zoneEl.value === zone) ? '' : zone;
+            renderReparationView();
+        }
+
+        function renderRepZoneFilterButtons() {
+            const container = document.getElementById('repZoneFilterButtons');
+            if (!container) return;
+            const zoneEl = document.getElementById('repFilterZone');
+            const current = zoneEl ? zoneEl.value : '';
+            const btn = (zone, label) => {
+                const isActive = current === zone;
+                const activeStyle = isActive
+                    ? `background:${ZONE_COLORS[zone] || '#374151'};color:#fff;border-color:transparent;`
+                    : '';
+                return `<button onclick="repSetZoneFilter('${zone}')" style="${activeStyle}" class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${isActive ? '' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}">${label}</button>`;
+            };
+            container.innerHTML = ZONE_LABELS.map(z => btn(z, z)).join('') +
+                `<button onclick="document.getElementById('repFilterZone').value=''; renderReparationView();" class="px-3 py-1 rounded-full text-xs font-semibold border ${current ? 'border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700' : 'hidden'}">Toutes</button>`;
+        }
+
+        // Trace la carte de Tunisie : un marqueur PAR GARAGE (coordonnées précises via
+        // getGarageLocation), coloré selon sa zone (Nord / Sahel / Sud) et dimensionné
+        // selon le nombre de véhicules actuellement en réparation dans ce garage cette
+        // semaine. Les garages introuvables dans GARAGE_LOCATION_SEED et non déductibles
+        // par ville apparaissent dans la liste "Autres garages" à côté.
+        // Instance Leaflet unique, créée une seule fois puis réutilisée (les marqueurs sont
+        // effacés et redessinés à chaque rendu plutôt que de recréer la carte).
+        let __repLeafletMap = null;
+        let __repLeafletMarkers = null;
+        let __repLeafletFitted = false;
+
+        function repInitLeafletMap() {
+            if (__repLeafletMap) return __repLeafletMap;
+            const container = document.getElementById('repTunisiaMapContainer');
+            if (!container) return null;
+            __repLeafletMap = L.map(container, {
+                scrollWheelZoom: false,
+                maxBounds: TUNISIA_BOUNDS,
+                maxBoundsViscosity: 1.0, // empêche de faire glisser la carte hors de Tunisie
+                minZoom: 6                // empêche de dézoomer jusqu'aux pays voisins
+            }).fitBounds(TUNISIA_BOUNDS);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                minZoom: 6,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+            }).addTo(__repLeafletMap);
+            __repLeafletMarkers = L.layerGroup().addTo(__repLeafletMap);
+            return __repLeafletMap;
+        }
+
+        // Léger décalage déterministe (quelques centaines de mètres) pour éviter que
+        // deux garages géocodés au niveau de la même ville se superposent totalement
+        // sur la carte. Basé sur un hash simple du nom, donc stable d'un rendu à l'autre.
+        function __repJitter(name) {
+            let h = 0;
+            for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+            const a = (h % 1000) / 1000 - 0.5;
+            const b = ((h >> 10) % 1000) / 1000 - 0.5;
+            return [a * 0.02, b * 0.02];
+        }
+
+        function renderReparationGarageMap(repOrders) {
+            const unlocatedEl = document.getElementById('repUnlocatedGarages');
+            const filterBanner = document.getElementById('repMapActiveFilter');
+            const fallbackEl = document.getElementById('repMapFallback');
+            const mapContainer = document.getElementById('repTunisiaMapContainer');
+            if (!unlocatedEl) return;
+
+            renderRepZoneFilterButtons();
+            const zoneFilter = document.getElementById('repFilterZone') ? document.getElementById('repFilterZone').value : '';
+
+            // Regroupement par garage : nombre de véhicules + CA potentiel (somme des
+            // devis validés des dossiers pas encore clôturés — en attente RDV ou en
+            // cours au garage — affiché au survol de chaque marqueur).
+            const byGarage = {};
+            repOrders.forEach(o => {
+                const g = (o.adherent || '').trim();
+                if (!g) return;
+                if (!byGarage[g]) byGarage[g] = { count: 0, caPotentiel: 0 };
+                byGarage[g].count++;
+                if ((o.repairStatus || 'aucun') !== 'fin' && typeof o.montantDevisValide === 'number') {
+                    byGarage[g].caPotentiel += o.montantDevisValide;
+                }
+            });
+
+            const located = []; // [{garage, count, caPotentiel, loc}]
+            const unlocated = [];
+            Object.entries(byGarage).forEach(([garage, stats]) => {
+                const loc = getGarageLocation(garage);
+                if (loc) {
+                    located.push({ garage, count: stats.count, caPotentiel: stats.caPotentiel, loc });
+                } else {
+                    unlocated.push([garage, stats.count]);
+                }
+            });
+            unlocated.sort((a, b) => b[1] - a[1]);
+
+            // --- Carte réelle (Leaflet + OpenStreetMap) ---
+            if (mapContainer) {
+                ensureLeaflet(function(ok) {
+                    if (!ok) {
+                        mapContainer.classList.add('hidden');
+                        if (fallbackEl) fallbackEl.classList.remove('hidden');
+                        return;
+                    }
+                    if (fallbackEl) fallbackEl.classList.add('hidden');
+                    mapContainer.classList.remove('hidden');
+
+                    const map = repInitLeafletMap();
+                    if (!map) return;
+                    __repLeafletMarkers.clearLayers();
+
+                    const garageEl = document.getElementById('repFilterGarage');
+                    const activeGarage = garageEl ? garageEl.value : '';
+
+                    located.forEach(({ garage, count, caPotentiel, loc }) => {
+                        if (zoneFilter && loc.zone !== zoneFilter) return;
+                        const [jLat, jLng] = __repJitter(garage);
+                        const isActive = activeGarage === garage;
+                        const radius = 7 + Math.sqrt(count) * 4;
+                        const marker = L.circleMarker([loc.lat + jLat, loc.lng + jLng], {
+                            radius: radius,
+                            fillColor: ZONE_COLORS[loc.zone] || '#6b7280',
+                            fillOpacity: 0.85,
+                            color: isActive ? '#111827' : '#ffffff',
+                            weight: isActive ? 3 : 1.5
+                        });
+                        const caLabel = Math.round(caPotentiel).toLocaleString('fr-FR') + ' TND';
+                        marker.bindTooltip(
+                            '<strong>' + garage + '</strong>' + (loc.ville ? ' (' + loc.ville + ')' : '') + '<br>' +
+                            count + ' véhicule(s) — Zone ' + loc.zone + '<br>' +
+                            'CA potentiel : ' + caLabel,
+                            { direction: 'top' }
+                        );
+                        marker.on('click', function() {
+                            const el = document.getElementById('repFilterGarage');
+                            if (el) { el.value = (el.value === garage) ? '' : garage; renderReparationView(); }
+                        });
+                        marker.addTo(__repLeafletMarkers);
+                    });
+
+                    // La carte peut avoir été initialisée pendant que l'onglet Réparation
+                    // était masqué (taille indéterminée à la création, Leaflet ne charge
+                    // alors qu'un coin de la carte). On ne corrige la taille/le cadrage que
+                    // lorsque le conteneur est réellement visible, et une seule fois (pour ne
+                    // pas annuler un zoom/déplacement manuel de l'utilisateur ensuite).
+                    const isVisible = mapContainer.offsetParent !== null && mapContainer.offsetWidth > 0;
+                    if (isVisible) {
+                        setTimeout(function() {
+                            map.invalidateSize();
+                            if (!__repLeafletFitted) {
+                                __repLeafletFitted = true;
+                                map.fitBounds(TUNISIA_BOUNDS);
+                            }
+                        }, 80);
+                    }
+                });
+            }
+
+            // --- Bandeau filtre actif ---
+            if (zoneFilter) {
+                filterBanner.classList.remove('hidden');
+                filterBanner.innerHTML = `
+                    <button onclick="document.getElementById('repFilterZone').value=''; renderReparationView();" style="background:${ZONE_COLORS[zoneFilter]}22;color:${ZONE_COLORS[zoneFilter]};" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold hover:opacity-80 transition-opacity">
+                        <i data-lucide="map-pin" class="w-3 h-3"></i>
+                        Zone ${zoneFilter}
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>`;
+            } else {
+                filterBanner.classList.add('hidden');
+                filterBanner.innerHTML = '';
+            }
+
+            // --- Liste des garages non localisés ---
+            if (unlocated.length === 0) {
+                unlocatedEl.innerHTML = '<p class="text-sm text-gray-400 dark:text-gray-500 italic">Aucun</p>';
+            } else {
+                const maxUnlocated = unlocated[0][1];
+                unlocatedEl.innerHTML = unlocated.map(([garage, count]) => {
+                    const isActive = document.getElementById('repFilterGarage') && document.getElementById('repFilterGarage').value === garage;
+                    const pct = Math.round((count / maxUnlocated) * 100);
+                    return `
+                        <button onclick="document.getElementById('repFilterGarage').value='${garage.replace(/'/g, "\\'")}'; renderReparationView();" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-colors ${isActive ? 'bg-green-50 dark:bg-green-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'}">
+                            <span class="flex-1 text-xs font-medium text-gray-700 dark:text-gray-300 truncate">${garage}</span>
+                            <span class="text-xs font-bold text-gray-500 dark:text-gray-400 shrink-0">${count}</span>
+                            <span class="w-10 h-1.5 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden shrink-0">
+                                <span class="block h-full bg-gray-400 dark:bg-gray-400" style="width:${pct}%"></span>
+                            </span>
+                        </button>`;
+                }).join('');
+            }
+
+            setTimeout(() => lucide.createIcons(), 50);
+        }
+
+
+        function renderReparationBarList(containerId, entries, colorClass) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            if (!entries.length) {
+                container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Aucune donnée</p>';
+                return;
+            }
+            const max = entries[0][1] || 1;
+            container.innerHTML = entries.map(([label, count], i) => {
+                const pct = Math.round((count / max) * 100);
+                return `
+                    <div class="animate-fade-in" style="animation-delay: ${i * 40}ms">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium truncate text-gray-700 dark:text-gray-300">${label}</span>
+                            <span class="text-gray-500 dark:text-gray-400 font-semibold">${count}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                            <div class="h-3 rounded-full ${colorClass} transition-all duration-500" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Graphique "Répartition par Zone" : une barre par zone, couleur alignée sur
+        // ZONE_COLORS (même code couleur que les marqueurs de la carte).
+        function renderReparationZoneChart(repOrders) {
+            const container = document.getElementById('repByZoneChart');
+            if (!container) return;
+            const byZone = { 'Nord': 0, 'Sahel': 0, 'Sud': 0 };
+            let sansZone = 0;
+            repOrders.forEach(o => {
+                const loc = getGarageLocation(o.adherent);
+                if (loc && byZone.hasOwnProperty(loc.zone)) byZone[loc.zone]++;
+                else sansZone++;
+            });
+            const entries = ZONE_LABELS.map(z => [z, byZone[z]]);
+            if (sansZone > 0) entries.push(['Zone inconnue', sansZone]);
+            const max = Math.max(1, ...entries.map(e => e[1]));
+            if (entries.every(e => e[1] === 0)) {
+                container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Aucune donnée</p>';
+                return;
+            }
+            container.innerHTML = entries.map(([label, count], i) => {
+                const pct = Math.round((count / max) * 100);
+                const color = ZONE_COLORS[label] || '#9ca3af';
+                return `
+                    <div class="animate-fade-in" style="animation-delay: ${i * 40}ms">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium truncate text-gray-700 dark:text-gray-300">${label}</span>
+                            <span class="text-gray-500 dark:text-gray-400 font-semibold">${count}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                            <div class="h-3 rounded-full transition-all duration-500" style="width: ${pct}%; background:${color};"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Graphique "Respect des délais" : répartition des dossiers de la semaine selon
+        // l'état renvoyé par getDelaiStatus (voir plus bas) — Dans les temps / Proche
+        // échéance / Dépassé / Cible non définie. Les dossiers "Pas encore entrés au
+        // garage" ne sont pas comptés ici (rien à mesurer tant que ça n'a pas démarré).
+        function renderReparationDelaiChart(repOrders) {
+            const container = document.getElementById('repDelaiStatusChart');
+            if (!container) return;
+            const buckets = {
+                dans_les_temps: { label: 'Dans les temps', color: '#3b82f6', count: 0 },
+                a_risque: { label: 'Proche échéance', color: '#f59e0b', count: 0 },
+                depasse: { label: 'Dépassé', color: '#ef4444', count: 0 },
+                respecte: { label: 'Respecté (clôturé)', color: '#22c55e', count: 0 },
+                cible_indefinie: { label: 'Cible non définie', color: '#9ca3af', count: 0 },
+            };
+            repOrders.forEach(o => {
+                const st = getDelaiStatus(o);
+                if (buckets[st.key]) buckets[st.key].count++;
+            });
+            const entries = Object.values(buckets).filter(b => b.count > 0);
+            if (!entries.length) {
+                container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Aucune donnée</p>';
+                return;
+            }
+            const max = Math.max(1, ...entries.map(e => e.count));
+            container.innerHTML = entries.map((b, i) => {
+                const pct = Math.round((b.count / max) * 100);
+                return `
+                    <div class="animate-fade-in" style="animation-delay: ${i * 40}ms">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium truncate text-gray-700 dark:text-gray-300">${b.label}</span>
+                            <span class="text-gray-500 dark:text-gray-400 font-semibold">${b.count}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                            <div class="h-3 rounded-full transition-all duration-500" style="width: ${pct}%; background:${b.color};"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Ouvre une invite pour modifier l'objectif de CA hebdomadaire (montant devis
+        // validés que le service Réparation vise à clôturer cette semaine).
+        async function repEditObjectifCA() {
+            const current = repObjectifCA || 0;
+            const input = window.prompt('Objectif de chiffre d\'affaires pour la semaine en cours (TND) :', current || '');
+            if (input == null) return; // annulé
+            const value = parseFloat(String(input).replace(',', '.'));
+            if (isNaN(value) || value < 0) {
+                showToast('Montant invalide', 'error');
+                return;
+            }
+            try {
+                await db.collection('settings').doc('reparation').set({ objectifCASemaine: value }, { merge: true });
+                showToast('Objectif mis à jour', 'success');
+            } catch (error) {
+                console.error('Erreur mise à jour objectif CA:', error);
+                showToast('Erreur lors de la mise à jour', 'error');
+            }
+        }
+
+        function renderReparationView() {
+            const repEl = document.getElementById('view-reparation');
+            if (!repEl) return; // section pas encore présente dans le DOM
+
+            const allRep = getReparationOrders(); // semaine en cours + tous les dossiers Odoo
+            populateReparationGarageFilter();
+            renderReparationGarageMap(allRep);
+            const filtered = getFilteredReparationOrders();
+
+            // --- KPIs (semaine en cours) ---
+            const weekRep = allRep;
+
+            const totalEl = document.getElementById('repKpiTotal');
+            if (totalEl) totalEl.textContent = weekRep.length;
+
+            const delays = weekRep.filter(o => o.repairStatus === 'fin' && o.repairStartDate && o.repairEndDate)
+                .map(o => calculateRepairDelay(o.repairStartDate, o.repairEndDate));
+            const avgDelay = delays.length ? Math.round(delays.reduce((s, d) => s + d, 0) / delays.length) : 0;
+            const avgDelayEl = document.getElementById('repKpiAvgDelay');
+            if (avgDelayEl) avgDelayEl.textContent = avgDelay + 'j';
+
+            // % délais respectés parmi les dossiers CLÔTURÉS cette semaine et dont la
+            // cible (heures allouées) a été renseignée — seul cas où on peut trancher
+            // définitivement "respecté" ou "dépassé".
+            const closedWithCible = weekRep.filter(o => {
+                const st = getDelaiStatus(o);
+                return st.key === 'respecte' || st.key === 'depasse';
+            });
+            const onTimeCount = closedWithCible.filter(o => getDelaiStatus(o).key === 'respecte').length;
+            const onTimePct = closedWithCible.length ? Math.round((onTimeCount / closedWithCible.length) * 100) : 0;
+            const onTimeEl = document.getElementById('repKpiOnTimePct');
+            if (onTimeEl) onTimeEl.textContent = closedWithCible.length ? onTimePct + '%' : '-';
+            const onTimeSubEl = document.getElementById('repKpiOnTimeSub');
+            if (onTimeSubEl) onTimeSubEl.textContent = closedWithCible.length
+                ? (onTimeCount + '/' + closedWithCible.length + ' dossiers clôturés')
+                : 'Aucun dossier clôturé avec cible définie';
+
+            // CA réalisé (somme des devis validés des dossiers clôturés cette semaine) vs objectif
+            const caRealise = weekRep.filter(o => o.repairStatus === 'fin' && typeof o.montantDevisValide === 'number')
+                .reduce((s, o) => s + o.montantDevisValide, 0);
+            const caEl = document.getElementById('repKpiCA');
+            if (caEl) caEl.textContent = Math.round(caRealise).toLocaleString('fr-FR') + ' / ' + Math.round(repObjectifCA || 0).toLocaleString('fr-FR') + ' TND';
+            const caBarEl = document.getElementById('repKpiCABar');
+            if (caBarEl) caBarEl.style.width = (repObjectifCA > 0 ? Math.min(100, Math.round((caRealise / repObjectifCA) * 100)) : 0) + '%';
+
+            // CA potentiel : dossiers dont le véhicule est actuellement au garage
+            // (statut "Début de réparation", pas encore clôturé) — donne la valeur du
+            // travail en cours d'exécution, pas encore facturable.
+            const enCoursRep = weekRep.filter(o => (o.repairStatus || 'aucun') === 'debut');
+            const caPotentiel = enCoursRep.filter(o => typeof o.montantDevisValide === 'number').reduce((s, o) => s + o.montantDevisValide, 0);
+            const caPotentielEl = document.getElementById('repKpiCAPotentiel');
+            if (caPotentielEl) caPotentielEl.textContent = Math.round(caPotentiel).toLocaleString('fr-FR') + ' TND';
+            const caPotentielSubEl = document.getElementById('repKpiCAPotentielSub');
+            if (caPotentielSubEl) caPotentielSubEl.textContent = enCoursRep.length + ' véhicule(s) au garage';
+
+            // CA en attente : dossiers pas encore entrés au garage (pas de rendez-vous
+            // pris, ou rendez-vous pris mais réparation pas encore démarrée) — pipeline
+            // à venir, pas encore engagé en atelier.
+            const enAttenteRep = weekRep.filter(o => ['aucun', 'rdv'].includes(o.repairStatus || 'aucun'));
+            const caAttente = enAttenteRep.filter(o => typeof o.montantDevisValide === 'number').reduce((s, o) => s + o.montantDevisValide, 0);
+            const caAttenteEl = document.getElementById('repKpiCAAttente');
+            if (caAttenteEl) caAttenteEl.textContent = Math.round(caAttente).toLocaleString('fr-FR') + ' TND';
+            const caAttenteSubEl = document.getElementById('repKpiCAAttenteSub');
+            if (caAttenteSubEl) caAttenteSubEl.textContent = enAttenteRep.length + ' dossier(s) en attente';
+
+            // --- Graphiques ---
+            renderReparationZoneChart(allRep);
+            renderReparationDelaiChart(allRep);
+
+            // --- Tableau détaillé ---
+            const tbody = document.getElementById('reparationTableBody');
+            const countNote = document.getElementById('repCountNote');
+            if (countNote) countNote.textContent = filtered.length + ' dossier(s) affiché(s) sur ' + allRep.length + ' en réparation cette semaine (' + getCurrentWeekName() + ')';
+
+            if (!tbody) return;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400"><i data-lucide="wrench" class="w-12 h-12 mx-auto mb-4 opacity-50"></i><p class="text-lg font-medium">Aucune voiture en réparation cette semaine</p><p class="text-sm mt-2">Les dossiers dont l\'achat est marqué "Achat terminé", ou importés depuis l\'atelier, apparaîtront ici</p></td></tr>';
+                setTimeout(() => lucide.createIcons(), 100);
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(o => {
+                const rStatus = o.repairStatus || 'aucun';
+                const delaiStatus = getDelaiStatus(o);
+                const sourceBadge = o.source === 'dossier'
+                    ? '<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-semibold align-middle">Atelier</span>'
+                    : '<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[10px] font-semibold align-middle">Achat</span>';
+                const loc = getGarageLocation(o.adherent);
+                const zoneBadge = loc && loc.zone
+                    ? `<span class="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle" style="background:${ZONE_COLORS[loc.zone]}22;color:${ZONE_COLORS[loc.zone]};">${loc.zone}</span>`
+                    : '';
+                return `
+                    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gradient-to-r hover:from-green-50/50 hover:to-blue-50/50 dark:hover:from-gray-700/50 dark:hover:to-gray-800/50 transition-all duration-200">
+                        <td class="px-6 py-4"><span class="font-semibold text-gray-900 dark:text-white">${o.reference}</span>${sourceBadge}</td>
+                        <td class="px-6 py-4"><span class="text-gray-700 dark:text-gray-300">${o.client}</span></td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold shadow-sm">${o.vehicleBrand || 'Inconnue'}</span>
+                        </td>
+                        <td class="px-6 py-4"><span class="text-gray-600 dark:text-gray-400 text-sm">${o.adherent || '<span class="text-gray-400 dark:text-gray-500 italic">-</span>'}</span>${zoneBadge}</td>
+                        <td class="px-6 py-4">
+                            <div class="relative">
+                                <input type="number" min="0" step="1" value="${o.montantDevisValide != null ? o.montantDevisValide : ''}" placeholder="0" onchange="updateDossierField('${o.id}', 'montantDevisValide', this.value, '${o.source}')" class="w-24 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white text-xs focus:ring-2 focus:ring-orange-500">
+                                <span class="text-[10px] text-gray-400 ml-1">TND</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="relative">
+                                <input type="number" min="0" step="0.5" value="${o.heuresAllouees != null ? o.heuresAllouees : ''}" placeholder="0" onchange="updateDossierField('${o.id}', 'heuresAllouees', this.value, '${o.source}')" class="w-20 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white text-xs focus:ring-2 focus:ring-orange-500">
+                                <span class="text-[10px] text-gray-400 ml-1">h</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <select onchange="updateRepairStatus('${o.id}', this.value, '${o.source}')" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white text-xs font-medium focus:ring-2 focus:ring-green-500">
+                                <option value="aucun" ${rStatus === 'aucun' ? 'selected' : ''}>Pas de rendez-vous</option>
+                                <option value="rdv" ${rStatus === 'rdv' ? 'selected' : ''}>Prise de rendez-vous</option>
+                                <option value="debut" ${rStatus === 'debut' ? 'selected' : ''}>Début de réparation (véhicule entré)</option>
+                                <option value="fin" ${rStatus === 'fin' ? 'selected' : ''}>Fin de réparation</option>
+                            </select>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full shrink-0 ${delaiStatus.dotClass}"></span>
+                                <span class="${delaiStatus.colorClass}">${delaiStatus.label}</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+
+
+        // Calcule le nombre de jours entre le début et la fin de réparation
+        function calculateRepairDelay(startDate, endDate) {
+            if (!startDate || !endDate) return 0;
+            const s = new Date(startDate);
+            const e = new Date(endDate);
+            const diff = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
+            return diff >= 0 ? diff : 0;
+        }
+
+        // Convertit les heures de travail allouées (validées par l'expert) en jours
+        // ouvrés cibles, base 8h/jour. Retourne null tant que les heures n'ont pas
+        // été saisies (le dossier n'a alors pas d'échéance calculable).
+        function heuresToJoursCible(heures) {
+            const h = parseFloat(heures);
+            if (!h || h <= 0) return null;
+            return Math.ceil(h / 8);
+        }
+
+        // Détermine l'état de délai d'un dossier en réparation : pas encore entré au
+        // garage / dans les temps / proche de l'échéance / dépassé / cible non
+        // définie (heures allouées pas encore saisies). Le "point de départ" est
+        // repairStartDate, fixé automatiquement au premier passage du statut à
+        // "Début de réparation" — c'est ce passage qui vaut pour "véhicule entré au
+        // garage". Pour un dossier toujours en cours, le compteur est live (comparé
+        // à aujourd'hui) ; pour un dossier clôturé, il compare la durée réelle.
+        function getDelaiStatus(o) {
+            const cible = heuresToJoursCible(o.heuresAllouees);
+            const status = o.repairStatus || 'aucun';
+
+            if ((status !== 'debut' && status !== 'fin') || !o.repairStartDate) {
+                return { key: 'non_demarre', label: 'Pas encore entré au garage', colorClass: 'text-gray-400 dark:text-gray-500 text-xs italic', dotClass: 'bg-gray-300', jours: null, cible: cible };
+            }
+
+            const start = new Date(o.repairStartDate);
+            const end = (status === 'fin' && o.repairEndDate) ? new Date(o.repairEndDate) : new Date();
+            const jours = Math.max(0, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+
+            if (cible == null) {
+                return { key: 'cible_indefinie', label: jours + 'j (cible non définie)', colorClass: 'text-gray-500 dark:text-gray-400 text-sm font-medium', dotClass: 'bg-gray-400', jours: jours, cible: null };
+            }
+
+            if (status === 'fin') {
+                return jours <= cible
+                    ? { key: 'respecte', label: jours + 'j / ' + cible + 'j cible', colorClass: 'text-green-600 dark:text-green-400 text-sm font-semibold', dotClass: 'bg-green-500', jours: jours, cible: cible }
+                    : { key: 'depasse', label: jours + 'j / ' + cible + 'j cible', colorClass: 'text-red-600 dark:text-red-400 text-sm font-bold', dotClass: 'bg-red-500', jours: jours, cible: cible };
+            }
+
+            // En cours (statut "debut") : compteur live par rapport à la cible
+            if (jours > cible) {
+                return { key: 'depasse', label: jours + 'j / ' + cible + 'j écoulés', colorClass: 'text-red-600 dark:text-red-400 text-sm font-bold', dotClass: 'bg-red-500', jours: jours, cible: cible };
+            }
+            if (jours >= Math.ceil(cible * 0.7)) {
+                return { key: 'a_risque', label: jours + 'j / ' + cible + 'j', colorClass: 'text-orange-500 dark:text-orange-400 text-sm font-semibold', dotClass: 'bg-orange-500', jours: jours, cible: cible };
+            }
+            return { key: 'dans_les_temps', label: jours + 'j / ' + cible + 'j', colorClass: 'text-blue-600 dark:text-blue-400 text-sm font-medium', dotClass: 'bg-blue-500', jours: jours, cible: cible };
+        }
+
+        // Met à jour le statut de réparation d'un dossier (enregistre automatiquement
+        // la date de début / fin lors du premier passage à ce statut). Le dossier peut
+        // venir soit de "Commandes" (achat terminé), soit d'un import atelier : on
+        // écrit dans la collection Firestore correspondante.
+        async function updateRepairStatus(recordId, newStatus, source) {
+            try {
+                const isDossier = source === 'dossier';
+                const record = isDossier ? repairDossiers.find(d => d.id === recordId) : orders.find(o => o.id === recordId);
+                if (!record) return;
+
+                const updateData = {
+                    repairStatus: newStatus,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                const today = new Date().toISOString().split('T')[0];
+                if (newStatus === 'debut' && !record.repairStartDate) {
+                    updateData.repairStartDate = today;
+                } else if (newStatus === 'fin') {
+                    if (!record.repairStartDate) updateData.repairStartDate = today;
+                    if (!record.repairEndDate) updateData.repairEndDate = today;
+                }
+
+                await db.collection(isDossier ? 'repairDossiers' : 'orders').doc(recordId).update(updateData);
+                showToast('Statut réparation mis à jour', 'success');
+                renderReparationView();
+            } catch (error) {
+                console.error('Erreur mise à jour statut réparation:', error);
+                showToast('Erreur lors de la mise à jour', 'error');
+            }
+        }
+
+        // Enregistre le montant du devis validé ou les heures de travail allouées,
+        // saisis manuellement par le chargé de suivi réparation (en attendant que le
+        // futur module Sinistre alimente ces champs automatiquement une fois créé).
+        async function updateDossierField(recordId, field, rawValue, source) {
+            try {
+                const isDossier = source === 'dossier';
+                const trimmed = String(rawValue == null ? '' : rawValue).trim();
+                const value = trimmed === '' ? null : parseFloat(trimmed);
+                if (trimmed !== '' && (value == null || isNaN(value) || value < 0)) {
+                    showToast('Valeur invalide', 'error');
+                    renderReparationView();
+                    return;
+                }
+                const updateData = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+                updateData[field] = value;
+                await db.collection(isDossier ? 'repairDossiers' : 'orders').doc(recordId).update(updateData);
+                renderReparationView();
+            } catch (error) {
+                console.error('Erreur mise à jour ' + field + ':', error);
+                showToast('Erreur lors de la mise à jour', 'error');
+            }
+        }
+
+        function exportReparationToExcel() {
+            const statusLabels = { aucun: 'Pas de rendez-vous', rdv: 'Prise de rendez-vous', debut: 'Début de réparation', fin: 'Fin de réparation' };
+            const rows = getFilteredReparationOrders().map(o => {
+                const rStatus = o.repairStatus || 'aucun';
+                const rDelay = (rStatus === 'fin' && o.repairStartDate && o.repairEndDate) ? calculateRepairDelay(o.repairStartDate, o.repairEndDate) : '';
+                const loc = getGarageLocation(o.adherent);
+                const delaiStatus = getDelaiStatus(o);
+                return {
+                    'Référence': o.reference,
+                    'Origine': o.source === 'dossier' ? 'Atelier' : 'Achat',
+                    'Client': o.client,
+                    'Marque': o.vehicleBrand || 'Inconnue',
+                    'Garage': o.adherent || '',
+                    'Zone': loc ? loc.zone : '',
+                    'Devis validé (TND)': o.montantDevisValide != null ? o.montantDevisValide : '',
+                    'Heures allouées': o.heuresAllouees != null ? o.heuresAllouees : '',
+                    'Jours cible': delaiStatus.cible != null ? delaiStatus.cible : '',
+                    'Statut réparation': statusLabels[rStatus] || rStatus,
+                    'Délai réparation (jours)': rDelay,
+                    'Semaine': o.week || ''
+                };
+            });
+            if (!rows.length) { showToast('Aucun dossier à exporter', 'error'); return; }
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Voitures en reparation');
+            XLSX.writeFile(wb, 'Voitures_en_reparation_' + new Date().toISOString().split('T')[0] + '.xlsx');
+        }
+
+        // ==================== IMPORT ATELIER (dossiers "en réparation") ====================
+        // Fichier d'export atelier (colonnes : Référence interne, Nom, Date Ouverture
+        // Dossier, Client, Agence, Assuré, Adhérent, Véhicule, Tâche courante, Expert,
+        // État, Dernière mise à jour par). Ces dossiers s'ajoutent en plus des commandes
+        // dont l'achat est terminé, sans y toucher — la correspondance se fait uniquement
+        // par la référence interne du fichier, pour éviter les doublons lors d'un ré-import.
+        // On utilise une délégation sur "document" (plutôt qu'un addEventListener direct
+        // sur l'élément) pour ne jamais dépendre de l'ordre de chargement du DOM.
+        document.addEventListener('change', function(e) {
+            if (!e.target || e.target.id !== 'atelierFileInput') return;
+            try {
+                console.log('📂 Changement détecté sur atelierFileInput, fichiers:', e.target.files);
+                if (e.target.files && e.target.files.length > 0) {
+                    showToast('Lecture du fichier atelier…', 'info');
+                    processAtelierFile(e.target.files[0]);
+                }
+            } catch (err) {
+                console.error('❌ Erreur au déclenchement de l\'import atelier:', err);
+                showToast('Erreur au démarrage de l\'import : ' + err.message, 'error');
+            } finally {
+                e.target.value = '';
+            }
+        });
+
+        // Déduit le statut de réparation (aucun / rdv / début / fin) à partir du texte
+        // libre de la colonne "Tâche courante" de l'export atelier.
+        function mapTaskToRepairStatus(taskRaw) {
+            const t = String(taskRaw || '').toLowerCase();
+            if (t.includes('fin') && t.includes('répar')) return 'fin';
+            if (t.includes('répar')) return 'debut';
+            if (t.includes('rendez') || t.includes('rdv')) return 'rdv';
+            return 'aucun';
+        }
+
+        function excelDateToISO(raw) {
+            if (raw === undefined || raw === null || raw === '') return null;
+            if (typeof raw === 'number') {
+                const d = new Date(1899, 11, 30);
+                d.setTime(d.getTime() + raw * 86400000);
+                return d.toISOString();
+            }
+            if (typeof raw === 'string' && /^\d+\.?\d*$/.test(raw.trim())) {
+                const n = parseFloat(raw.trim());
+                const d = new Date(1899, 11, 30);
+                d.setTime(d.getTime() + n * 86400000);
+                return d.toISOString();
+            }
+            const parsed = new Date(raw);
+            return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+        }
+
+        function processAtelierFile(file) {
+            console.log('📂 Début de l\'import atelier:', file.name);
+            const reader = new FileReader();
+            reader.onload = async event => {
+                try {
+                    const data = event.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) {
+                        showToast('Fichier atelier vide !', 'error');
+                        return;
+                    }
+
+                    // Index des dossiers atelier déjà importés, par référence interne
+                    // normalisée, pour ne jamais créer de doublon lors d'un ré-import.
+                    const existingSnapshot = await db.collection('repairDossiers').get();
+                    const existingByRef = new Map();
+                    existingSnapshot.forEach(doc => {
+                        const d = doc.data();
+                        if (d.reference) existingByRef.set(normalizeReference(d.reference), doc.id);
+                    });
+
+                    const cw = getCurrentWeekName();
+                    const newDossiers = [];
+                    let skippedExisting = 0;
+                    let missingReference = 0;
+
+                    for (const row of jsonData) {
+                        const refRaw = row['Référence interne'] || row['reference_interne'] || '';
+                        if (!refRaw) { missingReference++; continue; }
+                        if (existingByRef.has(normalizeReference(refRaw))) { skippedExisting++; continue; }
+
+                        const client = row['Client'] || row['Assuré'] || 'Client inconnu';
+                        const veh = row['Véhicule'] || row['vehicule'] || '';
+                        const taskRaw = row['Tâche courante'] || row['tache_courante'] || '';
+                        const openDate = excelDateToISO(row['Date Ouverture Dossier'] || row['date_ouverture_dossier']) || new Date().toISOString();
+
+                        newDossiers.push({
+                            reference: String(refRaw).trim(),
+                            name: row['Nom'] || '',
+                            client,
+                            agency: row['Agence'] || '',
+                            insured: row['Assuré'] || '',
+                            adherent: normalizeGarageName(row['Adhérent'] || row['adherant'] || row['Garage'] || ''),
+                            vehicle: veh,
+                            vehicleBrand: extractVehicleBrand(veh),
+                            taskRaw,
+                            repairStatus: mapTaskToRepairStatus(taskRaw),
+                            expert: row['Expert'] || '',
+                            state: row['État'] || '',
+                            lastUpdatedBy: row['Dernière mise à jour par'] || '',
+                            openDate,
+                            week: cw,
+                            importDate: new Date().toISOString().split('T')[0],
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+
+                    if (newDossiers.length > 0) {
+                        const batch = db.batch();
+                        newDossiers.forEach(d => {
+                            const docRef = db.collection('repairDossiers').doc();
+                            batch.set(docRef, d);
+                        });
+                        await batch.commit();
+                    }
+
+                    showToast(
+                        newDossiers.length + ' dossier(s) atelier importé(s)' +
+                        (skippedExisting > 0 ? ' — ' + skippedExisting + ' déjà présent(s) ignoré(s)' : ''),
+                        newDossiers.length > 0 ? 'success' : 'error'
+                    );
+                } catch (error) {
+                    console.error('Erreur import atelier:', error);
+                    showToast('Erreur lors de l\'import du fichier atelier : ' + error.message, 'error');
+                }
+            };
+            reader.onerror = function() {
+                showToast('Erreur de lecture du fichier', 'error');
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        // ==================== IMPORT ODOO (devis + tâche courante) ====================
+        // Fichier export Odoo (colonnes : Dossier Sinistre, Client, Montant HT,
+        // Dossier Sinistre/Adhérent, Dossier Sinistre/État, Dossier Sinistre/Tâche
+        // courante). C'est la source la plus fiable pour le montant du devis et l'état
+        // réel de la réparation. Une ligne = une opération/pièce du dossier ; plusieurs
+        // lignes peuvent partager le même "Dossier Sinistre" (on les regroupe et on
+        // additionne le Montant HT).
+        //
+        // Règle métier (donnée par l'utilisateur) : le véhicule n'est PAS encore entré
+        // au garage seulement si sa tâche courante est "Prise RDV Réparation" ou
+        // "Livraison PR au Garage" — toute autre tâche (Bon de réception du Véhicule,
+        // Réparation: ..., Fin Réparation) signifie qu'il y est déjà. "Fin Réparation"
+        // clôture le dossier.
+        document.addEventListener('change', function(e) {
+            if (!e.target || e.target.id !== 'odooSinistreFileInput') return;
+            try {
+                if (e.target.files && e.target.files.length > 0) {
+                    showToast('Lecture du fichier Odoo…', 'info');
+                    processOdooSinistreFile(e.target.files[0]);
+                }
+            } catch (err) {
+                console.error('❌ Erreur au déclenchement de l\'import Odoo:', err);
+                showToast('Erreur au démarrage de l\'import : ' + err.message, 'error');
+            } finally {
+                e.target.value = '';
+            }
+        });
+
+        // Enlève les accents pour une comparaison robuste aux variantes d'accentuation
+        // de l'export (ex. "REPARATION" sans accent selon les paramètres régionaux).
+        function stripAccents(s) {
+            return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
+        const ODOO_TACHE_NON_ENTRE = new Set(['PRISE RDV REPARATION', 'LIVRAISON PR AU GARAGE']);
+        const ODOO_TACHE_FIN = new Set(['FIN REPARATION']);
+
+        // Déduit le statut de réparation (rdv / début / fin) à partir du texte EXACT de
+        // la colonne "Tâche courante" Odoo, selon la règle métier ci-dessus. Ne pas
+        // confondre avec mapTaskToRepairStatus() (utilisée par l'import atelier), dont
+        // la logique par mots-clés est différente et moins fiable pour ce fichier —
+        // par exemple "Réparation: Finition" contient "fin" mais n'est PAS une fin de
+        // réparation, d'où une comparaison EXACTE de la tâche ici plutôt que par
+        // sous-chaîne.
+        function mapOdooTacheToRepairStatus(taskRaw) {
+            const norm = stripAccents(String(taskRaw || '').trim().toUpperCase());
+            if (!norm) return 'aucun';
+            if (ODOO_TACHE_FIN.has(norm)) return 'fin';
+            if (ODOO_TACHE_NON_ENTRE.has(norm)) return 'rdv';
+            return 'debut';
+        }
+
+        // Combine les statuts de plusieurs lignes d'un même dossier (normalement
+        // identiques — vérifié en amont — mais on reste robuste si jamais elles
+        // diffèrent) : on retient le plus avancé, "fin" > "début" > "rdv" > "aucun",
+        // car si une seule ligne montre que la voiture est physiquement au garage,
+        // elle y est.
+        const REPAIR_STATUS_RANK = { aucun: 0, rdv: 1, debut: 2, fin: 3 };
+        function mostAdvancedRepairStatus(statuses) {
+            return statuses.reduce((best, s) => (REPAIR_STATUS_RANK[s] > REPAIR_STATUS_RANK[best] ? s : best), 'aucun');
+        }
+
+        function processOdooSinistreFile(file) {
+            console.log('📂 Début de l\'import Odoo:', file.name);
+            const reader = new FileReader();
+            reader.onload = async event => {
+                try {
+                    const data = event.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) {
+                        showToast('Fichier Odoo vide !', 'error');
+                        return;
+                    }
+
+                    // --- 1) Regroupement par Dossier Sinistre (somme des montants) ---
+                    // Plusieurs lignes pour un même "Dossier Sinistre" = un complément sur
+                    // la même réparation (pas un autre véhicule) : on additionne simplement
+                    // leurs montants dans UN SEUL dossier, jamais un doublon.
+                    const groups = new Map(); // refNormalisée -> { refRaw, client, adherent, vehicleBrand, montant, statuses[] }
+                    let missingReference = 0;
+                    for (const row of jsonData) {
+                        const refRaw = row['Dossier Sinistre'] || row['dossier_sinistre'] || '';
+                        if (!refRaw) { missingReference++; continue; }
+                        const refKey = normalizeReference(refRaw);
+
+                        const client = row['Client'] || '';
+                        const adherentRaw = row['Dossier Sinistre/Adhérent'] || row['Adhérent'] || row['adherent'] || '';
+                        const taskRaw = row['Dossier Sinistre/Tâche courante'] || row['Tâche courante'] || row['tache_courante'] || '';
+                        const vehicleRaw = row['Marque'] || row['Marque véhicule'] || row['Dossier Sinistre/Marque'] ||
+                            row['Véhicule'] || row['Vehicule'] || row['Dossier Sinistre/Véhicule'] || '';
+                        const montantRaw = row['Montant HT'] || row['montant_ht'];
+                        const montant = (typeof montantRaw === 'number' && !isNaN(montantRaw)) ? montantRaw : parseFloat(montantRaw);
+
+                        if (!groups.has(refKey)) {
+                            groups.set(refKey, { refRaw: String(refRaw).trim(), client: '', adherent: '', vehicleBrand: '', montant: 0, statuses: [] });
+                        }
+                        const g = groups.get(refKey);
+                        if (!isNaN(montant)) g.montant += montant;
+                        if (client && !g.client) g.client = String(client).trim();
+                        if (adherentRaw && !g.adherent) g.adherent = normalizeGarageName(adherentRaw);
+                        if (vehicleRaw && !g.vehicleBrand) g.vehicleBrand = extractVehicleBrand(String(vehicleRaw));
+                        g.statuses.push(mapOdooTacheToRepairStatus(taskRaw));
+                    }
+
+                    // --- 2) Index des dossiers existants (orders + repairDossiers) par référence ---
+                    // Un tableau par référence (pas juste un id) au cas où plusieurs
+                    // enregistrements partageraient déjà la même référence en base — on les
+                    // met alors tous à jour, pour ne jamais en laisser un désynchronisé.
+                    const [ordersSnap, dossiersSnap] = await Promise.all([
+                        db.collection('orders').get(),
+                        db.collection('repairDossiers').get()
+                    ]);
+                    const ordersByRef = new Map();
+                    ordersSnap.forEach(doc => {
+                        const d = doc.data();
+                        if (!d.reference) return;
+                        const k = normalizeReference(d.reference);
+                        if (!ordersByRef.has(k)) ordersByRef.set(k, []);
+                        ordersByRef.get(k).push(doc);
+                    });
+                    const dossiersByRef = new Map();
+                    dossiersSnap.forEach(doc => {
+                        const d = doc.data();
+                        if (!d.reference) return;
+                        const k = normalizeReference(d.reference);
+                        if (!dossiersByRef.has(k)) dossiersByRef.set(k, []);
+                        dossiersByRef.get(k).push(doc);
+                    });
+
+                    // --- 3) Application : mise à jour des dossiers reconnus, création des nouveaux ---
+                    const today = new Date().toISOString().split('T')[0];
+                    const cw = getCurrentWeekName();
+                    let updatedCount = 0, createdCount = 0;
+                    let batch = db.batch();
+                    let opsInBatch = 0;
+                    const commitIfNeeded = async () => {
+                        if (opsInBatch >= 400) { await batch.commit(); batch = db.batch(); opsInBatch = 0; }
+                    };
+
+                    for (const [refKey, g] of groups.entries()) {
+                        const status = mostAdvancedRepairStatus(g.statuses);
+                        const matchingOrders = ordersByRef.get(refKey) || [];
+                        const matchingDossiers = dossiersByRef.get(refKey) || [];
+
+                        const buildUpdate = (existingRecord) => {
+                            const upd = {
+                                montantDevisValide: g.montant,
+                                repairStatus: status,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            };
+                            if (g.client) upd.client = g.client;
+                            if (g.adherent) upd.adherent = g.adherent;
+                            if (g.vehicleBrand && !existingRecord.vehicleBrand) upd.vehicleBrand = g.vehicleBrand;
+                            if ((status === 'debut' || status === 'fin') && !existingRecord.repairStartDate) upd.repairStartDate = today;
+                            if (status === 'fin' && !existingRecord.repairEndDate) upd.repairEndDate = today;
+                            return upd;
+                        };
+
+                        matchingOrders.forEach(doc => {
+                            batch.update(db.collection('orders').doc(doc.id), buildUpdate(doc.data()));
+                            opsInBatch++; updatedCount++;
+                        });
+                        matchingDossiers.forEach(doc => {
+                            batch.update(db.collection('repairDossiers').doc(doc.id), buildUpdate(doc.data()));
+                            opsInBatch++; updatedCount++;
+                        });
+
+                        if (matchingOrders.length === 0 && matchingDossiers.length === 0) {
+                            const docRef = db.collection('repairDossiers').doc();
+                            const newDoc = {
+                                reference: g.refRaw,
+                                client: g.client || 'Client inconnu',
+                                adherent: g.adherent || '',
+                                vehicleBrand: g.vehicleBrand || '',
+                                montantDevisValide: g.montant,
+                                repairStatus: status,
+                                openDate: today,
+                                week: cw,
+                                importDate: today,
+                                importSource: 'odoo_sinistre',
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            };
+                            if (status === 'debut' || status === 'fin') newDoc.repairStartDate = today;
+                            if (status === 'fin') newDoc.repairEndDate = today;
+                            batch.set(docRef, newDoc);
+                            opsInBatch++; createdCount++;
+                        }
+                        await commitIfNeeded();
+                    }
+                    if (opsInBatch > 0) await batch.commit();
+
+                    showToast(
+                        updatedCount + ' dossier(s) mis à jour, ' + createdCount + ' nouveau(x)' +
+                        (missingReference > 0 ? ' — ' + missingReference + ' ligne(s) sans référence ignorée(s)' : ''),
+                        'success'
+                    );
+                } catch (error) {
+                    console.error('Erreur import Odoo:', error);
+                    showToast('Erreur lors de l\'import du fichier Odoo : ' + error.message, 'error');
+                }
+            };
+            reader.onerror = function() {
+                showToast('Erreur de lecture du fichier', 'error');
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        const CM_GARAGE_SEED = [
+            '100% AUTO', '2HZ', '2S AUTO', '3S HYUNDAI AKOUDA',
+            '3S MOTORS', 'ALL4 CARS', 'ALPHA FORD', 'ALPHA STAR AUTO',
+            'AMEN AUTO', 'ASH CITROEN HAMMAMET', 'AUTO CONFIANCE', 'AUTO GOLD',
+            'AUTO PACK SERVICE', 'AUTO PASSION (SAP)', 'AUTO PREMIERE', 'AUTO PRO (HYUNDAI NABEUL)',
+            'AUTO SELF SFAX', 'AUTO SERVICE', 'BACCOUCHE MOTORS (KIA AKOUDA)', 'BASSEM AUTO',
+            'BEN JEMAA MOTORS', 'BEST MECANIQUE BEJA', 'BEST MOTORS', 'BEST MOTORS OUED ELIL',
+            'BLUE MOTORS', 'BMB BEJA (VW)', 'BMW', 'BOURAQ',
+            'BSB', 'BSB SOUSSE', 'BSB TOYOTA MARSA', 'BSB TOYOTA SFAX',
+            'CAR TECH', 'CARPRO', 'CARPRO MAX', 'CARPRO SUZUKI',
+            'CARTOLE', 'CITROEN GROMBALIA', 'CMCA', 'DAS AUTO REPAIR',
+            'EAST WIND AUTO', 'ELVITRO', 'EURO CAR SERVICES', 'EUROREPAR',
+            'FCVA (FRERS CHAKHAR VITRAGE AUTO)/AUTRES CASSE', 'FIAT EZZAHRA', 'FIX AUTO', 'GADHGADHI',
+            'GARAGE DES AMIS', 'GGP MNIHLA', 'GMG', 'GODDI AUTO (KIA NABEUL)',
+            'HORIZON CARS', 'HYUNDAI MNIHLA', 'HYUNDAI MONASTIR', 'JMC HONDA',
+            'K2M AUTO', 'KAANICHE AUTO', 'KF MOTORS (SFAX)', 'KIA',
+            'KIA BEN AROUS', 'KIA J.MENZAH (MS SAFETY)', 'KIA KAIROUAN', 'KIA MAHDIA',
+            'KIA MONASTIR', 'KIA SFAX', 'LAATIRI AUTO', 'LCA FOR EVER',
+            'LE GRAND GARAGE (LE GG)', 'LE MOTEUR', 'M\'SAHLI MOTORS', 'MAKIA',
+            'MAS AUTO', 'MECANIQUE MODERNE', 'MECAREPA', 'MIK AUTO',
+            'MODERNE AUTO', 'NIMR', 'RANIA CAR', 'RENAULT BIZERTE',
+            'RENAULT MARSA', 'RENAULT MONASTIR', 'RENAULT MSAKEN', 'RENAULT OUED ELLIL',
+            'RUSPINA GARAGE', 'S2A (CHERY GABES)', 'SAHEL AUTO (VW MSAKEN)', 'SAVES (VW BEN AROUS)',
+            'SEB (VW GROMBALIA)', 'SELECT CAR', 'SFAX MOTORS', 'SGMG',
+            'SLAH AYED', 'SMG', 'SOKRA BEST SERVICE', 'SPEED SERVICES',
+            'STA', 'STA CHERY', 'STE AS', 'STE AUTOMOBILE TAGOURTI (CHERY SOUSSE)',
+            'STE EL WALID', 'STE KAP', 'STE TUNISIENNE', 'STMG',
+            'T.SOUSSE', 'TECHNO CAR', 'THALASSA AUTO (FORD DJERBA)', 'VW HAMAMET',
+            'VW KELIBIA', 'VW NABEUL', 'VW RAS JBAL', 'ZENO AUTO (HYUNDAI DJERBA)',
+            'ZOGHLAMI AUTO',
+        ];
+
+        // Table de correspondance (variante -> nom canonique) construite à partir des
+        // fautes de frappe / orthographes multiples observées dans verif.xlsx (colonne
+        // "adherant"). Utilisée pour regrouper automatiquement les garages identiques
+        // lors de l'import d'un tableau Excel dans Contrôle Marge.
+        const CM_GARAGE_ALIASES = {
+            '2 H Z': '2HZ', '2 S AUTO': '2S AUTO',
+            'ALL 4 CARS': 'ALL4 CARS', 'ALL4CARS': 'ALL4 CARS',
+            'ALPHA STAR': 'ALPHA STAR AUTO', 'ASH': 'ASH CITROEN HAMMAMET',
+            'AUTO CONFIENCE': 'AUTO CONFIANCE', 'AUTO CONFIONCE': 'AUTO CONFIANCE',
+            'AUTO GOLG': 'AUTO GOLD', 'AUTO PACK': 'AUTO PACK SERVICE',
+            'AUTO PACK SCES': 'AUTO PACK SERVICE', 'AUTO SELEF': 'AUTO SELF SFAX',
+            'AUTO SELF': 'AUTO SELF SFAX', 'AUTO SELF HYUNDAI SFAX': 'AUTO SELF SFAX',
+            'AUTOPACK': 'AUTO PACK SERVICE', 'AUTOSELF': 'AUTO SELF SFAX',
+            'B.JEMAA MOTORS': 'BEN JEMAA MOTORS', 'BACCOUCHE': 'BACCOUCHE MOTORS (KIA AKOUDA)',
+            'BACCOUCHE MOTORS': 'BACCOUCHE MOTORS (KIA AKOUDA)', 'BASSAM AUTO': 'BASSEM AUTO',
+            'BMB': 'BMB BEJA (VW)', 'BMB BEJA': 'BMB BEJA (VW)',
+            'BMB VW BEJA': 'BMB BEJA (VW)', 'BSB LA MARSA': 'BSB TOYOTA MARSA',
+            'BSB SFAX': 'BSB TOYOTA SFAX', 'BSB TOYOTA': 'BSB',
+            'CAR PRO MAX': 'CARPRO MAX', 'CAR PRO SUZUKI': 'CARPRO SUZUKI',
+            'CAR PROMAX': 'CARPRO MAX', 'CARPRO SUSUKI': 'CARPRO SUZUKI',
+            'CARPROMAX': 'CARPRO MAX', 'CARPROU SUZUKI': 'CARPRO SUZUKI',
+            'CATOLE': 'CARTOLE', 'CHERY GABES S2A': 'S2A (CHERY GABES)',
+            'CHERY SOUSSE': 'STE AUTOMOBILE TAGOURTI (CHERY SOUSSE)', 'DAS AUTO': 'DAS AUTO REPAIR',
+            'EL VITRO': 'ELVITRO', 'ELT WED ELIL': 'ELVITRO',
+            'ELVITRO VOITURE': 'ELVITRO', 'EURO CAR SCES': 'EURO CAR SERVICES',
+            'FIAT EZAHRA': 'FIAT EZZAHRA', 'FORD DJERBA': 'THALASSA AUTO (FORD DJERBA)',
+            'GARAGE DES AMIES': 'GARAGE DES AMIS', 'GARAGE DES AMS': 'GARAGE DES AMIS',
+            'GGP': 'GGP MNIHLA', 'GODDI': 'GODDI AUTO (KIA NABEUL)',
+            'GODDI AUTO': 'GODDI AUTO (KIA NABEUL)', 'GODDI KIA NABEUL': 'GODDI AUTO (KIA NABEUL)',
+            'GOODI': 'GODDI AUTO (KIA NABEUL)', 'HORISON CARS': 'HORIZON CARS',
+            'HORIZAN CAR': 'HORIZON CARS', 'J.M': 'KIA J.MENZAH (MS SAFETY)',
+            'JMC': 'JMC HONDA', 'K.F MOTORS': 'KF MOTORS (SFAX)',
+            'K2EM': 'K2M AUTO', 'K2M': 'K2M AUTO',
+            'KAANICHE': 'KAANICHE AUTO', 'KF (SFAX)': 'KF MOTORS (SFAX)',
+            'KF MOTORS': 'KF MOTORS (SFAX)', 'KFMOTORS': 'KF MOTORS (SFAX)',
+            'KIA AKOUDA': 'BACCOUCHE MOTORS (KIA AKOUDA)', 'KIA AKOUDA BACCOUCHE': 'BACCOUCHE MOTORS (KIA AKOUDA)',
+            'KIA AKOUDA BACCOUCHE MOTORS': 'BACCOUCHE MOTORS (KIA AKOUDA)', 'KIA BACCOUCHE': 'BACCOUCHE MOTORS (KIA AKOUDA)',
+            'KIA J,M': 'KIA J.MENZAH (MS SAFETY)', 'KIA J,MENZAH': 'KIA J.MENZAH (MS SAFETY)',
+            'KIA J.M': 'KIA J.MENZAH (MS SAFETY)', 'KIA JM': 'KIA J.MENZAH (MS SAFETY)',
+            'KIA JMENZAH': 'KIA J.MENZAH (MS SAFETY)', 'KIA KAIRAOUANE': 'KIA KAIROUAN',
+            'KIA KAIRAOUN': 'KIA KAIROUAN', 'KIA KAIRAOUNE': 'KIA KAIROUAN',
+            'KIA KAIROUANE': 'KIA KAIROUAN', 'KIA KAIROUEN': 'KIA KAIROUAN',
+            'KIA MEHDIA': 'KIA MAHDIA', 'KIA MOTORS GODDI': 'GODDI AUTO (KIA NABEUL)',
+            'KIA MOTORS GOODI': 'GODDI AUTO (KIA NABEUL)', 'KIA NABEUL': 'GODDI AUTO (KIA NABEUL)',
+            'KIA SOUSSE BACCOUCHE MOTORS': 'BACCOUCHE MOTORS (KIA AKOUDA)', 'LAATIRI': 'LAATIRI AUTO',
+            'LAATRI': 'LAATIRI AUTO', 'LCA': 'LCA FOR EVER',
+            'LE G,G': 'LE GRAND GARAGE (LE GG)', 'LE G.G': 'LE GRAND GARAGE (LE GG)',
+            'LE GG': 'LE GRAND GARAGE (LE GG)', 'LE GRAND GARAGE': 'LE GRAND GARAGE (LE GG)',
+            'M\'SAHLI': 'M\'SAHLI MOTORS', 'M\'SHALI MOTORS': 'M\'SAHLI MOTORS',
+            'MAS': 'MAS AUTO', 'MECANIQUE MODERN': 'MECANIQUE MODERNE',
+            'MIC AUTO': 'MIK AUTO', 'MIK AUTO HALTE': 'MIK AUTO',
+            'MODERN AUTO': 'MODERNE AUTO', 'MS SAFETY': 'KIA J.MENZAH (MS SAFETY)',
+            'MS SAFETY KIA J MENZAH': 'KIA J.MENZAH (MS SAFETY)', 'MSAHLI': 'M\'SAHLI MOTORS',
+            'MSAHLI MOTORS': 'M\'SAHLI MOTORS', 'MSEHLI': 'M\'SAHLI MOTORS',
+            'MSEHLI MOTORS': 'M\'SAHLI MOTORS', 'RENAULT MOUNASTIR': 'RENAULT MONASTIR',
+            'RENAULT WED ELIL': 'RENAULT OUED ELLIL', 'RLT BIZERTE': 'RENAULT BIZERTE',
+            'RLT MARSA': 'RENAULT MARSA', 'RLT MARSSA': 'RENAULT MARSA',
+            'RLT MONASTIR': 'RENAULT MONASTIR', 'RLT MSAKEN': 'RENAULT MSAKEN',
+            'RLT OUED ELIL': 'RENAULT OUED ELLIL', 'RLT WED ELIL': 'RENAULT OUED ELLIL',
+            'RTL BIZERTE': 'RENAULT BIZERTE', 'RUSPINA': 'RUSPINA GARAGE',
+            'S2A': 'S2A (CHERY GABES)', 'SABES+': 'SAVES (VW BEN AROUS)',
+            'SAHEL AUTO': 'SAHEL AUTO (VW MSAKEN)', 'SAHEL AUTO VW MSAKEN': 'SAHEL AUTO (VW MSAKEN)',
+            'SAP': 'AUTO PASSION (SAP)', 'SAP(VW MONASTIR)': 'AUTO PASSION (SAP)',
+            'SAV AUTO PRO': 'AUTO PASSION (SAP)', 'SAVES': 'SAVES (VW BEN AROUS)',
+            'SAVES +': 'SAVES (VW BEN AROUS)', 'SAVES BEN AROUS': 'SAVES (VW BEN AROUS)',
+            'SAVES+': 'SAVES (VW BEN AROUS)', 'SLEH AYED': 'SLAH AYED',
+            'SOKRA': 'SOKRA BEST SERVICE', 'SOKRA BESET SERVICE': 'SOKRA BEST SERVICE',
+            'SOKRA BEST SERVICES': 'SOKRA BEST SERVICE', 'SOUKRA BEST SERVICE': 'SOKRA BEST SERVICE',
+            'SPEED SCES': 'SPEED SERVICES', 'SPEED SERVCE': 'SPEED SERVICES',
+            'STA CHERRY': 'STA CHERY', 'STA SAVES+': 'SAVES (VW BEN AROUS)',
+            'STE 2HZ': '2HZ', 'STE 2S AUTO': '2S AUTO',
+            'STE 2SAUTO': '2S AUTO', 'STE AUTO PREMIERE': 'AUTO PREMIERE',
+            'STE AUTO SELF': 'AUTO SELF SFAX', 'STE AUTO SERVICE (KIA MAHDIA)': 'KIA MAHDIA',
+            'STE AUTO SEVICES KIA MAHDIA': 'KIA MAHDIA', 'STE AUTOMOBILE TAGOURTI': 'STE AUTOMOBILE TAGOURTI (CHERY SOUSSE)',
+            'STE BASSEM AUTO': 'BASSEM AUTO', 'STE BASSEM AUTO SERVICE': 'BASSEM AUTO',
+            'STE BMB': 'BMB BEJA (VW)', 'STE CAR PRO': 'CARPRO',
+            'STE CARPRO': 'CARPRO', 'STE ELWALID': 'STE EL WALID',
+            'STE GGP': 'GGP MNIHLA', 'STE GODDI AUTO': 'GODDI AUTO (KIA NABEUL)',
+            'STE HORIZON CARS': 'HORIZON CARS', 'STE K.F MOTORS': 'KF MOTORS (SFAX)',
+            'STE K2EM': 'K2M AUTO', 'STE K2M': 'K2M AUTO',
+            'STE K2M AUTO': 'K2M AUTO', 'STE KF MOTORS': 'KF MOTORS (SFAX)',
+            'STE KIA MAHDIA': 'KIA MAHDIA', 'STE LAATIRI': 'LAATIRI AUTO',
+            'STE LAATIRI AUTO SCE': 'LAATIRI AUTO', 'STE MAKIA': 'MAKIA',
+            'STE MAS': 'MAS AUTO', 'STE MECAREPA': 'MECAREPA',
+            'STE NIMR': 'NIMR', 'STE RUSPINA': 'RUSPINA GARAGE',
+            'STE RUSPINA GARAGE': 'RUSPINA GARAGE', 'STE S2A': 'S2A (CHERY GABES)',
+            'STE S2A (CHERY GABES)': 'S2A (CHERY GABES)', 'STE S2A CHERY GABES': 'S2A (CHERY GABES)',
+            'STE SAVES+': 'SAVES (VW BEN AROUS)', 'STE SGMG': 'SGMG',
+            'STE SLAH AYED': 'SLAH AYED', 'STE SLEH AYED': 'SLAH AYED',
+            'STE STMG': 'STMG', 'STE ZOGHLAMI AUTO': 'ZOGHLAMI AUTO',
+            'STE ZOGHLAMI AUTOS': 'ZOGHLAMI AUTO', 'TAGOURTI': 'STE AUTOMOBILE TAGOURTI (CHERY SOUSSE)',
+            'TAGOUTI CHERY SOUSSE': 'STE AUTOMOBILE TAGOURTI (CHERY SOUSSE)', 'TECHNOCAR': 'TECHNO CAR',
+            'TECNO CAR': 'TECHNO CAR', 'THALASSA': 'THALASSA AUTO (FORD DJERBA)',
+            'THALASSA AUTO': 'THALASSA AUTO (FORD DJERBA)', 'THALASSE FORD DJERBA': 'THALASSA AUTO (FORD DJERBA)',
+            'TOYOTA MARSA (BSB)': 'BSB TOYOTA MARSA', 'TOYOTA SFAX': 'BSB TOYOTA SFAX',
+            'TOYOTA SOUSSE': 'BSB SOUSSE', 'VW BEJA': 'BMB BEJA (VW)',
+            'VW GROBALIA': 'SEB (VW GROMBALIA)', 'VW GROMBALIA': 'SEB (VW GROMBALIA)',
+            'VW MSAKEN': 'SAHEL AUTO (VW MSAKEN)', 'ZENO': 'ZENO AUTO (HYUNDAI DJERBA)',
+            'ZENO AUTO': 'ZENO AUTO (HYUNDAI DJERBA)', 'ZENO AUTO HYUNDAI DJERBA': 'ZENO AUTO (HYUNDAI DJERBA)',
+            'ZENO AUTO(HYUNDAI JERBA)': 'ZENO AUTO (HYUNDAI DJERBA)', 'ZOGHLAMI': 'ZOGHLAMI AUTO',
+            'ZOGHLEMI AUTO': 'ZOGHLAMI AUTO',
+        };
+
+        // Ramène un nom de garage brut (import Excel) à son nom canonique s'il figure dans
+        // CM_GARAGE_ALIASES (variante connue), sinon le renvoie tel quel (nettoyé des espaces).
+        function normalizeGarageName(raw) {
+            const t = String(raw || '').trim().replace(/\s+/g, ' ');
+            if (!t) return '';
+            const key = t.toUpperCase();
+            return CM_GARAGE_ALIASES[key] || t;
+        }
+
+        async function cmSeedGaragesIfNeeded(existingNames) {
+            try {
+                const existingSet = new Set(existingNames.map(function(n) { return String(n || '').trim().toUpperCase(); }));
+                const missing = CM_GARAGE_SEED.filter(function(g) { return !existingSet.has(g.toUpperCase()); });
+                if (!missing.length) return;
+                for (let i = 0; i < missing.length; i += 400) {
+                    const batch = db.batch();
+                    missing.slice(i, i + 400).forEach(function(name) {
+                        batch.set(db.collection('garages').doc(margeSanitizeId(name)), { name: name });
+                    });
+                    await batch.commit();
+                }
+            } catch (err) {
+                console.error('Erreur pré-remplissage garages:', err);
+            }
+        }
+
+        // Enrichit la collection Firestore 'garages' avec les zones/coordonnées de
+        // GARAGE_LOCATION_SEED : met à jour (merge) les garages déjà enregistrés qui
+        // n'ont pas encore de zone, et crée les garages Odoo absents du registre
+        // existant (ex-CM_GARAGE_SEED). Ne touche jamais au nom d'un garage existant.
+        async function seedGarageLocationsIfNeeded(existingNames) {
+            try {
+                const existingByUpper = {};
+                existingNames.forEach(function(n) { existingByUpper[String(n || '').trim().toUpperCase()] = n; });
+                const entries = Object.entries(GARAGE_LOCATION_SEED);
+                for (let i = 0; i < entries.length; i += 400) {
+                    const batch = db.batch();
+                    entries.slice(i, i + 400).forEach(function([upperName, loc]) {
+                        const realName = existingByUpper[upperName] || upperName;
+                        batch.set(db.collection('garages').doc(margeSanitizeId(realName)), {
+                            name: realName, zone: loc.zone, ville: loc.ville, lat: loc.lat, lng: loc.lng
+                        }, { merge: true });
+                    });
+                    await batch.commit();
+                }
+            } catch (err) {
+                console.error('Erreur pré-remplissage zones garages:', err);
+            }
         }
 
     </script>
