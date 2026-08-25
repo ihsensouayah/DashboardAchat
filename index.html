@@ -467,22 +467,26 @@
 
                 <!-- Upload Section + Weekly Summary -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                    <!-- Upload Zone -->
-                    <div class="lg:col-span-2 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300" id="dashboardDropZone">
+                    <!-- Upload Zone (compacte) -->
+                    <div class="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 dark:border-gray-600 p-4 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300 flex flex-col justify-center" id="dashboardDropZone">
                         <div class="text-center">
-                            <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
-                                <i data-lucide="upload-cloud" class="w-10 h-10 text-white"></i>
+                            <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-lg">
+                                <i data-lucide="upload-cloud" class="w-6 h-6 text-white"></i>
                             </div>
-                            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">Importer l'état des dossiers</h3>
-                            <p class="text-gray-500 dark:text-gray-400 mb-4">Glissez-déposez votre fichier Excel ou cliquez pour sélectionner</p>
-                            <p class="text-sm text-gray-400 dark:text-gray-500 mb-6">Format: .xlsx ou .xls • Mise à jour hebdomadaire ou journalière</p>
-                            <label class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                                <i data-lucide="folder-open" class="w-5 h-5 mr-2"></i>
-                                <span>Sélectionner un fichier</span>
+                            <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-1">Importer l'état des dossiers</h3>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">Glissez-déposez ou cliquez • .xlsx / .xls</p>
+                            <label class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-sm font-semibold rounded-xl cursor-pointer shadow-md hover:shadow-lg transition-all duration-300">
+                                <i data-lucide="folder-open" class="w-4 h-4 mr-1.5"></i>
+                                <span>Sélectionner</span>
                                 <input type="file" id="dashboardFileInput" accept=".xlsx,.xls" class="hidden">
                             </label>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-4"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>Seuls les nouveaux dossiers seront ajoutés, les existants ne seront pas écrasés</p>
                         </div>
+                    </div>
+
+                    <!-- Tendance des dossiers reçus à l'achat par semaine -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+                        <h3 class="font-bold text-gray-900 dark:text-white mb-4 flex items-center"><i data-lucide="bar-chart-3" class="w-5 h-5 mr-2 text-purple-500"></i>Tendance — Dossiers reçus par semaine</h3>
+                        <div id="weeklyTrendChart" class="h-40 flex items-end gap-2"></div>
                     </div>
 
                     <!-- Weekly Summary -->
@@ -630,8 +634,8 @@
                     </div>
                     <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-4 text-white shadow-lg">
                         <div class="flex items-start justify-between">
-                            <p class="text-sm opacity-90">CA réalisé / Objectif</p>
-                            <button onclick="repEditObjectifCA()" title="Modifier l'objectif" class="opacity-75 hover:opacity-100 transition-opacity"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+                            <p class="text-sm opacity-90">CA réalisé / Objectif du mois</p>
+                            <button onclick="repEditObjectifCA()" title="Modifier l'objectif du mois" class="opacity-75 hover:opacity-100 transition-opacity"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
                         </div>
                         <p class="text-2xl font-bold mt-1" id="repKpiCA">0 / 0 TND</p>
                         <div class="w-full bg-white/25 rounded-full h-1.5 mt-2 overflow-hidden"><div id="repKpiCABar" class="h-1.5 rounded-full bg-white transition-all duration-500" style="width:0%"></div></div>
@@ -728,6 +732,16 @@
                                 <span>Importer Odoo</span>
                             </button>
                             <input type="file" id="odooSinistreFileInput" accept=".xlsx,.xls,.csv" class="hidden">
+                            <button onclick="document.getElementById('facturationFileInput').click()" title="Fichier facturation (Dossier Sinistre, Date de facturation, Montant HT) — clôture automatiquement les dossiers en cours de réparation" class="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
+                                <i data-lucide="check-check" class="w-4 h-4"></i>
+                                <span>Importer Fin Réparation</span>
+                            </button>
+                            <input type="file" id="facturationFileInput" accept=".xlsx,.xls,.csv" class="hidden">
+                            <button onclick="document.getElementById('backfillFileInput').click()" title="Rattrapage anciens dossiers déjà facturés (Dossier Sinistre, Client, Date de facturation, Montant) — crée les dossiers manquants directement en Fin Réparation, sans date de début (exclus du délai moyen)" class="px-5 py-2.5 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
+                                <i data-lucide="history" class="w-4 h-4"></i>
+                                <span>Rattrapage facturation</span>
+                            </button>
+                            <input type="file" id="backfillFileInput" accept=".xlsx,.xls,.csv" class="hidden">
                             <button onclick="exportReparationToExcel()" class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
                                 <i data-lucide="download" class="w-4 h-4"></i>
                                 <span>Export</span>
@@ -2396,11 +2410,15 @@
                 console.error('❌ Erreur chargement garages:', error);
             });
 
-            // Objectif de chiffre d'affaires hebdomadaire (module Réparation), modifiable
-            // via le crayon sur la carte KPI "CA réalisé / Objectif".
+            // Objectif de chiffre d'affaires MENSUEL (module Réparation) : un objectif
+            // par mois (clé "AAAA-MM"), donc automatiquement remis à 0 au changement de
+            // mois puisqu'aucune entrée n'existe encore pour le nouveau mois — pas
+            // besoin d'action de remise à zéro manuelle. Modifiable via le crayon sur la
+            // carte KPI "CA réalisé / Objectif".
             db.collection('settings').doc('reparation').onSnapshot(snapshot => {
                 const data = snapshot.data() || {};
-                repObjectifCA = typeof data.objectifCASemaine === 'number' ? data.objectifCASemaine : 0;
+                const parMois = data.objectifsParMois || {};
+                repObjectifCA = typeof parMois[currentMonthKey()] === 'number' ? parMois[currentMonthKey()] : 0;
                 renderReparationView();
             }, error => {
                 console.error('❌ Erreur chargement objectif CA réparation:', error);
@@ -3136,6 +3154,20 @@
             setTimeout(() => lucide.createIcons(), 100);
         }
 
+        // Retrouve le nom du mois correspondant à une semaine calendaire ("Semaine N
+        // AAAA"), en inversant la formule de getCurrentWeekName() — utile pour situer
+        // une semaine dans l'année sans avoir à mémoriser les numéros.
+        function weekLabelToMonthName(weekName) {
+            const m = /Semaine (\d+) (\d+)/.exec(weekName || '');
+            if (!m) return '';
+            const weekNum = parseInt(m[1], 10);
+            const year = parseInt(m[2], 10);
+            const startOfYear = new Date(year, 0, 1);
+            const approxDayOffset = (weekNum - 1) * 7 - startOfYear.getDay() - 1 + 3; // +3 = milieu de semaine
+            const approxDate = new Date(year, 0, 1 + approxDayOffset);
+            return approxDate.toLocaleDateString('fr-FR', { month: 'long' });
+        }
+
         function renderWeeklySummary() {
             const container = document.getElementById('weeklySummary');
             if (!container) return;
@@ -3172,7 +3204,7 @@
                 return `
                     <div class="p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 rounded-xl border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all duration-200 animate-fade-in" style="animation-delay: ${i * 50}ms">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="font-semibold text-gray-900 dark:text-white">${week}</span>
+                            <span class="font-semibold text-gray-900 dark:text-white">${week}<span class="ml-1.5 font-normal text-gray-400 dark:text-gray-500 text-xs">(${weekLabelToMonthName(week)})</span></span>
                             <span class="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium">${data.total} dossiers</span>
                         </div>
                         <div class="flex items-center justify-between text-xs mb-2">
@@ -3188,6 +3220,50 @@
             }).join('');
             
             setTimeout(() => lucide.createIcons(), 100);
+            renderWeeklyTrendChart();
+        }
+
+        // Convertit "Semaine N AAAA" en clé numérique triable chronologiquement.
+        function weekSortKey(weekName) {
+            const m = /Semaine (\d+) (\d+)/.exec(weekName || '');
+            if (!m) return -1;
+            return parseInt(m[2], 10) * 100 + parseInt(m[1], 10);
+        }
+
+        // Graphique en bâtons : nombre de dossiers reçus à l'achat par semaine (8
+        // dernières semaines connues, ordre chronologique).
+        function renderWeeklyTrendChart() {
+            const container = document.getElementById('weeklyTrendChart');
+            if (!container) return;
+
+            const byWeek = {};
+            orders.forEach(o => {
+                const week = o.week || '';
+                if (!/^Semaine \d+ \d+$/.test(week)) return;
+                byWeek[week] = (byWeek[week] || 0) + 1;
+            });
+
+            const entries = Object.entries(byWeek)
+                .sort((a, b) => weekSortKey(a[0]) - weekSortKey(b[0]))
+                .slice(-8);
+
+            if (!entries.length) {
+                container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 text-center w-full">Aucune donnée</p>';
+                return;
+            }
+
+            const max = Math.max(1, ...entries.map(e => e[1]));
+            container.innerHTML = entries.map(([week, count], i) => {
+                const heightPct = Math.max(6, Math.round((count / max) * 100));
+                const weekNum = (/Semaine (\d+)/.exec(week) || [])[1] || '?';
+                return `
+                    <div class="flex-1 flex flex-col items-center justify-end h-full group animate-fade-in" style="animation-delay:${i * 40}ms" title="${week} (${weekLabelToMonthName(week)}) — ${count} dossier(s)">
+                        <span class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1">${count}</span>
+                        <div class="w-full bg-gradient-to-t from-purple-500 to-purple-400 rounded-t-md transition-all duration-500" style="height:${heightPct}%"></div>
+                        <span class="text-[10px] text-gray-400 mt-1">S${weekNum}</span>
+                    </div>
+                `;
+            }).join('');
         }
 
         function renderUploadHistory() {
@@ -7239,19 +7315,20 @@
         // 2) un dossier importé depuis un export atelier (bouton "Importer
         //    atelier"), identifié par sa référence interne (limité à la semaine
         //    en cours) ;
-        // 3) un dossier venant de l'import Odoo (bouton "Importer Odoo",
-        //    importSource === 'odoo_sinistre') : ce fichier reflète l'état RÉEL
-        //    actuel de tous les dossiers sinistre ouverts, pas l'activité d'une
-        //    semaine précise — ces dossiers comptent donc TOUJOURS, indépendamment
-        //    de la semaine, tant qu'ils n'ont pas été re-liés à une commande/dossier
-        //    d'atelier classique.
+        // 3) un dossier venant d'un import Odoo (importSource commençant par
+        //    "odoo_" — "odoo_sinistre" pour l'import Tâche courante, ou
+        //    "odoo_facturation_backfill" pour le rattrapage d'anciens dossiers déjà
+        //    facturés) : ces fichiers reflètent l'état RÉEL actuel, pas l'activité
+        //    d'une semaine précise — ces dossiers comptent donc TOUJOURS,
+        //    indépendamment de la semaine, tant qu'ils n'ont pas été re-liés à une
+        //    commande/dossier d'atelier classique.
         function getReparationOrders() {
             const currentWeek = getCurrentWeekName();
             const fromOrders = orders
                 .filter(o => normalizeStatus(o.partsStatus) === 'achat_termine' && o.week === currentWeek)
                 .map(o => ({ ...o, source: 'orders' }));
             const fromDossiers = repairDossiers
-                .filter(d => d.week === currentWeek || d.importSource === 'odoo_sinistre')
+                .filter(d => d.week === currentWeek || (d.importSource && d.importSource.indexOf('odoo_') === 0))
                 .map(d => ({ ...d, source: 'dossier' }));
             return fromOrders.concat(fromDossiers);
         }
@@ -7638,11 +7715,21 @@
             }).join('');
         }
 
-        // Ouvre une invite pour modifier l'objectif de CA hebdomadaire (montant devis
-        // validés que le service Réparation vise à clôturer cette semaine).
+        // Clé du mois en cours au format "AAAA-MM", utilisée pour scoper l'objectif de
+        // CA et le CA réalisé au mois calendaire courant.
+        function currentMonthKey() {
+            const now = new Date();
+            return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        }
+
+        // Ouvre une invite pour modifier l'objectif de CA du MOIS EN COURS (montant
+        // devis validés que le service Réparation vise à clôturer ce mois-ci). Les
+        // objectifs des mois précédents restent conservés séparément dans
+        // objectifsParMois, donc rien à réinitialiser manuellement au changement de mois.
         async function repEditObjectifCA() {
             const current = repObjectifCA || 0;
-            const input = window.prompt('Objectif de chiffre d\'affaires pour la semaine en cours (TND) :', current || '');
+            const monthLabel = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            const input = window.prompt('Objectif de chiffre d\'affaires pour ' + monthLabel + ' (TND) :', current || '');
             if (input == null) return; // annulé
             const value = parseFloat(String(input).replace(',', '.'));
             if (isNaN(value) || value < 0) {
@@ -7650,8 +7737,8 @@
                 return;
             }
             try {
-                await db.collection('settings').doc('reparation').set({ objectifCASemaine: value }, { merge: true });
-                showToast('Objectif mis à jour', 'success');
+                await db.collection('settings').doc('reparation').set({ objectifsParMois: { [currentMonthKey()]: value } }, { merge: true });
+                showToast('Objectif du mois mis à jour', 'success');
             } catch (error) {
                 console.error('Erreur mise à jour objectif CA:', error);
                 showToast('Erreur lors de la mise à jour', 'error');
@@ -7695,8 +7782,15 @@
                 ? (onTimeCount + '/' + closedWithCible.length + ' dossiers clôturés')
                 : 'Aucun dossier clôturé avec cible définie';
 
-            // CA réalisé (somme des devis validés des dossiers clôturés cette semaine) vs objectif
-            const caRealise = weekRep.filter(o => o.repairStatus === 'fin' && typeof o.montantDevisValide === 'number')
+            // CA réalisé du MOIS EN COURS (somme des devis validés/montants facturés des
+            // dossiers clôturés dont la date de fin tombe ce mois-ci) vs objectif mensuel.
+            // Contrairement aux autres KPI de cette vue, on ne se limite pas à
+            // orders/repairDossiers de la semaine en cours : un dossier clôturé une
+            // semaine précédente du même mois doit quand même compter dans le CA du mois.
+            const monthKey = currentMonthKey();
+            const monthlyFinished = orders.filter(o => o.repairStatus === 'fin' && o.repairEndDate && String(o.repairEndDate).slice(0, 7) === monthKey)
+                .concat(repairDossiers.filter(d => d.repairStatus === 'fin' && d.repairEndDate && String(d.repairEndDate).slice(0, 7) === monthKey));
+            const caRealise = monthlyFinished.filter(o => typeof o.montantDevisValide === 'number')
                 .reduce((s, o) => s + o.montantDevisValide, 0);
             const caEl = document.getElementById('repKpiCA');
             if (caEl) caEl.textContent = Math.round(caRealise).toLocaleString('fr-FR') + ' / ' + Math.round(repObjectifCA || 0).toLocaleString('fr-FR') + ' TND';
@@ -8270,6 +8364,275 @@
                 } catch (error) {
                     console.error('Erreur import Odoo:', error);
                     showToast('Erreur lors de l\'import du fichier Odoo : ' + error.message, 'error');
+                }
+            };
+            reader.onerror = function() {
+                showToast('Erreur de lecture du fichier', 'error');
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        // ==================== IMPORT FIN RÉPARATION (facturation) ====================
+        // Fichier de facturation (colonnes : Dossier Sinistre / Numéro dossier, Date de
+        // facturation, Montant HT / Montant facturé). Pour chaque ligne dont le numéro
+        // de dossier correspond à un dossier ACTUELLEMENT "en cours de réparation"
+        // (statut "Début de réparation" — véhicule au garage), on clôture le dossier :
+        // statut -> "Fin Réparation", date de fin = date de facturation, montant devis
+        // validé remplacé par le montant réellement facturé (plus fiable que l'estimation
+        // initiale). Les dossiers non trouvés, déjà clôturés, ou pas encore entrés au
+        // garage sont ignorés et comptabilisés séparément dans le résumé.
+        document.addEventListener('change', function(e) {
+            if (!e.target || e.target.id !== 'facturationFileInput') return;
+            try {
+                if (e.target.files && e.target.files.length > 0) {
+                    showToast('Lecture du fichier de facturation…', 'info');
+                    processFacturationFile(e.target.files[0]);
+                }
+            } catch (err) {
+                console.error('❌ Erreur au déclenchement de l\'import facturation:', err);
+                showToast('Erreur au démarrage de l\'import : ' + err.message, 'error');
+            } finally {
+                e.target.value = '';
+            }
+        });
+
+        function processFacturationFile(file) {
+            console.log('📂 Début de l\'import Fin Réparation:', file.name);
+            const reader = new FileReader();
+            reader.onload = async event => {
+                try {
+                    const data = event.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) {
+                        showToast('Fichier de facturation vide !', 'error');
+                        return;
+                    }
+
+                    // Index des dossiers existants par référence (orders + repairDossiers)
+                    const [ordersSnap, dossiersSnap] = await Promise.all([
+                        db.collection('orders').get(),
+                        db.collection('repairDossiers').get()
+                    ]);
+                    const ordersByRef = new Map();
+                    ordersSnap.forEach(doc => {
+                        const d = doc.data();
+                        if (!d.reference) return;
+                        const k = normalizeReference(d.reference);
+                        if (!ordersByRef.has(k)) ordersByRef.set(k, []);
+                        ordersByRef.get(k).push(doc);
+                    });
+                    const dossiersByRef = new Map();
+                    dossiersSnap.forEach(doc => {
+                        const d = doc.data();
+                        if (!d.reference) return;
+                        const k = normalizeReference(d.reference);
+                        if (!dossiersByRef.has(k)) dossiersByRef.set(k, []);
+                        dossiersByRef.get(k).push(doc);
+                    });
+
+                    let closedCount = 0, notFoundCount = 0, notInProgressCount = 0, missingReference = 0;
+                    let batch = db.batch();
+                    let opsInBatch = 0;
+                    const commitIfNeeded = async () => {
+                        if (opsInBatch >= 400) { await batch.commit(); batch = db.batch(); opsInBatch = 0; }
+                    };
+
+                    for (const row of jsonData) {
+                        const refRaw = row['Dossier Sinistre'] || row['Numéro dossier'] || row['numero_dossier'] || '';
+                        if (!refRaw) { missingReference++; continue; }
+                        const refKey = normalizeReference(refRaw);
+
+                        const dateFactRaw = row['Date de facturation'] || row['date_facturation'];
+                        const dateFact = excelDateToISO(dateFactRaw);
+                        const dateFactISO = dateFact ? dateFact.split('T')[0] : new Date().toISOString().split('T')[0];
+
+                        const montantRaw = row['Montant HT'] || row['Montant facturé'] || row['montant_facture'];
+                        const montant = (typeof montantRaw === 'number' && !isNaN(montantRaw)) ? montantRaw : parseFloat(montantRaw);
+
+                        const matchingOrders = (ordersByRef.get(refKey) || []).filter(doc => (doc.data().repairStatus || 'aucun') === 'debut');
+                        const matchingDossiers = (dossiersByRef.get(refKey) || []).filter(doc => (doc.data().repairStatus || 'aucun') === 'debut');
+                        const totalMatches = (ordersByRef.get(refKey) || []).length + (dossiersByRef.get(refKey) || []).length;
+
+                        if (totalMatches === 0) { notFoundCount++; continue; }
+                        if (matchingOrders.length === 0 && matchingDossiers.length === 0) { notInProgressCount++; continue; }
+
+                        const upd = {
+                            repairStatus: 'fin',
+                            repairEndDate: dateFactISO,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                        if (!isNaN(montant)) upd.montantDevisValide = montant;
+
+                        matchingOrders.forEach(doc => {
+                            batch.update(db.collection('orders').doc(doc.id), upd);
+                            opsInBatch++;
+                        });
+                        matchingDossiers.forEach(doc => {
+                            batch.update(db.collection('repairDossiers').doc(doc.id), upd);
+                            opsInBatch++;
+                        });
+                        closedCount++;
+                        await commitIfNeeded();
+                    }
+                    if (opsInBatch > 0) await batch.commit();
+
+                    showToast(
+                        closedCount + ' dossier(s) clôturé(s)' +
+                        (notInProgressCount > 0 ? ' — ' + notInProgressCount + ' ignoré(s) (pas en cours de réparation)' : '') +
+                        (notFoundCount > 0 ? ' — ' + notFoundCount + ' numéro(s) introuvable(s)' : '') +
+                        (missingReference > 0 ? ' — ' + missingReference + ' ligne(s) sans référence' : ''),
+                        closedCount > 0 ? 'success' : 'error'
+                    );
+                } catch (error) {
+                    console.error('Erreur import Fin Réparation:', error);
+                    showToast('Erreur lors de l\'import du fichier de facturation : ' + error.message, 'error');
+                }
+            };
+            reader.onerror = function() {
+                showToast('Erreur de lecture du fichier', 'error');
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        // ==================== RATTRAPAGE FACTURATION (anciens dossiers) ====================
+        // Différent du bouton "Importer Fin Réparation" ci-dessus : celui-ci ne se
+        // limite PAS aux dossiers déjà suivis avec le statut "en cours" — il clôture
+        // n'importe quel dossier trouvé (quel que soit son statut actuel), et surtout
+        // CRÉE le dossier s'il n'existe pas du tout encore dans notre base. Sert à
+        // intégrer en une fois un lot d'anciens dossiers déjà facturés côté Odoo, sans
+        // fausser le délai moyen : aucune date de début n'est renseignée pour les
+        // dossiers créés ici (délai moyen exige début ET fin), seul le CA compte.
+        // Idempotent : ré-importer le même fichier réapplique les mêmes valeurs sans
+        // dupliquer ni fausser les totaux.
+        document.addEventListener('change', function(e) {
+            if (!e.target || e.target.id !== 'backfillFileInput') return;
+            try {
+                if (e.target.files && e.target.files.length > 0) {
+                    showToast('Lecture du fichier de rattrapage…', 'info');
+                    processBackfillFacturationFile(e.target.files[0]);
+                }
+            } catch (err) {
+                console.error('❌ Erreur au déclenchement du rattrapage:', err);
+                showToast('Erreur au démarrage de l\'import : ' + err.message, 'error');
+            } finally {
+                e.target.value = '';
+            }
+        });
+
+        function processBackfillFacturationFile(file) {
+            console.log('📂 Début du rattrapage facturation:', file.name);
+            const reader = new FileReader();
+            reader.onload = async event => {
+                try {
+                    const data = event.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) {
+                        showToast('Fichier de rattrapage vide !', 'error');
+                        return;
+                    }
+
+                    const [ordersSnap, dossiersSnap] = await Promise.all([
+                        db.collection('orders').get(),
+                        db.collection('repairDossiers').get()
+                    ]);
+                    const ordersByRef = new Map();
+                    ordersSnap.forEach(doc => {
+                        const d = doc.data();
+                        if (!d.reference) return;
+                        const k = normalizeReference(d.reference);
+                        if (!ordersByRef.has(k)) ordersByRef.set(k, []);
+                        ordersByRef.get(k).push(doc);
+                    });
+                    const dossiersByRef = new Map();
+                    dossiersSnap.forEach(doc => {
+                        const d = doc.data();
+                        if (!d.reference) return;
+                        const k = normalizeReference(d.reference);
+                        if (!dossiersByRef.has(k)) dossiersByRef.set(k, []);
+                        dossiersByRef.get(k).push(doc);
+                    });
+
+                    let updatedCount = 0, createdCount = 0, missingReference = 0, totalCA = 0;
+                    let batch = db.batch();
+                    let opsInBatch = 0;
+                    const commitIfNeeded = async () => {
+                        if (opsInBatch >= 400) { await batch.commit(); batch = db.batch(); opsInBatch = 0; }
+                    };
+
+                    for (const row of jsonData) {
+                        const refRaw = row['Dossier Sinistre'] || row['Numéro dossier'] || row['numero_dossier'] || '';
+                        if (!refRaw) { missingReference++; continue; }
+                        const refKey = normalizeReference(refRaw);
+
+                        const client = row['Dossier Sinistre/Client'] || row['Client'] || '';
+                        const dateFactRaw = row['Date de facturation'] || row['date_facturation'];
+                        const dateFact = excelDateToISO(dateFactRaw);
+                        const dateFactISO = dateFact ? dateFact.split('T')[0] : new Date().toISOString().split('T')[0];
+
+                        const montantRaw = row['Montant HT'] || row['Montant facturé'] || row['montant_facture'];
+                        const montant = (typeof montantRaw === 'number' && !isNaN(montantRaw)) ? montantRaw : parseFloat(montantRaw);
+                        if (!isNaN(montant)) totalCA += montant;
+
+                        const matchingOrders = ordersByRef.get(refKey) || [];
+                        const matchingDossiers = dossiersByRef.get(refKey) || [];
+
+                        const upd = {
+                            repairStatus: 'fin',
+                            repairEndDate: dateFactISO,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                        if (!isNaN(montant)) upd.montantDevisValide = montant;
+                        if (client) upd.client = client;
+
+                        if (matchingOrders.length === 0 && matchingDossiers.length === 0) {
+                            // Dossier totalement inconnu de notre base : on le crée
+                            // directement en "Fin Réparation", sans date de début.
+                            const docRef = db.collection('repairDossiers').doc();
+                            batch.set(docRef, {
+                                reference: String(refRaw).trim(),
+                                client: client || 'Client inconnu',
+                                adherent: '',
+                                vehicleBrand: '',
+                                montantDevisValide: !isNaN(montant) ? montant : null,
+                                repairStatus: 'fin',
+                                repairEndDate: dateFactISO,
+                                openDate: dateFactISO,
+                                week: getCurrentWeekName(),
+                                importDate: new Date().toISOString().split('T')[0],
+                                importSource: 'odoo_facturation_backfill',
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                            opsInBatch++; createdCount++;
+                        } else {
+                            matchingOrders.forEach(doc => {
+                                batch.update(db.collection('orders').doc(doc.id), upd);
+                                opsInBatch++;
+                            });
+                            matchingDossiers.forEach(doc => {
+                                batch.update(db.collection('repairDossiers').doc(doc.id), upd);
+                                opsInBatch++;
+                            });
+                            updatedCount++;
+                        }
+                        await commitIfNeeded();
+                    }
+                    if (opsInBatch > 0) await batch.commit();
+
+                    showToast(
+                        createdCount + ' dossier(s) créé(s), ' + updatedCount + ' mis à jour — CA total intégré : ' +
+                        Math.round(totalCA).toLocaleString('fr-FR') + ' TND' +
+                        (missingReference > 0 ? ' — ' + missingReference + ' ligne(s) sans référence' : ''),
+                        'success'
+                    );
+                } catch (error) {
+                    console.error('Erreur rattrapage facturation:', error);
+                    showToast('Erreur lors du rattrapage : ' + error.message, 'error');
                 }
             };
             reader.onerror = function() {
