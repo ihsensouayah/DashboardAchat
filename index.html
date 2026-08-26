@@ -1325,6 +1325,7 @@
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rôle actuel</th>
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Modifier le rôle</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="usersManagementTableBody" class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -1982,7 +1983,7 @@
             if (!tbody) return;
 
             if (!usersList.length) {
-                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">Aucun compte trouvé</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">Aucun compte trouvé</td></tr>';
                 return;
             }
 
@@ -1991,13 +1992,21 @@
                 const currentRole = u.role || 'acheteur';
                 return `
                     <tr>
-                        <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${u.name || '-'}</td>
+                        <td class="px-6 py-4">
+                            <p class="font-medium text-gray-900 dark:text-white">${u.name || '-'}</p>
+                            <p class="text-[10px] text-gray-400 dark:text-gray-500 font-mono">${u.id}</p>
+                        </td>
                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">${u.email || '-'}</td>
                         <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold">${ROLE_LABELS[currentRole] || currentRole}</span></td>
                         <td class="px-6 py-4">
                             <select onchange="updateUserRole('${u.id}', this.value)" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm focus:ring-2 focus:ring-red-500">
                                 ${roleOptions.map(r => `<option value="${r}" ${currentRole === r ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
                             </select>
+                        </td>
+                        <td class="px-6 py-4">
+                            <button onclick="deleteUserProfile('${u.id}', '${(u.name || u.email || '').replace(/'/g, "\\'")}')" title="Supprimer cette fiche (n'annule pas l'accès de connexion si le compte existe toujours dans Firebase Authentication)" class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
                         </td>
                     </tr>
                 `;
@@ -2016,6 +2025,32 @@
             } catch (error) {
                 console.error('Erreur mise à jour rôle:', error);
                 showToast('Erreur lors de la mise à jour du rôle', 'error');
+            }
+        }
+
+        // Supprime la FICHE (nom/email/rôle) d'un compte — utile pour nettoyer les
+        // doublons ou les fiches orphelines (compte supprimé côté Firebase Authentication
+        // sans que sa fiche Firestore ne l'ait été). Attention : ceci ne supprime PAS le
+        // compte de connexion lui-même si celui-ci existe toujours dans Firebase
+        // Authentication — cette suppression-là doit se faire depuis la console Firebase
+        // (onglet Authentication), une app cliente ne pouvant pas supprimer le compte de
+        // connexion d'un autre utilisateur pour des raisons de sécurité.
+        async function deleteUserProfile(uid, label) {
+            if (!isSuperAdmin()) return;
+            const confirmed = window.confirm(
+                'Supprimer la fiche de "' + (label || uid) + '" ?\n\n' +
+                'Cela retire son nom/rôle de cette liste. Si cette personne a encore un vrai ' +
+                'compte de connexion (Firebase Authentication), elle pourra toujours se connecter ' +
+                'mais sans rôle reconnu — pour la bloquer complètement, il faut aussi supprimer son ' +
+                'compte depuis la console Firebase (onglet Authentication).'
+            );
+            if (!confirmed) return;
+            try {
+                await db.collection('users').doc(uid).delete();
+                showToast('Fiche supprimée', 'success');
+            } catch (error) {
+                console.error('Erreur suppression compte:', error);
+                showToast('Erreur lors de la suppression', 'error');
             }
         }
 
