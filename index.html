@@ -722,31 +722,16 @@
                                 <option value="client_asc">Client (A-Z)</option>
                                 <option value="client_desc">Client (Z-A)</option>
                             </select>
-                            <button onclick="document.getElementById('atelierFileInput').click()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
-                                <i data-lucide="upload" class="w-4 h-4"></i>
-                                <span>Importer atelier</span>
-                            </button>
-                            <input type="file" id="atelierFileInput" accept=".xlsx,.xls,.csv" class="hidden">
                             <button onclick="document.getElementById('odooSinistreFileInput').click()" title="Fichier Odoo (Dossier Sinistre, Montant HT, Adhérent, Tâche courante)" class="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
                                 <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                                 <span>Importer Odoo</span>
                             </button>
                             <input type="file" id="odooSinistreFileInput" accept=".xlsx,.xls,.csv" class="hidden">
-                            <button onclick="document.getElementById('facturationFileInput').click()" title="Fichier facturation (Dossier Sinistre, Date de facturation, Montant HT) — clôture automatiquement les dossiers en cours de réparation" class="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
+                            <button onclick="document.getElementById('facturationFileInput').click()" title="Fichier facturation (Dossier Sinistre, Date de facturation, Montant facturé, Garage) — clôture les dossiers correspondants en Fin Réparation, ou les crée s'ils sont inconnus" class="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
                                 <i data-lucide="check-check" class="w-4 h-4"></i>
                                 <span>Importer Fin Réparation</span>
                             </button>
                             <input type="file" id="facturationFileInput" accept=".xlsx,.xls,.csv" class="hidden">
-                            <button onclick="document.getElementById('backfillFileInput').click()" title="Rattrapage anciens dossiers déjà facturés (Dossier Sinistre, Client, Date de facturation, Montant) — crée les dossiers manquants directement en Fin Réparation, sans date de début (exclus du délai moyen)" class="px-5 py-2.5 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
-                                <i data-lucide="history" class="w-4 h-4"></i>
-                                <span>Rattrapage facturation</span>
-                            </button>
-                            <input type="file" id="backfillFileInput" accept=".xlsx,.xls,.csv" class="hidden">
-                            <button onclick="document.getElementById('resetStatusFileInput').click()" title="⚠️ Réinitialise TOUS les dossiers en 'Pas de rendez-vous', sauf ceux du fichier de facturation fourni (qui restent en Fin Réparation) — à utiliser pour repartir d'un état fiable après une erreur d'import" class="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
-                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                                <span>Réinitialiser (sauf facturés)</span>
-                            </button>
-                            <input type="file" id="resetStatusFileInput" accept=".xlsx,.xls,.csv" class="hidden">
                             <button onclick="exportReparationToExcel()" class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
                                 <i data-lucide="download" class="w-4 h-4"></i>
                                 <span>Export</span>
@@ -8044,40 +8029,6 @@
             XLSX.writeFile(wb, 'Voitures_en_reparation_' + new Date().toISOString().split('T')[0] + '.xlsx');
         }
 
-        // ==================== IMPORT ATELIER (dossiers "en réparation") ====================
-        // Fichier d'export atelier (colonnes : Référence interne, Nom, Date Ouverture
-        // Dossier, Client, Agence, Assuré, Adhérent, Véhicule, Tâche courante, Expert,
-        // État, Dernière mise à jour par). Ces dossiers s'ajoutent en plus des commandes
-        // dont l'achat est terminé, sans y toucher — la correspondance se fait uniquement
-        // par la référence interne du fichier, pour éviter les doublons lors d'un ré-import.
-        // On utilise une délégation sur "document" (plutôt qu'un addEventListener direct
-        // sur l'élément) pour ne jamais dépendre de l'ordre de chargement du DOM.
-        document.addEventListener('change', function(e) {
-            if (!e.target || e.target.id !== 'atelierFileInput') return;
-            try {
-                console.log('📂 Changement détecté sur atelierFileInput, fichiers:', e.target.files);
-                if (e.target.files && e.target.files.length > 0) {
-                    showToast('Lecture du fichier atelier…', 'info');
-                    processAtelierFile(e.target.files[0]);
-                }
-            } catch (err) {
-                console.error('❌ Erreur au déclenchement de l\'import atelier:', err);
-                showToast('Erreur au démarrage de l\'import : ' + err.message, 'error');
-            } finally {
-                e.target.value = '';
-            }
-        });
-
-        // Déduit le statut de réparation (aucun / rdv / début / fin) à partir du texte
-        // libre de la colonne "Tâche courante" de l'export atelier.
-        function mapTaskToRepairStatus(taskRaw) {
-            const t = String(taskRaw || '').toLowerCase();
-            if (t.includes('fin') && t.includes('répar')) return 'fin';
-            if (t.includes('répar')) return 'debut';
-            if (t.includes('rendez') || t.includes('rdv')) return 'rdv';
-            return 'aucun';
-        }
-
         function excelDateToISO(raw) {
             if (raw === undefined || raw === null || raw === '') return null;
             if (typeof raw === 'number') {
@@ -8093,91 +8044,6 @@
             }
             const parsed = new Date(raw);
             return isNaN(parsed.getTime()) ? null : parsed.toISOString();
-        }
-
-        function processAtelierFile(file) {
-            console.log('📂 Début de l\'import atelier:', file.name);
-            const reader = new FileReader();
-            reader.onload = async event => {
-                try {
-                    const data = event.target.result;
-                    const workbook = XLSX.read(data, { type: 'binary' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-                    if (jsonData.length === 0) {
-                        showToast('Fichier atelier vide !', 'error');
-                        return;
-                    }
-
-                    // Index des dossiers atelier déjà importés, par référence interne
-                    // normalisée, pour ne jamais créer de doublon lors d'un ré-import.
-                    const existingSnapshot = await db.collection('repairDossiers').get();
-                    const existingByRef = new Map();
-                    existingSnapshot.forEach(doc => {
-                        const d = doc.data();
-                        if (d.reference) existingByRef.set(normalizeReference(d.reference), doc.id);
-                    });
-
-                    const cw = getCurrentWeekName();
-                    const newDossiers = [];
-                    let skippedExisting = 0;
-                    let missingReference = 0;
-
-                    for (const row of jsonData) {
-                        const refRaw = row['Référence interne'] || row['reference_interne'] || '';
-                        if (!refRaw) { missingReference++; continue; }
-                        if (existingByRef.has(normalizeReference(refRaw))) { skippedExisting++; continue; }
-
-                        const client = row['Client'] || row['Assuré'] || 'Client inconnu';
-                        const veh = row['Véhicule'] || row['vehicule'] || '';
-                        const taskRaw = row['Tâche courante'] || row['tache_courante'] || '';
-                        const openDate = excelDateToISO(row['Date Ouverture Dossier'] || row['date_ouverture_dossier']) || new Date().toISOString();
-
-                        newDossiers.push({
-                            reference: String(refRaw).trim(),
-                            name: row['Nom'] || '',
-                            client,
-                            agency: row['Agence'] || '',
-                            insured: row['Assuré'] || '',
-                            adherent: normalizeGarageName(row['Adhérent'] || row['adherant'] || row['Garage'] || ''),
-                            vehicle: veh,
-                            vehicleBrand: extractVehicleBrand(veh),
-                            taskRaw,
-                            repairStatus: mapTaskToRepairStatus(taskRaw),
-                            expert: row['Expert'] || '',
-                            state: row['État'] || '',
-                            lastUpdatedBy: row['Dernière mise à jour par'] || '',
-                            openDate,
-                            week: cw,
-                            importDate: new Date().toISOString().split('T')[0],
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    }
-
-                    if (newDossiers.length > 0) {
-                        const batch = db.batch();
-                        newDossiers.forEach(d => {
-                            const docRef = db.collection('repairDossiers').doc();
-                            batch.set(docRef, d);
-                        });
-                        await batch.commit();
-                    }
-
-                    showToast(
-                        newDossiers.length + ' dossier(s) atelier importé(s)' +
-                        (skippedExisting > 0 ? ' — ' + skippedExisting + ' déjà présent(s) ignoré(s)' : ''),
-                        newDossiers.length > 0 ? 'success' : 'error'
-                    );
-                } catch (error) {
-                    console.error('Erreur import atelier:', error);
-                    showToast('Erreur lors de l\'import du fichier atelier : ' + error.message, 'error');
-                }
-            };
-            reader.onerror = function() {
-                showToast('Erreur de lecture du fichier', 'error');
-            };
-            reader.readAsBinaryString(file);
         }
 
         // ==================== IMPORT ODOO (devis + tâche courante) ====================
@@ -8218,12 +8084,9 @@
         const ODOO_TACHE_FIN = new Set(['FIN REPARATION']);
 
         // Déduit le statut de réparation (rdv / début / fin) à partir du texte EXACT de
-        // la colonne "Tâche courante" Odoo, selon la règle métier ci-dessus. Ne pas
-        // confondre avec mapTaskToRepairStatus() (utilisée par l'import atelier), dont
-        // la logique par mots-clés est différente et moins fiable pour ce fichier —
-        // par exemple "Réparation: Finition" contient "fin" mais n'est PAS une fin de
-        // réparation, d'où une comparaison EXACTE de la tâche ici plutôt que par
-        // sous-chaîne.
+        // la colonne "Tâche courante" Odoo, selon la règle métier ci-dessus — comparaison
+        // EXACTE (pas par mot-clé) : "Réparation: Finition" contient "fin" mais n'est
+        // PAS une fin de réparation, d'où l'importance de comparer la tâche entière.
         function mapOdooTacheToRepairStatus(taskRaw) {
             const norm = stripAccents(String(taskRaw || '').trim().toUpperCase());
             if (!norm) return 'aucun';
@@ -8392,13 +8255,18 @@
 
         // ==================== IMPORT FIN RÉPARATION (facturation) ====================
         // Fichier de facturation (colonnes : Dossier Sinistre / Numéro dossier, Date de
-        // facturation, Montant HT / Montant facturé). Pour chaque ligne dont le numéro
-        // de dossier correspond à un dossier ACTUELLEMENT "en cours de réparation"
-        // (statut "Début de réparation" — véhicule au garage), on clôture le dossier :
-        // statut -> "Fin Réparation", date de fin = date de facturation, montant devis
-        // validé remplacé par le montant réellement facturé (plus fiable que l'estimation
-        // initiale). Les dossiers non trouvés, déjà clôturés, ou pas encore entrés au
-        // garage sont ignorés et comptabilisés séparément dans le résumé.
+        // facturation, Montant HT / Montant facturé, Garage / Adhérent). Pour chaque
+        // ligne :
+        // - si le numéro de dossier correspond à un dossier déjà connu (commande ou
+        //   dossier atelier), quel que soit son statut actuel, on le clôture : statut ->
+        //   "Fin Réparation", date de fin = date de facturation, montant devis validé
+        //   remplacé par le montant réellement facturé, garage mis à jour si fourni ;
+        // - si le numéro de dossier est totalement inconnu, on crée directement un
+        //   nouveau dossier en "Fin Réparation" (sans date de début, pour ne pas fausser
+        //   le délai moyen — un dossier découvert seulement à la facturation n'a pas
+        //   d'historique de suivi connu).
+        // Idempotent : ré-importer le même fichier réapplique les mêmes valeurs sans
+        // dupliquer ni fausser les totaux.
         document.addEventListener('change', function(e) {
             if (!e.target || e.target.id !== 'facturationFileInput') return;
             try {
@@ -8451,131 +8319,6 @@
                         dossiersByRef.get(k).push(doc);
                     });
 
-                    let closedCount = 0, notFoundCount = 0, notInProgressCount = 0, missingReference = 0;
-                    let batch = db.batch();
-                    let opsInBatch = 0;
-                    const commitIfNeeded = async () => {
-                        if (opsInBatch >= 400) { await batch.commit(); batch = db.batch(); opsInBatch = 0; }
-                    };
-
-                    for (const row of jsonData) {
-                        const refRaw = row['Dossier Sinistre'] || row['Numéro dossier'] || row['numero_dossier'] || '';
-                        if (!refRaw) { missingReference++; continue; }
-                        const refKey = normalizeReference(refRaw);
-
-                        const dateFactRaw = row['Date de facturation'] || row['date_facturation'];
-                        const dateFact = excelDateToISO(dateFactRaw);
-                        const dateFactISO = dateFact ? dateFact.split('T')[0] : new Date().toISOString().split('T')[0];
-
-                        const montantRaw = row['Montant HT'] || row['Montant facturé'] || row['montant_facture'];
-                        const montant = (typeof montantRaw === 'number' && !isNaN(montantRaw)) ? montantRaw : parseFloat(montantRaw);
-
-                        const matchingOrders = (ordersByRef.get(refKey) || []).filter(doc => (doc.data().repairStatus || 'aucun') === 'debut');
-                        const matchingDossiers = (dossiersByRef.get(refKey) || []).filter(doc => (doc.data().repairStatus || 'aucun') === 'debut');
-                        const totalMatches = (ordersByRef.get(refKey) || []).length + (dossiersByRef.get(refKey) || []).length;
-
-                        if (totalMatches === 0) { notFoundCount++; continue; }
-                        if (matchingOrders.length === 0 && matchingDossiers.length === 0) { notInProgressCount++; continue; }
-
-                        const upd = {
-                            repairStatus: 'fin',
-                            repairEndDate: dateFactISO,
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        };
-                        if (!isNaN(montant)) upd.montantDevisValide = montant;
-
-                        matchingOrders.forEach(doc => {
-                            batch.update(db.collection('orders').doc(doc.id), upd);
-                            opsInBatch++;
-                        });
-                        matchingDossiers.forEach(doc => {
-                            batch.update(db.collection('repairDossiers').doc(doc.id), upd);
-                            opsInBatch++;
-                        });
-                        closedCount++;
-                        await commitIfNeeded();
-                    }
-                    if (opsInBatch > 0) await batch.commit();
-
-                    showToast(
-                        closedCount + ' dossier(s) clôturé(s)' +
-                        (notInProgressCount > 0 ? ' — ' + notInProgressCount + ' ignoré(s) (pas en cours de réparation)' : '') +
-                        (notFoundCount > 0 ? ' — ' + notFoundCount + ' numéro(s) introuvable(s)' : '') +
-                        (missingReference > 0 ? ' — ' + missingReference + ' ligne(s) sans référence' : ''),
-                        closedCount > 0 ? 'success' : 'error'
-                    );
-                } catch (error) {
-                    console.error('Erreur import Fin Réparation:', error);
-                    showToast('Erreur lors de l\'import du fichier de facturation : ' + error.message, 'error');
-                }
-            };
-            reader.onerror = function() {
-                showToast('Erreur de lecture du fichier', 'error');
-            };
-            reader.readAsBinaryString(file);
-        }
-
-        // ==================== RATTRAPAGE FACTURATION (anciens dossiers) ====================
-        // Différent du bouton "Importer Fin Réparation" ci-dessus : celui-ci ne se
-        // limite PAS aux dossiers déjà suivis avec le statut "en cours" — il clôture
-        // n'importe quel dossier trouvé (quel que soit son statut actuel), et surtout
-        // CRÉE le dossier s'il n'existe pas du tout encore dans notre base. Sert à
-        // intégrer en une fois un lot d'anciens dossiers déjà facturés côté Odoo, sans
-        // fausser le délai moyen : aucune date de début n'est renseignée pour les
-        // dossiers créés ici (délai moyen exige début ET fin), seul le CA compte.
-        // Idempotent : ré-importer le même fichier réapplique les mêmes valeurs sans
-        // dupliquer ni fausser les totaux.
-        document.addEventListener('change', function(e) {
-            if (!e.target || e.target.id !== 'backfillFileInput') return;
-            try {
-                if (e.target.files && e.target.files.length > 0) {
-                    showToast('Lecture du fichier de rattrapage…', 'info');
-                    processBackfillFacturationFile(e.target.files[0]);
-                }
-            } catch (err) {
-                console.error('❌ Erreur au déclenchement du rattrapage:', err);
-                showToast('Erreur au démarrage de l\'import : ' + err.message, 'error');
-            } finally {
-                e.target.value = '';
-            }
-        });
-
-        function processBackfillFacturationFile(file) {
-            console.log('📂 Début du rattrapage facturation:', file.name);
-            const reader = new FileReader();
-            reader.onload = async event => {
-                try {
-                    const data = event.target.result;
-                    const workbook = XLSX.read(data, { type: 'binary' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-                    if (jsonData.length === 0) {
-                        showToast('Fichier de rattrapage vide !', 'error');
-                        return;
-                    }
-
-                    const [ordersSnap, dossiersSnap] = await Promise.all([
-                        db.collection('orders').get(),
-                        db.collection('repairDossiers').get()
-                    ]);
-                    const ordersByRef = new Map();
-                    ordersSnap.forEach(doc => {
-                        const d = doc.data();
-                        if (!d.reference) return;
-                        const k = normalizeReference(d.reference);
-                        if (!ordersByRef.has(k)) ordersByRef.set(k, []);
-                        ordersByRef.get(k).push(doc);
-                    });
-                    const dossiersByRef = new Map();
-                    dossiersSnap.forEach(doc => {
-                        const d = doc.data();
-                        if (!d.reference) return;
-                        const k = normalizeReference(d.reference);
-                        if (!dossiersByRef.has(k)) dossiersByRef.set(k, []);
-                        dossiersByRef.get(k).push(doc);
-                    });
-
                     let updatedCount = 0, createdCount = 0, missingReference = 0, totalCA = 0;
                     let batch = db.batch();
                     let opsInBatch = 0;
@@ -8589,6 +8332,9 @@
                         const refKey = normalizeReference(refRaw);
 
                         const client = row['Dossier Sinistre/Client'] || row['Client'] || '';
+                        const garageRaw = row['Garage'] || row['Adhérent'] || row['Dossier Sinistre/Adhérent'] || row['adherent'] || '';
+                        const garage = garageRaw ? normalizeGarageName(garageRaw) : '';
+
                         const dateFactRaw = row['Date de facturation'] || row['date_facturation'];
                         const dateFact = excelDateToISO(dateFactRaw);
                         const dateFactISO = dateFact ? dateFact.split('T')[0] : new Date().toISOString().split('T')[0];
@@ -8607,6 +8353,7 @@
                         };
                         if (!isNaN(montant)) upd.montantDevisValide = montant;
                         if (client) upd.client = client;
+                        if (garage) upd.adherent = garage;
 
                         if (matchingOrders.length === 0 && matchingDossiers.length === 0) {
                             // Dossier totalement inconnu de notre base : on le crée
@@ -8615,7 +8362,7 @@
                             batch.set(docRef, {
                                 reference: String(refRaw).trim(),
                                 client: client || 'Client inconnu',
-                                adherent: '',
+                                adherent: garage,
                                 vehicleBrand: '',
                                 montantDevisValide: !isNaN(montant) ? montant : null,
                                 repairStatus: 'fin',
@@ -8623,7 +8370,7 @@
                                 openDate: dateFactISO,
                                 week: getCurrentWeekName(),
                                 importDate: new Date().toISOString().split('T')[0],
-                                importSource: 'odoo_facturation_backfill',
+                                importSource: 'odoo_facturation',
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                             opsInBatch++; createdCount++;
@@ -8643,142 +8390,14 @@
                     if (opsInBatch > 0) await batch.commit();
 
                     showToast(
-                        createdCount + ' dossier(s) créé(s), ' + updatedCount + ' mis à jour — CA total intégré : ' +
+                        createdCount + ' dossier(s) créé(s), ' + updatedCount + ' clôturé(s)/mis à jour — CA total : ' +
                         Math.round(totalCA).toLocaleString('fr-FR') + ' TND' +
                         (missingReference > 0 ? ' — ' + missingReference + ' ligne(s) sans référence' : ''),
                         'success'
                     );
                 } catch (error) {
-                    console.error('Erreur rattrapage facturation:', error);
-                    showToast('Erreur lors du rattrapage : ' + error.message, 'error');
-                }
-            };
-            reader.onerror = function() {
-                showToast('Erreur de lecture du fichier', 'error');
-            };
-            reader.readAsBinaryString(file);
-        }
-
-        // ==================== RÉINITIALISATION DES STATUTS (sauf facturés) ====================
-        // Opération de correction : suite à un import Odoo dont la fiabilité de la
-        // "Tâche courante" est mise en doute (des dossiers réellement en cours de
-        // réparation ont pu être marqués à tort "Fin Réparation"), on repart d'un état
-        // fiable et connu. À partir du même type de fichier que "Rattrapage
-        // facturation" (Dossier Sinistre / Date de facturation / Montant HT) :
-        // - les dossiers dont la référence est dans le fichier restent/passent en
-        //   "Fin Réparation" (ce sont les seuls confirmés par une facture réelle) ;
-        // - TOUS les autres dossiers actuellement suivis (statut différent de "Pas de
-        //   rendez-vous") sont remis à l'état initial "Pas de rendez-vous", date de
-        //   début et de fin effacées — à charge pour le chargé de suivi de repasser
-        //   sur chacun pour indiquer son état réel.
-        // Le montant du devis n'est PAS effacé (juste le statut/les dates), pour
-        // garder une référence si l'information reste utile.
-        // Opération large et potentiellement lourde : confirmation obligatoire avant
-        // exécution.
-        document.addEventListener('change', function(e) {
-            if (!e.target || e.target.id !== 'resetStatusFileInput') return;
-            try {
-                if (e.target.files && e.target.files.length > 0) {
-                    const confirmed = window.confirm(
-                        'Cette action va remettre TOUS les dossiers de réparation en "Pas de rendez-vous" ' +
-                        '(sauf ceux du fichier fourni, qui resteront en "Fin Réparation"). ' +
-                        'Les dates de début/fin des autres dossiers seront effacées.\n\n' +
-                        'Cette action est large et ne peut pas être annulée automatiquement. Continuer ?'
-                    );
-                    if (!confirmed) { e.target.value = ''; return; }
-                    showToast('Lecture du fichier…', 'info');
-                    processResetStatusFile(e.target.files[0]);
-                }
-            } catch (err) {
-                console.error('❌ Erreur au déclenchement de la réinitialisation:', err);
-                showToast('Erreur au démarrage : ' + err.message, 'error');
-            } finally {
-                e.target.value = '';
-            }
-        });
-
-        function processResetStatusFile(file) {
-            console.log('📂 Début de la réinitialisation des statuts:', file.name);
-            const reader = new FileReader();
-            reader.onload = async event => {
-                try {
-                    const data = event.target.result;
-                    const workbook = XLSX.read(data, { type: 'binary' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-                    if (jsonData.length === 0) {
-                        showToast('Fichier vide !', 'error');
-                        return;
-                    }
-
-                    // Référence -> {dateFactISO, montant} pour les dossiers confirmés facturés
-                    const invoiced = new Map();
-                    for (const row of jsonData) {
-                        const refRaw = row['Dossier Sinistre'] || row['Numéro dossier'] || row['numero_dossier'] || '';
-                        if (!refRaw) continue;
-                        const dateFactRaw = row['Date de facturation'] || row['date_facturation'];
-                        const dateFact = excelDateToISO(dateFactRaw);
-                        const dateFactISO = dateFact ? dateFact.split('T')[0] : new Date().toISOString().split('T')[0];
-                        const montantRaw = row['Montant HT'] || row['Montant facturé'] || row['montant_facture'];
-                        const montant = (typeof montantRaw === 'number' && !isNaN(montantRaw)) ? montantRaw : parseFloat(montantRaw);
-                        invoiced.set(normalizeReference(refRaw), { dateFactISO, montant: isNaN(montant) ? null : montant });
-                    }
-
-                    const [ordersSnap, dossiersSnap] = await Promise.all([
-                        db.collection('orders').get(),
-                        db.collection('repairDossiers').get()
-                    ]);
-
-                    let confirmedFin = 0, resetCount = 0, untouched = 0;
-                    let batch = db.batch();
-                    let opsInBatch = 0;
-                    const commitIfNeeded = async () => {
-                        if (opsInBatch >= 400) { await batch.commit(); batch = db.batch(); opsInBatch = 0; }
-                    };
-
-                    const processCollection = async (snap, collectionName) => {
-                        for (const doc of snap.docs) {
-                            const d = doc.data();
-                            if (!d.reference) continue;
-                            const refKey = normalizeReference(d.reference);
-                            const inv = invoiced.get(refKey);
-
-                            if (inv) {
-                                batch.update(db.collection(collectionName).doc(doc.id), {
-                                    repairStatus: 'fin',
-                                    repairEndDate: inv.dateFactISO,
-                                    montantDevisValide: inv.montant != null ? inv.montant : (d.montantDevisValide != null ? d.montantDevisValide : null),
-                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                });
-                                opsInBatch++; confirmedFin++;
-                            } else if ((d.repairStatus || 'aucun') !== 'aucun') {
-                                batch.update(db.collection(collectionName).doc(doc.id), {
-                                    repairStatus: 'aucun',
-                                    repairStartDate: firebase.firestore.FieldValue.delete(),
-                                    repairEndDate: firebase.firestore.FieldValue.delete(),
-                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                });
-                                opsInBatch++; resetCount++;
-                            } else {
-                                untouched++;
-                            }
-                            await commitIfNeeded();
-                        }
-                    };
-
-                    await processCollection(ordersSnap, 'orders');
-                    await processCollection(dossiersSnap, 'repairDossiers');
-                    if (opsInBatch > 0) await batch.commit();
-
-                    showToast(
-                        confirmedFin + ' dossier(s) confirmé(s) en Fin Réparation, ' +
-                        resetCount + ' dossier(s) remis à "Pas de rendez-vous"',
-                        'success'
-                    );
-                } catch (error) {
-                    console.error('Erreur réinitialisation statuts:', error);
-                    showToast('Erreur lors de la réinitialisation : ' + error.message, 'error');
+                    console.error('Erreur import Fin Réparation:', error);
+                    showToast('Erreur lors de l\'import du fichier de facturation : ' + error.message, 'error');
                 }
             };
             reader.onerror = function() {
