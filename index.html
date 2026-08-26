@@ -1961,6 +1961,64 @@
         function isSuperAdmin() {
             return !!(currentUser && currentUser.email && currentUser.email.toLowerCase() === SUPER_ADMIN_EMAIL);
         }
+
+        // Liste/édition des comptes (écran "Gestion des comptes", super-admin uniquement).
+        let __usersManagementUnsubscribe = null;
+        function loadUsersManagement() {
+            if (!isSuperAdmin()) return;
+            if (__usersManagementUnsubscribe) return; // écoute déjà active, pas besoin de la relancer
+            __usersManagementUnsubscribe = db.collection('users').onSnapshot(snapshot => {
+                const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                renderUsersManagementTable(list);
+            }, error => {
+                console.error('❌ Erreur chargement comptes:', error);
+                showToast('Erreur lors du chargement des comptes', 'error');
+            });
+        }
+
+        function renderUsersManagementTable(usersList) {
+            const tbody = document.getElementById('usersManagementTableBody');
+            if (!tbody) return;
+
+            if (!usersList.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">Aucun compte trouvé</td></tr>';
+                return;
+            }
+
+            const roleOptions = ['pdg', 'directeur', 'responsable', 'manager', 'facturation', 'reparation', 'acheteur'];
+            tbody.innerHTML = usersList.map(u => {
+                const currentRole = u.role || 'acheteur';
+                return `
+                    <tr>
+                        <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${u.name || '-'}</td>
+                        <td class="px-6 py-4 text-gray-600 dark:text-gray-300">${u.email || '-'}</td>
+                        <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold">${ROLE_LABELS[currentRole] || currentRole}</span></td>
+                        <td class="px-6 py-4">
+                            <select onchange="updateUserRole('${u.id}', this.value)" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm focus:ring-2 focus:ring-red-500">
+                                ${roleOptions.map(r => `<option value="${r}" ${currentRole === r ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            setTimeout(() => lucide.createIcons(), 50);
+        }
+
+        async function updateUserRole(uid, newRole) {
+            if (!isSuperAdmin()) return; // double sécurité, en plus des règles Firestore
+            try {
+                await db.collection('users').doc(uid).update({
+                    role: newRole,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('Rôle mis à jour', 'success');
+            } catch (error) {
+                console.error('Erreur mise à jour rôle:', error);
+                showToast('Erreur lors de la mise à jour du rôle', 'error');
+            }
+        }
+
         function getAllowedTabs() {
             if (!currentUserProfile) return null; // profil pas encore chargé : ne rien restreindre
             if (isFullAccessUser()) return null;
@@ -2537,6 +2595,10 @@
 
             if (view === 'marge') {
                 if (margeIsUnlocked()) { margeShowContent(); } else { margeShowLock(); }
+            }
+
+            if (view === 'gestion-comptes') {
+                loadUsersManagement();
             }
 
             if (view === 'registre') {
