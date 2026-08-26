@@ -417,6 +417,7 @@
             <button data-view="registre" onclick="navigateTo('registre')" class="nav-btn" style="animation-delay:200ms"><span class="nav-btn-icon"><i data-lucide="book-open" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Registre</span></button>
             <button data-view="marge" onclick="navigateTo('marge')" class="nav-btn" style="animation-delay:240ms"><span class="nav-btn-icon"><i data-lucide="percent" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Analyse Marge</span></button>
             <button data-view="controle-marge" id="navControleMarge" onclick="navigateTo('controle-marge')" class="nav-btn" style="animation-delay:280ms"><span class="nav-btn-icon"><i data-lucide="receipt" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Contrôle Marge</span></button>
+            <button data-view="gestion-comptes" id="navGestionComptes" onclick="navigateTo('gestion-comptes')" class="nav-btn" style="animation-delay:300ms;display:none"><span class="nav-btn-icon"><i data-lucide="shield" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Gestion des comptes</span></button>
 
             <!-- Présence en ligne + clics du jour — visible par tous les rôles connectés. -->
             <div id="presenceFooter" class="hidden mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 space-y-2">
@@ -1307,6 +1308,33 @@
                 </div>
             </div>
 
+            <!-- GESTION DES COMPTES — réservé exclusivement au super-admin (voir isSuperAdmin()) -->
+            <div id="view-gestion-comptes" class="view-section">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2"><i data-lucide="shield" class="w-6 h-6 text-red-600"></i>Gestion des comptes</h2>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Liste de tous les comptes créés, avec leur rôle actuel — modifiable directement ci-dessous.</p>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-900/50 border-b">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nom</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rôle actuel</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Modifier le rôle</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersManagementTableBody" class="divide-y divide-gray-100 dark:divide-gray-700">
+                                <!-- Rempli dynamiquement -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- REGISTRE FOURNISSEURS VIEW -->
             <div id="view-registre" class="view-section">
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden" style="min-height: calc(100vh - 180px);">
@@ -1526,6 +1554,7 @@
             <button data-view="registre" onclick="navigateTo('registre')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="book-open" class="w-5 h-5"></i><span class="text-[10px] font-medium">Registre</span></button>
             <button data-view="marge" onclick="navigateTo('marge')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="percent" class="w-5 h-5"></i><span class="text-[10px] font-medium">Marge</span></button>
             <button data-view="controle-marge" id="navControleMargeMobile" onclick="navigateTo('controle-marge')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="receipt" class="w-5 h-5"></i><span class="text-[10px] font-medium">Contrôle</span></button>
+            <button data-view="gestion-comptes" id="navGestionComptesMobile" onclick="navigateTo('gestion-comptes')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="shield" class="w-5 h-5"></i><span class="text-[10px] font-medium">Comptes</span></button>
         </nav>
     </div>
 
@@ -1924,12 +1953,21 @@
             facturation: ['controle-marge'],
             reparation: ['reparation']
         };
+        // Écran "Gestion des comptes" : réservé exclusivement à ce compte précis, quel
+        // que soit son rôle (même un autre PDG/Directeur ne le verrait pas) — demandé
+        // explicitement par l'utilisateur, qui veut être seul à pouvoir changer les
+        // rôles des autres comptes.
+        const SUPER_ADMIN_EMAIL = 'ihsen.souayah@autop.tn';
+        function isSuperAdmin() {
+            return !!(currentUser && currentUser.email && currentUser.email.toLowerCase() === SUPER_ADMIN_EMAIL);
+        }
         function getAllowedTabs() {
             if (!currentUserProfile) return null; // profil pas encore chargé : ne rien restreindre
             if (isFullAccessUser()) return null;
             return ROLE_TAB_ACCESS[currentUserProfile.role] || [];
         }
         function canAccessView(view) {
+            if (view === 'gestion-comptes') return isSuperAdmin();
             const allowed = getAllowedTabs();
             return allowed === null || allowed.indexOf(view) !== -1;
         }
@@ -1940,11 +1978,20 @@
             const allowed = getAllowedTabs();
             document.querySelectorAll('.nav-btn, .bottom-nav-btn').forEach(function(btn) {
                 const view = btn.dataset.view;
+                if (view === 'gestion-comptes') return; // gérée séparément, à part du système de rôles
                 const ok = allowed === null || allowed.indexOf(view) !== -1;
                 btn.classList.toggle('nav-disabled', !ok);
                 btn.disabled = !ok;
                 btn.title = ok ? '' : "Accès non autorisé pour votre rôle";
             });
+            // "Gestion des comptes" : totalement invisible pour tout le monde sauf le
+            // super-admin (pas juste désactivé — l'entrée de menu n'existe pas pour
+            // les autres, y compris d'autres comptes PDG/Directeur).
+            const showGestion = isSuperAdmin();
+            const navGC = document.getElementById('navGestionComptes');
+            const navGCMobile = document.getElementById('navGestionComptesMobile');
+            if (navGC) navGC.style.display = showGestion ? '' : 'none';
+            if (navGCMobile) navGCMobile.style.display = showGestion ? '' : 'none';
         }
         // Indicateur visuel de synchronisation temps réel (preuve que Firestore pousse
         // bien les mises à jour sans avoir besoin de rafraîchir la page).
@@ -7180,6 +7227,9 @@
             'STE NIMR (DFSK & DONGFENG)': { ville: 'Charguia 2', gouvernorat: 'Ariana', zone: 'Nord', lat: 36.856, lng: 10.23 },
             'STE PRIM AUTO SFAX': { ville: 'Sfax', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
             'STE S2A (CHERY GABES)': { ville: 'Bouchemma', gouvernorat: 'Gabès', zone: 'Sud', lat: 33.9, lng: 10.08 },
+            'STMG': { ville: 'Bouchemma', gouvernorat: 'Gabès', zone: 'Sud', lat: 33.9, lng: 10.08 },
+            'SAS AUTO': { ville: 'Sfax (Bouidère)', gouvernorat: 'Sfax', zone: 'Sud', lat: 34.7406, lng: 10.7603 },
+            'STE 2S AUTO': { ville: 'Sousse (Centre-ville)', gouvernorat: 'Sousse', zone: 'Sahel', lat: 35.8256, lng: 10.6369 },
             'STE SGMG': { ville: 'Jendouba', gouvernorat: 'Jendouba', zone: 'Nord', lat: 36.5011, lng: 8.7803 },
             'SGMG': { ville: 'Jendouba', gouvernorat: 'Jendouba', zone: 'Nord', lat: 36.5011, lng: 8.7803 },
             'STE SLK (VW BEN AROUS)': { ville: 'Ben Arous', gouvernorat: 'Ben Arous', zone: 'Nord', lat: 36.7531, lng: 10.2189 },
