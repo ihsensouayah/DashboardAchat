@@ -435,7 +435,7 @@
                 </p>
             </div>
         </aside>
-        <main class="max-w-7xl mx-auto px-4 py-8 flex-1 pb-24 md:pb-8">
+        <main class="max-w-[1600px] mx-auto px-4 py-8 flex-1 pb-24 md:pb-8 w-full">
             <!-- DASHBOARD -->
             <div id="view-dashboard" class="view-section active">
                 <!-- KPI Cards -->
@@ -8269,18 +8269,22 @@
         }
 
         const ODOO_TACHE_NON_ENTRE = new Set(['PRISE RDV REPARATION', 'LIVRAISON PR AU GARAGE']);
-        const ODOO_TACHE_FIN = new Set(['FIN REPARATION']);
 
-        // Déduit le statut de réparation (rdv / début / fin) à partir du texte EXACT de
-        // la colonne "Tâche courante" Odoo, selon la règle métier ci-dessus — comparaison
-        // EXACTE (pas par mot-clé) : "Réparation: Finition" contient "fin" mais n'est
-        // PAS une fin de réparation, d'où l'importance de comparer la tâche entière.
+        // Déduit le statut de réparation (rdv / en cours) à partir du texte EXACT de la
+        // colonne "Tâche courante" Odoo. IMPORTANT (règle confirmée par l'utilisateur) :
+        // la tâche "Fin Réparation" ne signifie PAS que le dossier est clôturé — c'est
+        // une étape du processus comme les autres (véhicule encore au garage). Les tâches
+        // qui signifient "en cours de réparation" sont : Bon de réception du Véhicule,
+        // Réparation: Dépose/Pose, Réparation: Préparation à la Peinture, Réparation:
+        // Peinture, Réparation: Finition, et Fin Réparation elle-même. Un dossier n'est
+        // RÉELLEMENT clôturé que via le fichier de facturation (bouton "Importer Fin
+        // Réparation") — jamais via cette tâche courante. Comparaison EXACTE (pas par
+        // mot-clé) pour éviter tout risque de confusion sur le mot "fin".
         function mapOdooTacheToRepairStatus(taskRaw) {
             const norm = stripAccents(String(taskRaw || '').trim().toUpperCase());
             if (!norm) return 'aucun';
-            if (ODOO_TACHE_FIN.has(norm)) return 'fin';
             if (ODOO_TACHE_NON_ENTRE.has(norm)) return 'rdv';
-            return 'debut';
+            return 'debut'; // toute autre tâche connue, y compris "Fin Réparation", = véhicule au garage / en réparation
         }
 
         // Combine les statuts de plusieurs lignes d'un même dossier (normalement
