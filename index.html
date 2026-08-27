@@ -7537,14 +7537,16 @@
             return list;
         }
 
-        // Filtre "Garage" de la vue Réparation : s'appuie sur la liste partagée de garages
-        // (cmGarages, alimentée par la collection Firestore 'garages' / CM_GARAGE_SEED +
-        // GARAGE_LOCATION_SEED), la même que celle utilisée dans Contrôle Marge.
+        // Filtre "Garage" de la vue Réparation : n'utilise QUE la liste Odoo
+        // (GARAGE_LOCATION_SEED, zonée et géolocalisée), pas la liste partagée avec
+        // Contrôle Marge (cmGarages/CM_GARAGE_SEED) — sur demande explicite, pour éviter
+        // les doublons visuels entre les deux registres (mêmes garages parfois nommés
+        // différemment d'un système à l'autre).
         function populateReparationGarageFilter() {
             const garageEl = document.getElementById('repFilterGarage');
             if (!garageEl) return;
             const currentValue = garageEl.value;
-            const list = (typeof cmGarages !== 'undefined' && cmGarages.length) ? cmGarages.slice().sort((a, b) => a.localeCompare(b)) : [];
+            const list = Object.keys(GARAGE_LOCATION_SEED).sort((a, b) => a.localeCompare(b));
             garageEl.innerHTML = '<option value="">Tous les garages</option>' +
                 list.map(g => `<option value="${g}">${g}</option>`).join('');
             if (list.includes(currentValue)) garageEl.value = currentValue;
