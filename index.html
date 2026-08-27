@@ -1101,6 +1101,90 @@
                     <div id="cmAccountsGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10"></div>
                 </div>
 
+                <!-- Formulaire de saisie du compte sélectionné (affiché en haut de page) -->
+                <div id="cmFormView" class="hidden mb-10">
+                    <div class="flex items-center justify-between mb-6">
+                        <button onclick="cmShowWelcome()" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-300">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>Comptes
+                        </button>
+                        <h2 id="cmAccountTitle" class="text-xl font-bold text-gray-900 dark:text-white"></h2>
+                        <div class="w-24"></div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6 mb-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Numéro de dossier</label>
+                                <input type="text" id="cmDossier" placeholder="Ex: 2278/2026" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Garantie</label>
+                                <select id="cmGarantie" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    <option value="IDA">IDA</option>
+                                    <option value="Bris de glace">Bris de glace</option>
+                                    <option value="Dommage collision">Dommage collision</option>
+                                    <option value="Tous risques">Tous risques</option>
+                                    <option value="Recours">Recours</option>
+                                    <option value="Non spécifié">Non spécifié (à la charge du client)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Marque</label>
+                                <select id="cmMarque" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    <option value="">Sélectionner…</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Garage</label>
+                                <select id="cmGarage" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    <option value="">Sélectionner…</option>
+                                    <option value="__new__">+ Ajouter un garage…</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Total MO + peinture (AUTOP)</label>
+                                <input type="number" step="0.001" id="cmMoAutop" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Total MO + peinture (Garage)</label>
+                                <input type="number" step="0.001" id="cmMoGarage" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Total pièces vendues</label>
+                                <input type="number" step="0.001" id="cmPiecesVendues" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Total pièces achetées</label>
+                                <input type="number" step="0.001" id="cmPiecesAchetees" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Condition de ristourne</label>
+                                <select id="cmRistourneOui" onchange="cmToggleRistournePct()" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    <option value="non">Non</option>
+                                    <option value="oui">Oui</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Pourcentage ristourne</label>
+                                <select id="cmRistournePct" disabled class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50">
+                                    <option value="5">5%</option>
+                                    <option value="10">10%</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p id="cmFormError" class="hidden text-sm text-red-600 mt-3"></p>
+                        <div class="mt-5 flex items-center gap-3">
+                            <button id="cmSubmitBtn" onclick="cmSubmitDossier()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2">
+                                <i data-lucide="check" class="w-4 h-4"></i><span id="cmSubmitBtnLabel">Valider les données</span>
+                            </button>
+                            <button id="cmCancelEditBtn" onclick="cmCancelEdit()" class="hidden px-4 py-2.5 border rounded-lg font-medium text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                Annuler la modification
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
                     <!-- Récapitulatif global -->
                     <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Vue d'ensemble</p>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -1224,89 +1308,6 @@
                         </div>
                     </div>
 
-                <!-- Formulaire de saisie + registre du compte sélectionné -->
-                <div id="cmFormView" class="hidden">
-                    <div class="flex items-center justify-between mb-6">
-                        <button onclick="cmShowWelcome()" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-300">
-                            <i data-lucide="arrow-left" class="w-4 h-4"></i>Comptes
-                        </button>
-                        <h2 id="cmAccountTitle" class="text-xl font-bold text-gray-900 dark:text-white"></h2>
-                        <div class="w-24"></div>
-                    </div>
-
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6 mb-8">
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Numéro de dossier</label>
-                                <input type="text" id="cmDossier" placeholder="Ex: 2278/2026" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Garantie</label>
-                                <select id="cmGarantie" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                    <option value="IDA">IDA</option>
-                                    <option value="Bris de glace">Bris de glace</option>
-                                    <option value="Dommage collision">Dommage collision</option>
-                                    <option value="Tous risques">Tous risques</option>
-                                    <option value="Recours">Recours</option>
-                                    <option value="Non spécifié">Non spécifié (à la charge du client)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Marque</label>
-                                <select id="cmMarque" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                    <option value="">Sélectionner…</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Garage</label>
-                                <select id="cmGarage" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                    <option value="">Sélectionner…</option>
-                                    <option value="__new__">+ Ajouter un garage…</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Total MO + peinture (AUTOP)</label>
-                                <input type="number" step="0.001" id="cmMoAutop" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Total MO + peinture (Garage)</label>
-                                <input type="number" step="0.001" id="cmMoGarage" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Total pièces vendues</label>
-                                <input type="number" step="0.001" id="cmPiecesVendues" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Total pièces achetées</label>
-                                <input type="number" step="0.001" id="cmPiecesAchetees" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Condition de ristourne</label>
-                                <select id="cmRistourneOui" onchange="cmToggleRistournePct()" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                    <option value="non">Non</option>
-                                    <option value="oui">Oui</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Pourcentage ristourne</label>
-                                <select id="cmRistournePct" disabled class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50">
-                                    <option value="5">5%</option>
-                                    <option value="10">10%</option>
-                                </select>
-                            </div>
-                        </div>
-                        <p id="cmFormError" class="hidden text-sm text-red-600 mt-3"></p>
-                        <div class="mt-5 flex items-center gap-3">
-                            <button id="cmSubmitBtn" onclick="cmSubmitDossier()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2">
-                                <i data-lucide="check" class="w-4 h-4"></i><span id="cmSubmitBtnLabel">Valider les données</span>
-                            </button>
-                            <button id="cmCancelEditBtn" onclick="cmCancelEdit()" class="hidden px-4 py-2.5 border rounded-lg font-medium text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                Annuler la modification
-                            </button>
-                        </div>
-                    </div>
-
-                </div>
             </div>
 
             <!-- GESTION DES COMPTES — réservé exclusivement au super-admin (voir isSuperAdmin()) -->
@@ -4688,6 +4689,9 @@
             cmCurrentAccount = null;
             document.getElementById('cmFormView').classList.add('hidden');
             document.getElementById('cmWelcome').classList.remove('hidden');
+            // Remet le registre en mode "Toutes les compagnies"
+            document.getElementById('cmFilterAssurance').value = '';
+            cmRenderLedger();
         }
 
         function cmSelectAccount(key) {
@@ -4698,6 +4702,8 @@
             cmPopulateMarques();
             cmRenderGarageOptions();
             cmPopulateFilterOptions();
+            // Filtre automatiquement le Registre des dossiers sur la compagnie sélectionnée
+            document.getElementById('cmFilterAssurance').value = key;
             cmRenderLedger();
         }
 
