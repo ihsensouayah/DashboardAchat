@@ -1310,7 +1310,8 @@
 
             </div>
 
-            <!-- GESTION DES COMPTES — réservé exclusivement au super-admin (voir isSuperAdmin()) -->
+            <!-- GESTION DES COMPTES — réservé au super-admin (édition) + lecteurs autorisés
+                 en consultation seule (voir isSuperAdmin() / canViewUsersManagement()) -->
             <div id="view-gestion-comptes" class="view-section">
                 <div class="flex items-center justify-between mb-6">
                     <div>
@@ -1965,10 +1966,21 @@
             return !!(currentUser && currentUser.email && currentUser.email.toLowerCase() === SUPER_ADMIN_EMAIL);
         }
 
-        // Liste/édition des comptes (écran "Gestion des comptes", super-admin uniquement).
+        // Comptes autorisés à CONSULTER "Gestion des comptes" sans pouvoir rien modifier
+        // (changer un rôle ou supprimer une fiche reste réservé au super-admin ci-dessus).
+        const USERS_MANAGEMENT_VIEWER_EMAILS = ['achref.zehiri@autop.tn'];
+        function canViewUsersManagement() {
+            if (isSuperAdmin()) return true;
+            return !!(currentUser && currentUser.email && USERS_MANAGEMENT_VIEWER_EMAILS.indexOf(currentUser.email.toLowerCase()) !== -1);
+        }
+
+        // Liste/édition des comptes (écran "Gestion des comptes"). Le super-admin peut tout
+        // faire ; un lecteur autorisé (USERS_MANAGEMENT_VIEWER_EMAILS) peut consulter la
+        // liste mais pas modifier un rôle ni supprimer une fiche (voir updateUserRole /
+        // deleteUserProfile, toujours verrouillées à isSuperAdmin()).
         let __usersManagementUnsubscribe = null;
         function loadUsersManagement() {
-            if (!isSuperAdmin()) return;
+            if (!canViewUsersManagement()) return;
             if (__usersManagementUnsubscribe) return; // écoute déjà active, pas besoin de la relancer
             __usersManagementUnsubscribe = db.collection('users').onSnapshot(snapshot => {
                 const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1990,6 +2002,7 @@
             }
 
             const roleOptions = ['pdg', 'directeur', 'responsable', 'manager', 'facturation', 'reparation', 'acheteur'];
+            const canEdit = isSuperAdmin(); // un lecteur autorisé (ex. Achref) consulte sans pouvoir modifier
             tbody.innerHTML = usersList.map(u => {
                 const currentRole = u.role || 'acheteur';
                 return `
@@ -2001,14 +2014,18 @@
                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">${u.email || '-'}</td>
                         <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold">${ROLE_LABELS[currentRole] || currentRole}</span></td>
                         <td class="px-6 py-4">
+                            ${canEdit ? `
                             <select onchange="updateUserRole('${u.id}', this.value)" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm focus:ring-2 focus:ring-red-500">
                                 ${roleOptions.map(r => `<option value="${r}" ${currentRole === r ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
                             </select>
+                            ` : `<span class="text-xs text-gray-400 italic">Lecture seule</span>`}
                         </td>
                         <td class="px-6 py-4">
+                            ${canEdit ? `
                             <button onclick="deleteUserProfile('${u.id}', '${(u.name || u.email || '').replace(/'/g, "\\'")}')" title="Supprimer cette fiche (n'annule pas l'accès de connexion si le compte existe toujours dans Firebase Authentication)" class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>
+                            ` : ''}
                         </td>
                     </tr>
                 `;
@@ -2062,7 +2079,7 @@
             return ROLE_TAB_ACCESS[currentUserProfile.role] || [];
         }
         function canAccessView(view) {
-            if (view === 'gestion-comptes') return isSuperAdmin();
+            if (view === 'gestion-comptes') return canViewUsersManagement();
             const allowed = getAllowedTabs();
             return allowed === null || allowed.indexOf(view) !== -1;
         }
@@ -2080,9 +2097,9 @@
                 btn.title = ok ? '' : "Accès non autorisé pour votre rôle";
             });
             // "Gestion des comptes" : totalement invisible pour tout le monde sauf le
-            // super-admin (pas juste désactivé — l'entrée de menu n'existe pas pour
-            // les autres, y compris d'autres comptes PDG/Directeur).
-            const showGestion = isSuperAdmin();
+            // super-admin et les lecteurs autorisés (pas juste désactivé — l'entrée de menu
+            // n'existe pas pour les autres, y compris d'autres comptes PDG/Directeur).
+            const showGestion = canViewUsersManagement();
             const navGC = document.getElementById('navGestionComptes');
             const navGCMobile = document.getElementById('navGestionComptesMobile');
             if (navGC) navGC.style.display = showGestion ? '' : 'none';
