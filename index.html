@@ -174,7 +174,7 @@
             background: linear-gradient(165deg, #1c2536 0%, #131a27 55%, #0f141e 100%);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             opacity: 0; pointer-events: none;
-            transition: opacity .35s ease;
+            transition: opacity .5s ease;
         }
         .welcome-overlay.show { opacity: 1; pointer-events: auto; }
         .welcome-avatar {
@@ -185,12 +185,12 @@
             margin-bottom: 18px;
             box-shadow: 0 8px 24px -6px rgba(219,12,21,0.6);
             transform: scale(0.4);
-            transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+            transition: transform .55s cubic-bezier(.34,1.56,.64,1);
         }
         .welcome-overlay.show .welcome-avatar { transform: scale(1); }
-        .welcome-title { font-size: 26px; font-weight: 700; color: #fff; opacity: 0; transform: translateY(8px); transition: opacity .35s ease .08s, transform .35s ease .08s; }
+        .welcome-title { font-size: 26px; font-weight: 700; color: #fff; opacity: 0; transform: translateY(8px); transition: opacity .5s ease .15s, transform .5s ease .15s; }
         .welcome-overlay.show .welcome-title { opacity: 1; transform: translateY(0); }
-        .welcome-subtitle { font-size: 14px; color: #ffb205; margin-top: 8px; opacity: 0; transform: translateY(8px); transition: opacity .35s ease .16s, transform .35s ease .16s; }
+        .welcome-subtitle { font-size: 14px; color: #ffb205; margin-top: 8px; opacity: 0; transform: translateY(8px); transition: opacity .5s ease .3s, transform .5s ease .3s; }
         .welcome-overlay.show .welcome-subtitle { opacity: 1; transform: translateY(0); }
         
         .drag-active { border-color: #3b82f6 !important; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)) !important; transform: scale(1.02); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -1943,16 +1943,6 @@
             if (isFullAccessUser()) return true;
             return normalizeNameCompare(order.buyerName) === normalizeNameCompare(currentUserProfile.name);
         }
-        // Message d'aide affiché sur le cadenas 🔒 : montre l'écart exact entre le nom de
-        // l'acheteur inscrit sur le dossier et le nom enregistré du compte connecté, pour
-        // diagnostiquer en un coup d'œil un problème de correspondance (espace, casse,
-        // faute de frappe...) sans avoir besoin d'aller consulter Firestore.
-        function lockReasonTitle(order) {
-            if (!currentUserProfile) return "Réservé à l'acheteur assigné, au responsable ou au directeur";
-            const orderName = order.buyerName || '(aucun acheteur assigné)';
-            const myName = currentUserProfile.name || '(nom non renseigné)';
-            return "Réservé à l'acheteur assigné, au responsable ou au directeur.\nAcheteur du dossier : " + orderName + "\nVotre nom enregistré : " + myName + (normalizeNameCompare(orderName) === normalizeNameCompare(myName) ? '' : '\n⚠️ Ces deux noms ne correspondent pas exactement.');
-        }
         // Accès au Contrôle Marge : direction/responsable (déjà accès total) + rôle
         // Facturation dédié.
         function canAccessControleMarge() {
@@ -2015,18 +2005,10 @@
             const canEdit = isSuperAdmin(); // un lecteur autorisé (ex. Achref) consulte sans pouvoir modifier
             tbody.innerHTML = usersList.map(u => {
                 const currentRole = u.role || 'acheteur';
-                const safeName = (u.name || '').replace(/'/g, "\\'");
                 return `
                     <tr>
                         <td class="px-6 py-4">
-                            <div class="flex items-center gap-1.5">
-                                <p class="font-medium text-gray-900 dark:text-white">${u.name || '-'}</p>
-                                ${canEdit ? `
-                                <button onclick="editUserName('${u.id}', '${safeName}', '${currentRole}')" title="Corriger le nom (doit correspondre EXACTEMENT au nom officiel pour un acheteur, sinon il ne pourra modifier aucun dossier)" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-                                </button>
-                                ` : ''}
-                            </div>
+                            <p class="font-medium text-gray-900 dark:text-white">${u.name || '-'}</p>
                             <p class="text-[10px] text-gray-400 dark:text-gray-500 font-mono">${u.id}</p>
                         </td>
                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">${u.email || '-'}</td>
@@ -2062,46 +2044,6 @@
             } catch (error) {
                 console.error('Erreur mise à jour rôle:', error);
                 showToast('Erreur lors de la mise à jour du rôle', 'error');
-            }
-        }
-
-        // Corrige le NOM enregistré d'un compte. Cause la plus fréquente d'un acheteur qui
-        // "ne peut rien modifier" : son nom stocké ne correspond pas EXACTEMENT (espace,
-        // casse, faute de frappe) au nom officiel utilisé pour reconnaître ses dossiers
-        // (voir canEditOrder / OFFICIAL_BUYERS). Pour un rôle "acheteur", on impose donc de
-        // choisir un nom qui existe réellement dans la liste officielle, plutôt que de
-        // laisser passer une saisie libre qui reproduirait le même problème.
-        async function editUserName(uid, currentName, currentRole) {
-            if (!isSuperAdmin()) return;
-            let newName;
-            if (currentRole === 'acheteur') {
-                const officialList = OFFICIAL_BUYERS.map(function(b) { return b.name; }).join('\n');
-                const input = window.prompt(
-                    "Nom EXACT de l'acheteur (doit être copié depuis cette liste officielle,\n" +
-                    "sinon il ne pourra modifier aucun de ses dossiers) :\n\n" + officialList,
-                    currentName || ''
-                );
-                if (input === null) return;
-                const match = OFFICIAL_BUYERS.find(function(b) { return normalizeNameCompare(b.name) === normalizeNameCompare(input); });
-                if (!match) {
-                    showToast("Ce nom ne correspond à aucun acheteur de la liste officielle — copiez-le exactement.", 'error');
-                    return;
-                }
-                newName = match.name; // reprend la casse/orthographe officielle exacte
-            } else {
-                const input = window.prompt('Nom complet :', currentName || '');
-                if (input === null || !input.trim()) return;
-                newName = input.trim();
-            }
-            try {
-                await db.collection('users').doc(uid).update({
-                    name: newName,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                showToast('Nom mis à jour : ' + newName, 'success');
-            } catch (error) {
-                console.error('Erreur mise à jour nom:', error);
-                showToast('Erreur lors de la mise à jour du nom', 'error');
             }
         }
 
@@ -2219,8 +2161,8 @@
             requestAnimationFrame(() => overlay.classList.add('show'));
             setTimeout(() => {
                 overlay.classList.remove('show');
-                setTimeout(() => { overlay.style.display = 'none'; }, 350);
-            }, 650);
+                setTimeout(() => { overlay.style.display = 'none'; }, 550);
+            }, 2200);
         }
 
         function renderWelcomeMessage() {
@@ -3245,7 +3187,7 @@
                                     </button>
                                 </div>
                                 ` : `
-                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${statusColor} opacity-80 cursor-not-allowed" title="${lockReasonTitle(o).replace(/"/g, '&quot;')}">
+                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${statusColor} opacity-80 cursor-not-allowed" title="Seul l'acheteur assigné (ou un responsable/directeur) peut changer ce statut">
                                     <i data-lucide="lock" class="w-3 h-3 mr-1"></i><span>${statusLabel}</span>
                                 </span>
                                 `}
@@ -3264,7 +3206,7 @@
                                     <i data-lucide="trash" class="w-4 h-4"></i>
                                 </button>
                                 ` : `
-                                <span class="p-2 text-gray-300 dark:text-gray-600" title="${lockReasonTitle(o).replace(/"/g, '&quot;')}">
+                                <span class="p-2 text-gray-300 dark:text-gray-600" title="Réservé à l'acheteur assigné, au responsable ou au directeur">
                                     <i data-lucide="lock" class="w-4 h-4"></i>
                                 </span>
                                 `}
@@ -3815,9 +3757,7 @@
             const allowed = canEditOrder(o);
             document.getElementById('detailEditBtn').classList.toggle('hidden', !allowed);
             document.getElementById('detailDeleteBtn').classList.toggle('hidden', !allowed);
-            const lockNote = document.getElementById('detailLockedNote');
-            lockNote.classList.toggle('hidden', allowed);
-            if (!allowed) lockNote.title = lockReasonTitle(o);
+            document.getElementById('detailLockedNote').classList.toggle('hidden', allowed);
 
             navigateTo('detail');
         }
