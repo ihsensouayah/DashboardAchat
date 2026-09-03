@@ -174,7 +174,7 @@
             background: linear-gradient(165deg, #1c2536 0%, #131a27 55%, #0f141e 100%);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             opacity: 0; pointer-events: none;
-            transition: opacity .5s ease;
+            transition: opacity .35s ease;
         }
         .welcome-overlay.show { opacity: 1; pointer-events: auto; }
         .welcome-avatar {
@@ -185,12 +185,12 @@
             margin-bottom: 18px;
             box-shadow: 0 8px 24px -6px rgba(219,12,21,0.6);
             transform: scale(0.4);
-            transition: transform .55s cubic-bezier(.34,1.56,.64,1);
+            transition: transform .35s cubic-bezier(.34,1.56,.64,1);
         }
         .welcome-overlay.show .welcome-avatar { transform: scale(1); }
-        .welcome-title { font-size: 26px; font-weight: 700; color: #fff; opacity: 0; transform: translateY(8px); transition: opacity .5s ease .15s, transform .5s ease .15s; }
+        .welcome-title { font-size: 26px; font-weight: 700; color: #fff; opacity: 0; transform: translateY(8px); transition: opacity .35s ease .08s, transform .35s ease .08s; }
         .welcome-overlay.show .welcome-title { opacity: 1; transform: translateY(0); }
-        .welcome-subtitle { font-size: 14px; color: #ffb205; margin-top: 8px; opacity: 0; transform: translateY(8px); transition: opacity .5s ease .3s, transform .5s ease .3s; }
+        .welcome-subtitle { font-size: 14px; color: #ffb205; margin-top: 8px; opacity: 0; transform: translateY(8px); transition: opacity .35s ease .16s, transform .35s ease .16s; }
         .welcome-overlay.show .welcome-subtitle { opacity: 1; transform: translateY(0); }
         
         .drag-active { border-color: #3b82f6 !important; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)) !important; transform: scale(1.02); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -1310,7 +1310,8 @@
 
             </div>
 
-            <!-- GESTION DES COMPTES — réservé exclusivement au super-admin (voir isSuperAdmin()) -->
+            <!-- GESTION DES COMPTES — réservé au super-admin (édition) + lecteurs autorisés
+                 en consultation seule (voir isSuperAdmin() / canViewUsersManagement()) -->
             <div id="view-gestion-comptes" class="view-section">
                 <div class="flex items-center justify-between mb-6">
                     <div>
@@ -1942,6 +1943,16 @@
             if (isFullAccessUser()) return true;
             return normalizeNameCompare(order.buyerName) === normalizeNameCompare(currentUserProfile.name);
         }
+        // Message d'aide affiché sur le cadenas 🔒 : montre l'écart exact entre le nom de
+        // l'acheteur inscrit sur le dossier et le nom enregistré du compte connecté, pour
+        // diagnostiquer en un coup d'œil un problème de correspondance (espace, casse,
+        // faute de frappe...) sans avoir besoin d'aller consulter Firestore.
+        function lockReasonTitle(order) {
+            if (!currentUserProfile) return "Réservé à l'acheteur assigné, au responsable ou au directeur";
+            const orderName = order.buyerName || '(aucun acheteur assigné)';
+            const myName = currentUserProfile.name || '(nom non renseigné)';
+            return "Réservé à l'acheteur assigné, au responsable ou au directeur.\nAcheteur du dossier : " + orderName + "\nVotre nom enregistré : " + myName + (normalizeNameCompare(orderName) === normalizeNameCompare(myName) ? '' : '\n⚠️ Ces deux noms ne correspondent pas exactement.');
+        }
         // Accès au Contrôle Marge : direction/responsable (déjà accès total) + rôle
         // Facturation dédié.
         function canAccessControleMarge() {
@@ -1965,10 +1976,21 @@
             return !!(currentUser && currentUser.email && currentUser.email.toLowerCase() === SUPER_ADMIN_EMAIL);
         }
 
-        // Liste/édition des comptes (écran "Gestion des comptes", super-admin uniquement).
+        // Comptes autorisés à CONSULTER "Gestion des comptes" sans pouvoir rien modifier
+        // (changer un rôle ou supprimer une fiche reste réservé au super-admin ci-dessus).
+        const USERS_MANAGEMENT_VIEWER_EMAILS = ['achref.zehiri@autop.tn'];
+        function canViewUsersManagement() {
+            if (isSuperAdmin()) return true;
+            return !!(currentUser && currentUser.email && USERS_MANAGEMENT_VIEWER_EMAILS.indexOf(currentUser.email.toLowerCase()) !== -1);
+        }
+
+        // Liste/édition des comptes (écran "Gestion des comptes"). Le super-admin peut tout
+        // faire ; un lecteur autorisé (USERS_MANAGEMENT_VIEWER_EMAILS) peut consulter la
+        // liste mais pas modifier un rôle ni supprimer une fiche (voir updateUserRole /
+        // deleteUserProfile, toujours verrouillées à isSuperAdmin()).
         let __usersManagementUnsubscribe = null;
         function loadUsersManagement() {
-            if (!isSuperAdmin()) return;
+            if (!canViewUsersManagement()) return;
             if (__usersManagementUnsubscribe) return; // écoute déjà active, pas besoin de la relancer
             __usersManagementUnsubscribe = db.collection('users').onSnapshot(snapshot => {
                 const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1990,25 +2012,38 @@
             }
 
             const roleOptions = ['pdg', 'directeur', 'responsable', 'manager', 'facturation', 'reparation', 'acheteur'];
+            const canEdit = isSuperAdmin(); // un lecteur autorisé (ex. Achref) consulte sans pouvoir modifier
             tbody.innerHTML = usersList.map(u => {
                 const currentRole = u.role || 'acheteur';
+                const safeName = (u.name || '').replace(/'/g, "\\'");
                 return `
                     <tr>
                         <td class="px-6 py-4">
-                            <p class="font-medium text-gray-900 dark:text-white">${u.name || '-'}</p>
+                            <div class="flex items-center gap-1.5">
+                                <p class="font-medium text-gray-900 dark:text-white">${u.name || '-'}</p>
+                                ${canEdit ? `
+                                <button onclick="editUserName('${u.id}', '${safeName}', '${currentRole}')" title="Corriger le nom (doit correspondre EXACTEMENT au nom officiel pour un acheteur, sinon il ne pourra modifier aucun dossier)" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                </button>
+                                ` : ''}
+                            </div>
                             <p class="text-[10px] text-gray-400 dark:text-gray-500 font-mono">${u.id}</p>
                         </td>
                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">${u.email || '-'}</td>
                         <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold">${ROLE_LABELS[currentRole] || currentRole}</span></td>
                         <td class="px-6 py-4">
+                            ${canEdit ? `
                             <select onchange="updateUserRole('${u.id}', this.value)" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm focus:ring-2 focus:ring-red-500">
                                 ${roleOptions.map(r => `<option value="${r}" ${currentRole === r ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
                             </select>
+                            ` : `<span class="text-xs text-gray-400 italic">Lecture seule</span>`}
                         </td>
                         <td class="px-6 py-4">
+                            ${canEdit ? `
                             <button onclick="deleteUserProfile('${u.id}', '${(u.name || u.email || '').replace(/'/g, "\\'")}')" title="Supprimer cette fiche (n'annule pas l'accès de connexion si le compte existe toujours dans Firebase Authentication)" class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>
+                            ` : ''}
                         </td>
                     </tr>
                 `;
@@ -2027,6 +2062,46 @@
             } catch (error) {
                 console.error('Erreur mise à jour rôle:', error);
                 showToast('Erreur lors de la mise à jour du rôle', 'error');
+            }
+        }
+
+        // Corrige le NOM enregistré d'un compte. Cause la plus fréquente d'un acheteur qui
+        // "ne peut rien modifier" : son nom stocké ne correspond pas EXACTEMENT (espace,
+        // casse, faute de frappe) au nom officiel utilisé pour reconnaître ses dossiers
+        // (voir canEditOrder / OFFICIAL_BUYERS). Pour un rôle "acheteur", on impose donc de
+        // choisir un nom qui existe réellement dans la liste officielle, plutôt que de
+        // laisser passer une saisie libre qui reproduirait le même problème.
+        async function editUserName(uid, currentName, currentRole) {
+            if (!isSuperAdmin()) return;
+            let newName;
+            if (currentRole === 'acheteur') {
+                const officialList = OFFICIAL_BUYERS.map(function(b) { return b.name; }).join('\n');
+                const input = window.prompt(
+                    "Nom EXACT de l'acheteur (doit être copié depuis cette liste officielle,\n" +
+                    "sinon il ne pourra modifier aucun de ses dossiers) :\n\n" + officialList,
+                    currentName || ''
+                );
+                if (input === null) return;
+                const match = OFFICIAL_BUYERS.find(function(b) { return normalizeNameCompare(b.name) === normalizeNameCompare(input); });
+                if (!match) {
+                    showToast("Ce nom ne correspond à aucun acheteur de la liste officielle — copiez-le exactement.", 'error');
+                    return;
+                }
+                newName = match.name; // reprend la casse/orthographe officielle exacte
+            } else {
+                const input = window.prompt('Nom complet :', currentName || '');
+                if (input === null || !input.trim()) return;
+                newName = input.trim();
+            }
+            try {
+                await db.collection('users').doc(uid).update({
+                    name: newName,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('Nom mis à jour : ' + newName, 'success');
+            } catch (error) {
+                console.error('Erreur mise à jour nom:', error);
+                showToast('Erreur lors de la mise à jour du nom', 'error');
             }
         }
 
@@ -2062,7 +2137,7 @@
             return ROLE_TAB_ACCESS[currentUserProfile.role] || [];
         }
         function canAccessView(view) {
-            if (view === 'gestion-comptes') return isSuperAdmin();
+            if (view === 'gestion-comptes') return canViewUsersManagement();
             const allowed = getAllowedTabs();
             return allowed === null || allowed.indexOf(view) !== -1;
         }
@@ -2080,9 +2155,9 @@
                 btn.title = ok ? '' : "Accès non autorisé pour votre rôle";
             });
             // "Gestion des comptes" : totalement invisible pour tout le monde sauf le
-            // super-admin (pas juste désactivé — l'entrée de menu n'existe pas pour
-            // les autres, y compris d'autres comptes PDG/Directeur).
-            const showGestion = isSuperAdmin();
+            // super-admin et les lecteurs autorisés (pas juste désactivé — l'entrée de menu
+            // n'existe pas pour les autres, y compris d'autres comptes PDG/Directeur).
+            const showGestion = canViewUsersManagement();
             const navGC = document.getElementById('navGestionComptes');
             const navGCMobile = document.getElementById('navGestionComptesMobile');
             if (navGC) navGC.style.display = showGestion ? '' : 'none';
@@ -2144,8 +2219,8 @@
             requestAnimationFrame(() => overlay.classList.add('show'));
             setTimeout(() => {
                 overlay.classList.remove('show');
-                setTimeout(() => { overlay.style.display = 'none'; }, 550);
-            }, 2200);
+                setTimeout(() => { overlay.style.display = 'none'; }, 350);
+            }, 650);
         }
 
         function renderWelcomeMessage() {
@@ -3026,7 +3101,13 @@
         }
 
         function renderRecentOrders() {
-            const recent = orders.slice(-5).reverse();
+            // ⚠️ Ne JAMAIS se fier à l'ordre brut renvoyé par Firestore (sans tri explicite,
+            // il est quasi arbitraire) : on trie nous-mêmes par date de validation avant de
+            // prendre les 5 plus récents, sinon certains dossiers récents n'apparaissaient
+            // jamais dans ce widget.
+            const recent = orders.slice()
+                .sort((a, b) => new Date(b.validationDate || 0) - new Date(a.validationDate || 0))
+                .slice(0, 5);
             const tbody = document.getElementById('recentOrders');
             tbody.innerHTML = recent.map(o => {
                 const b = getBuyerById(o.buyerId);
@@ -3170,7 +3251,7 @@
                                     </button>
                                 </div>
                                 ` : `
-                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${statusColor} opacity-80 cursor-not-allowed" title="Seul l'acheteur assigné (ou un responsable/directeur) peut changer ce statut">
+                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${statusColor} opacity-80 cursor-not-allowed" title="${lockReasonTitle(o).replace(/"/g, '&quot;')}">
                                     <i data-lucide="lock" class="w-3 h-3 mr-1"></i><span>${statusLabel}</span>
                                 </span>
                                 `}
@@ -3189,7 +3270,7 @@
                                     <i data-lucide="trash" class="w-4 h-4"></i>
                                 </button>
                                 ` : `
-                                <span class="p-2 text-gray-300 dark:text-gray-600" title="Réservé à l'acheteur assigné, au responsable ou au directeur">
+                                <span class="p-2 text-gray-300 dark:text-gray-600" title="${lockReasonTitle(o).replace(/"/g, '&quot;')}">
                                     <i data-lucide="lock" class="w-4 h-4"></i>
                                 </span>
                                 `}
@@ -3740,7 +3821,9 @@
             const allowed = canEditOrder(o);
             document.getElementById('detailEditBtn').classList.toggle('hidden', !allowed);
             document.getElementById('detailDeleteBtn').classList.toggle('hidden', !allowed);
-            document.getElementById('detailLockedNote').classList.toggle('hidden', allowed);
+            const lockNote = document.getElementById('detailLockedNote');
+            lockNote.classList.toggle('hidden', allowed);
+            if (!allowed) lockNote.title = lockReasonTitle(o);
 
             navigateTo('detail');
         }
