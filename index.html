@@ -2121,7 +2121,11 @@
                 showToast('Nom mis à jour : ' + newName, 'success');
             } catch (error) {
                 console.error('Erreur mise à jour nom:', error);
-                showToast('Erreur lors de la mise à jour du nom', 'error');
+                // Message volontairement précis (avec le code d'erreur Firestore, ex.
+                // "permission-denied") : un échec silencieux à ce niveau est la cause la plus
+                // probable d'un nom qui "revient" après actualisation malgré une correction —
+                // ça permet de le prouver au lieu de deviner.
+                showToast("Échec de l'enregistrement du nom (" + (error.code || error.message) + "). La correction n'a PAS été sauvegardée.", 'error');
             }
         }
 
