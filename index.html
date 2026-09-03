@@ -1995,6 +1995,22 @@
             __usersManagementUnsubscribe = db.collection('users').onSnapshot(snapshot => {
                 const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                // Repère toute fiche "Acheteur" dont le nom ne correspond à AUCUN nom de la
+                // liste officielle (typiquement une ancienne fiche orpheline après suppression
+                // + recréation du compte, ou une faute de frappe) : cette personne ne pourra
+                // modifier aucun de ses dossiers tant que ce n'est pas corrigé. On repère aussi
+                // les noms strictement en double (même orthographe sur 2 fiches), signe probable
+                // de deux comptes pour la même personne.
+                const nameCounts = {};
+                list.forEach(u => {
+                    const key = (u.name || '').trim().toLowerCase();
+                    if (key) nameCounts[key] = (nameCounts[key] || 0) + 1;
+                });
+                list.forEach(u => {
+                    u.__duplicateName = nameCounts[(u.name || '').trim().toLowerCase()] > 1;
+                    u.__unrecognizedBuyerName = (u.role || 'acheteur') === 'acheteur' &&
+                        !OFFICIAL_BUYERS.some(b => normalizeNameCompare(b.name) === normalizeNameCompare(u.name));
+                });
                 renderUsersManagementTable(list);
             }, error => {
                 console.error('❌ Erreur chargement comptes:', error);
@@ -2016,16 +2032,20 @@
             tbody.innerHTML = usersList.map(u => {
                 const currentRole = u.role || 'acheteur';
                 const safeName = (u.name || '').replace(/'/g, "\\'");
+                const warnBadges = [];
+                if (u.__unrecognizedBuyerName) warnBadges.push('<span title="Ce nom ne correspond à aucun acheteur de la liste officielle — cette personne ne peut modifier AUCUN dossier tant que ce n\'est pas corrigé (voir le crayon)." class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold"><i data-lucide="alert-triangle" class="w-2.5 h-2.5"></i>Nom non reconnu</span>');
+                if (u.__duplicateName) warnBadges.push('<span title="Une autre fiche porte exactement le même nom — probablement un ancien compte orphelin resté après une suppression/recréation. Vérifiez laquelle est réellement utilisée (comparez l\'email) et supprimez l\'autre." class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold"><i data-lucide="copy" class="w-2.5 h-2.5"></i>Doublon possible</span>');
                 return `
                     <tr>
                         <td class="px-6 py-4">
-                            <div class="flex items-center gap-1.5">
+                            <div class="flex items-center gap-1.5 flex-wrap">
                                 <p class="font-medium text-gray-900 dark:text-white">${u.name || '-'}</p>
                                 ${canEdit ? `
                                 <button onclick="editUserName('${u.id}', '${safeName}', '${currentRole}')" title="Corriger le nom (doit correspondre EXACTEMENT au nom officiel pour un acheteur, sinon il ne pourra modifier aucun dossier)" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                                     <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                                 </button>
                                 ` : ''}
+                                ${warnBadges.join(' ')}
                             </div>
                             <p class="text-[10px] text-gray-400 dark:text-gray-500 font-mono">${u.id}</p>
                         </td>
