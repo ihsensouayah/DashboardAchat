@@ -401,7 +401,12 @@
             <div class="p-4 border-b flex justify-between items-center"><h3 class="font-semibold">Notifications</h3><button onclick="clearNotifications()" class="text-xs text-blue-600">Tout effacer</button></div>
             <div id="notificationsList" class="max-h-96 overflow-y-auto p-2"></div>
         </div>
-        <div id="toastContainer" class="fixed top-20 right-4 z-50 space-y-2"></div>
+        <div id="toastContainer" class="fixed top-20 right-4 z-50 space-y-2 max-w-sm"></div>
+
+        <!-- Bannière de retard critique : en flux normal (pas "fixed"), pour ne jamais
+             recouvrir les filtres ou boutons — elle pousse le contenu vers le bas au lieu
+             de flotter par-dessus. -->
+        <div id="criticalSummaryBanner" class="px-4 md:px-6 pt-3"></div>
 
         <div class="flex flex-col md:flex-row">
         <aside class="sidebar-nav hidden md:flex md:flex-col md:w-60 md:shrink-0 md:sticky md:top-[81px] md:h-[calc(100vh-81px)] md:overflow-y-auto p-4 space-y-1.5">
@@ -2012,7 +2017,7 @@
         ];
         function canAccessSinistres() {
             if (isSuperAdmin()) return true;
-            if (currentUserProfile && (currentUserProfile.role === 'pdg' || currentUserProfile.role === 'responsable')) return true;
+            if (currentUserProfile && currentUserProfile.role === 'pdg') return true;
             return !!(currentUser && currentUser.email && SINISTRES_ALLOWED_EMAILS.indexOf(currentUser.email.toLowerCase()) !== -1);
         }
 
@@ -2534,8 +2539,7 @@
             
             const ordersSnapshot = await db.collection('orders').get();
             let updated = 0;
-            
-            const batch = db.batch();
+            const pendingUpdates = []; // { ref, updates } — écrits par lots de 400 (limite Firestore : 500/lot)
             
             ordersSnapshot.forEach(doc => {
                 const data = doc.data();
@@ -2564,6 +2568,20 @@
                         console.log('❌ Nom non officiel effacé:', data.buyerName);
                     }
                 }
+
+                // 2bis. Re-synchroniser buyerName à partir de buyerId même quand buyerId est
+                // déjà renseigné : un dossier peut avoir un buyerId correct (affiché
+                // correctement dans le tableau) mais un buyerName resté périmé — texte
+                // légèrement différent d'un ancien import — ce qui bloque silencieusement
+                // l'acheteur concerné (canEditOrder compare buyerName, pas buyerId).
+                if (data.buyerId) {
+                    const officialBuyer = getBuyerById(data.buyerId);
+                    if (officialBuyer && data.buyerName !== officialBuyer.name) {
+                        updates.buyerName = officialBuyer.name;
+                        needsUpdate = true;
+                        console.log('🔧 buyerName resynchronisé:', data.buyerName, '→', officialBuyer.name);
+                    }
+                }
                 
                 // 3. CORRIGER les marques "Autre" - Extraire la vraie marque depuis vehicle
                 if (data.vehicleBrand === 'Autre' || data.vehicleBrand === 'autre' || data.vehicleBrand === 'Inconnue') {
@@ -2578,14 +2596,18 @@
                 }
                 
                 if (needsUpdate) {
-                    batch.update(doc.ref, updates);
+                    pendingUpdates.push({ ref: doc.ref, updates });
                     updated++;
                 }
             });
             
             if (updated > 0) {
                 console.log('📊 Migration:', updated, 'dossiers mis à jour');
-                await batch.commit();
+                for (let i = 0; i < pendingUpdates.length; i += 400) {
+                    const batch = db.batch();
+                    pendingUpdates.slice(i, i + 400).forEach(({ ref, updates }) => batch.update(ref, updates));
+                    await batch.commit();
+                }
                 showToast(updated + ' dossiers mis à jour', 'success');
                 // Rafraîchir l'affichage
                 renderAll();
@@ -6070,6 +6092,7 @@
         function checkAccompagnementNotifications() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
+            const criticalList = []; // collecté puis affiché en UNE seule bannière résumée
             
             accompagnementList.forEach(a => {
                 // Notification 1: Délai > 3 jours - Acheteur doit remplir date fin
@@ -6114,39 +6137,56 @@
                             );
                         }
                         
-                        // Notification persistante pour critique
-                        addCriticalNotification(a.reference, daysOverdue);
+                        criticalList.push({ reference: a.reference, daysOverdue });
                     }
                 }
             });
+            
+            renderCriticalSummaryBanner(criticalList);
         }
 
-        // Ajouter une notification critique persistante
-        function addCriticalNotification(reference, daysOverdue) {
-            const container = document.getElementById('toastContainer');
+        // Bannière UNIQUE et compacte résumant tous les dossiers en retard critique, plutôt
+        // qu'une grande boîte par dossier qui s'empile indéfiniment par-dessus les filtres.
+        // Se souvient d'avoir été fermée pour CET ensemble précis de dossiers (via
+        // localStorage) : elle ne réapparaît pas tant que la liste ne change pas, mais
+        // revient dès qu'un nouveau dossier devient critique.
+        function renderCriticalSummaryBanner(criticalList) {
+            const container = document.getElementById('criticalSummaryBanner');
             if (!container) return;
             
-            // Vérifier si notification déjà affichée
-            const existing = document.getElementById('critical-' + reference.replace(/\//g, '-'));
-            if (existing) return;
+            if (!criticalList.length) {
+                container.innerHTML = '';
+                return;
+            }
             
-            const toast = document.createElement('div');
-            toast.id = 'critical-' + reference.replace(/\//g, '-');
-            toast.className = 'px-6 py-4 rounded-xl shadow-2xl text-white bg-gradient-to-r from-red-600 to-red-700 animate-fade-in border-2 border-red-400';
-            toast.innerHTML = `
-                <div class="flex items-start space-x-3">
-                    <i data-lucide="alert-triangle" class="w-6 h-6 flex-shrink-0"></i>
-                    <div class="flex-1">
-                        <p class="font-bold text-sm">⚠️ RETARD CRITIQUE</p>
-                        <p class="text-xs mt-1">${reference} - Date fin dépassée de ${daysOverdue} jour(s)</p>
-                        <button onclick="this.parentElement.parentElement.remove()" class="mt-2 text-xs underline hover:text-red-200">Fermer</button>
+            const signature = criticalList.map(c => c.reference).sort().join(',');
+            if (localStorage.getItem('critical_summary_dismissed') === signature) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            const worst = criticalList.slice().sort((a, b) => b.daysOverdue - a.daysOverdue);
+            const preview = worst.slice(0, 2).map(c => c.reference + ' (' + c.daysOverdue + 'j)').join(', ');
+            const more = worst.length > 2 ? ' +' + (worst.length - 2) + ' autre(s)' : '';
+            
+            container.innerHTML = `
+                <div class="flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-lg text-white bg-gradient-to-r from-red-600 to-red-700 border border-red-400 max-w-md">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 flex-shrink-0"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold">${worst.length} dossier(s) en retard critique</p>
+                        <p class="text-xs opacity-90 truncate">${preview}${more}</p>
                     </div>
+                    <button onclick="navigateTo('accompagnement')" class="text-xs font-semibold underline hover:text-red-100 flex-shrink-0">Voir</button>
+                    <button onclick="dismissCriticalSummaryBanner('${signature}')" title="Fermer" class="flex-shrink-0 hover:text-red-100">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
                 </div>
             `;
-            container.appendChild(toast);
             setTimeout(() => lucide.createIcons(), 100);
-            
-            // Ne pas auto-supprimer (reste affiché tant que pas fermé)
+        }
+        function dismissCriticalSummaryBanner(signature) {
+            localStorage.setItem('critical_summary_dismissed', signature);
+            document.getElementById('criticalSummaryBanner').innerHTML = '';
         }
 
         // Afficher le tableau d'accompagnement
