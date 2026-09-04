@@ -2534,7 +2534,8 @@
             
             const ordersSnapshot = await db.collection('orders').get();
             let updated = 0;
-            const pendingUpdates = []; // { ref, updates } — écrits par lots de 400 (limite Firestore : 500/lot)
+            
+            const batch = db.batch();
             
             ordersSnapshot.forEach(doc => {
                 const data = doc.data();
@@ -2563,20 +2564,6 @@
                         console.log('❌ Nom non officiel effacé:', data.buyerName);
                     }
                 }
-
-                // 2bis. Re-synchroniser buyerName à partir de buyerId même quand buyerId est
-                // déjà renseigné : un dossier peut avoir un buyerId correct (affiché
-                // correctement dans le tableau) mais un buyerName resté périmé — texte
-                // légèrement différent d'un ancien import — ce qui bloque silencieusement
-                // l'acheteur concerné (canEditOrder compare buyerName, pas buyerId).
-                if (data.buyerId) {
-                    const officialBuyer = getBuyerById(data.buyerId);
-                    if (officialBuyer && data.buyerName !== officialBuyer.name) {
-                        updates.buyerName = officialBuyer.name;
-                        needsUpdate = true;
-                        console.log('🔧 buyerName resynchronisé:', data.buyerName, '→', officialBuyer.name);
-                    }
-                }
                 
                 // 3. CORRIGER les marques "Autre" - Extraire la vraie marque depuis vehicle
                 if (data.vehicleBrand === 'Autre' || data.vehicleBrand === 'autre' || data.vehicleBrand === 'Inconnue') {
@@ -2591,18 +2578,14 @@
                 }
                 
                 if (needsUpdate) {
-                    pendingUpdates.push({ ref: doc.ref, updates });
+                    batch.update(doc.ref, updates);
                     updated++;
                 }
             });
             
             if (updated > 0) {
                 console.log('📊 Migration:', updated, 'dossiers mis à jour');
-                for (let i = 0; i < pendingUpdates.length; i += 400) {
-                    const batch = db.batch();
-                    pendingUpdates.slice(i, i + 400).forEach(({ ref, updates }) => batch.update(ref, updates));
-                    await batch.commit();
-                }
+                await batch.commit();
                 showToast(updated + ' dossiers mis à jour', 'success');
                 // Rafraîchir l'affichage
                 renderAll();
