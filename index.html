@@ -2017,7 +2017,7 @@
         ];
         function canAccessSinistres() {
             if (isSuperAdmin()) return true;
-            if (currentUserProfile && currentUserProfile.role === 'pdg') return true;
+            if (isFullAccessUser()) return true;
             return !!(currentUser && currentUser.email && SINISTRES_ALLOWED_EMAILS.indexOf(currentUser.email.toLowerCase()) !== -1);
         }
 
