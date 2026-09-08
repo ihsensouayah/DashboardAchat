@@ -1713,7 +1713,7 @@
                             <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
                             Date fin d'achat estimée
                         </label>
-                        <input type="date" id="formEstimatedEndDate" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500">
+                        <input type="date" id="accompFormEstimatedEndDate" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500">
                         <p class="text-xs text-gray-500 mt-1">Date à laquelle l'achat sera terminé</p>
                     </div>
 
@@ -1731,7 +1731,7 @@
                             <i data-lucide="message-square" class="w-4 h-4 inline mr-1"></i>
                             Commentaire pour l'accompagnateur
                         </label>
-                        <textarea id="formBuyerComment" rows="2" placeholder="Ex: Pièces en attente, fournisseur en retard..." class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500"></textarea>
+                        <textarea id="accompFormBuyerComment" rows="2" placeholder="Ex: Pièces en attente, fournisseur en retard..." class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500"></textarea>
                         <p class="text-xs text-gray-500 mt-1">Informations importantes à communiquer au client</p>
                     </div>
                 </div>
@@ -2067,6 +2067,7 @@
                 console.error('❌ Erreur chargement comptes:', error);
                 showToast('Erreur lors du chargement des comptes', 'error');
             });
+            __trackUnsubscribe(__usersManagementUnsubscribe);
         }
 
         function renderUsersManagementTable(usersList) {
@@ -2413,6 +2414,88 @@
             });
         }
 
+        // ==================== PAUSE DES CONNEXIONS TEMPS RÉEL (ONGLET INACTIF) ====================
+        // Chaque connexion Firestore en temps réel (onSnapshot) reste active tant que l'onglet
+        // est ouvert, et le battement de présence écrit dans Firestore toutes les 20s. Un
+        // onglet oublié ouvert (PC allumé la nuit, Wi-Fi qui se coupe/reconnecte) peut à lui
+        // seul générer des centaines de milliers de lectures/écritures sans que personne ne
+        // regarde l'écran — c'est ce qui a fait dépasser le quota gratuit Firebase. Après un
+        // délai raisonnable d'onglet caché (pas juste un bref changement d'onglet), on coupe
+        // tout ; ça reprend automatiquement et immédiatement dès qu'on revient dessus.
+        let __realtimeListenersActive = true;
+        let __realtimeUnsubscribes = [];
+        let __pauseTimer = null;
+        let __wasControleMargeActiveBeforePause = false;
+        let __wasUsersManagementActiveBeforePause = false;
+        const REALTIME_PAUSE_DELAY_MS = 3 * 60 * 1000; // 3 minutes d'inactivité avant de couper
+
+        function __trackUnsubscribe(fn) {
+            if (typeof fn === 'function') __realtimeUnsubscribes.push(fn);
+        }
+
+        function pauseAllRealtimeListeners() {
+            if (!__realtimeListenersActive) return;
+            __realtimeListenersActive = false;
+
+            __wasControleMargeActiveBeforePause = cmControleMargeAttached;
+            __wasUsersManagementActiveBeforePause = !!__usersManagementUnsubscribe;
+
+            __realtimeUnsubscribes.forEach(unsub => { try { unsub(); } catch (e) {} });
+            __realtimeUnsubscribes = [];
+
+            // Réinitialise les gardes-fous pour permettre un réel ré-abonnement à la reprise
+            // (sans ça, ces fonctions penseraient être déjà connectées et ne feraient rien).
+            cmControleMargeAttached = false;
+            margeFirestoreListenerAttached = false;
+            __usersManagementUnsubscribe = null;
+
+            // Le battement de présence continue d'écrire toutes les 20s : on l'arrête aussi
+            // (sans supprimer la fiche — elle deviendra simplement "hors ligne" après 60s
+            // pour les autres, comme si le battement s'était juste interrompu).
+            if (__presenceInterval) { clearInterval(__presenceInterval); __presenceInterval = null; }
+            if (__dailyClicksInterval) { clearInterval(__dailyClicksInterval); __dailyClicksInterval = null; }
+
+            console.log('⏸️ Connexions temps réel mises en pause (onglet inactif depuis ' + (REALTIME_PAUSE_DELAY_MS / 60000) + ' min) — économie de quota Firebase.');
+        }
+
+        function resumeAllRealtimeListeners() {
+            if (__realtimeListenersActive) return;
+            __realtimeListenersActive = true;
+            console.log('▶️ Reprise des connexions temps réel (onglet redevenu actif).');
+
+            // Connexions principales, toujours actives dès la connexion.
+            loadData();
+            if (currentUser && currentUserProfile) {
+                writePresenceHeartbeat();
+                __presenceInterval = setInterval(writePresenceHeartbeat, 20000);
+                __trackUnsubscribe(db.collection('presence').onSnapshot(snapshot => {
+                    __presenceDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderPresenceFooter();
+                }, error => console.error('❌ Erreur chargement présence:', error)));
+            }
+            __dailyClicksInterval = setInterval(flushPendingClicks, 10000);
+            __trackUnsubscribe(db.collection('dailyStats').doc(todayStatsId()).onSnapshot(snapshot => {
+                const el = document.getElementById('dailyClicksCount');
+                if (el) el.textContent = (snapshot.data() && snapshot.data().clicks || 0).toLocaleString('fr-FR');
+            }, error => console.error('❌ Erreur chargement clics du jour:', error)));
+
+            // Connexions "à la demande" : seulement celles qui étaient déjà actives avant
+            // la pause (pas besoin de rouvrir Contrôle Marge si l'onglet n'a jamais été
+            // visité dans cette session).
+            if (__wasControleMargeActiveBeforePause) cmAttachFirestoreListeners();
+            if (__wasUsersManagementActiveBeforePause) loadUsersManagement();
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                if (__pauseTimer) clearTimeout(__pauseTimer);
+                __pauseTimer = setTimeout(pauseAllRealtimeListeners, REALTIME_PAUSE_DELAY_MS);
+            } else {
+                if (__pauseTimer) { clearTimeout(__pauseTimer); __pauseTimer = null; }
+                resumeAllRealtimeListeners();
+            }
+        });
+
         // ==================== PRÉSENCE EN LIGNE + CLICS DU JOUR ====================
         // Présence "en ligne" approximative : chaque utilisateur connecté écrit un
         // battement de cœur (heartbeat) toutes les 20s dans Firestore
@@ -2441,10 +2524,10 @@
 
             // Écoute en direct de tous les battements récents, pour afficher la liste
             // des personnes en ligne en temps réel.
-            db.collection('presence').onSnapshot(snapshot => {
+            __trackUnsubscribe(db.collection('presence').onSnapshot(snapshot => {
                 __presenceDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderPresenceFooter();
-            }, error => console.error('❌ Erreur chargement présence:', error));
+            }, error => console.error('❌ Erreur chargement présence:', error)));
 
             // Re-filtre régulièrement (indépendamment des nouveaux battements) pour que
             // les profils devenus inactifs disparaissent de la liste au bon moment.
@@ -2527,10 +2610,10 @@
             if (__dailyClicksInterval) clearInterval(__dailyClicksInterval);
             __dailyClicksInterval = setInterval(flushPendingClicks, 10000);
 
-            db.collection('dailyStats').doc(todayStatsId()).onSnapshot(snapshot => {
+            __trackUnsubscribe(db.collection('dailyStats').doc(todayStatsId()).onSnapshot(snapshot => {
                 const el = document.getElementById('dailyClicksCount');
                 if (el) el.textContent = (snapshot.data() && snapshot.data().clicks || 0).toLocaleString('fr-FR');
-            }, error => console.error('❌ Erreur chargement clics du jour:', error));
+            }, error => console.error('❌ Erreur chargement clics du jour:', error)));
         }
 
         // Migration des données - Mettre à jour les anciens statuts et nettoyer les données
@@ -2652,18 +2735,24 @@
         }
 
         // Chargement des données
+        let __migrateDataRanOnce = false;
         function loadData() {
             console.log('📡 Chargement des données depuis Firestore...');
             
             // Lancer la migration au premier chargement
-            migrateData().catch(err => console.error('Erreur migration:', err));
+            // Ne lancer la migration/nettoyage automatique qu'une seule fois par session
+            // (elle relit tous les dossiers) — pas à chaque reprise après une pause.
+            if (!__migrateDataRanOnce) {
+                __migrateDataRanOnce = true;
+                migrateData().catch(err => console.error('Erreur migration:', err));
+            }
 
             // Synchronise aussi les données Analyse Marge dès l'ouverture de l'app (pas
             // seulement à la visite de l'onglet), pour que la Répartition par Marque du
             // Dashboard puisse s'appuyer dessus (comptage cumulé, voir renderBrandStats).
             margeAttachFirestoreListener();
             
-            db.collection('orders').onSnapshot(snapshot => {
+            __trackUnsubscribe(db.collection('orders').onSnapshot(snapshot => {
                 console.log('📦 Commandes chargées:', snapshot.size);
                 orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderAll();
@@ -2674,31 +2763,31 @@
             }, error => {
                 console.error('❌ Erreur chargement orders:', error);
                 markSyncError();
-            });
+            }));
 
-            db.collection('buyers').onSnapshot(snapshot => {
+            __trackUnsubscribe(db.collection('buyers').onSnapshot(snapshot => {
                 buyers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderAll();
             }, error => {
                 console.error('❌ Erreur chargement buyers:', error);
-            });
+            }));
 
-            db.collection('uploadHistory').orderBy('date', 'desc').onSnapshot(snapshot => {
+            __trackUnsubscribe(db.collection('uploadHistory').orderBy('date', 'desc').onSnapshot(snapshot => {
                 uploadHistory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUploadHistory();
             }, error => {
                 console.error('❌ Erreur chargement uploadHistory:', error);
-            });
+            }));
 
-            db.collection('repairDossiers').onSnapshot(snapshot => {
+            __trackUnsubscribe(db.collection('repairDossiers').onSnapshot(snapshot => {
                 repairDossiers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderReparationView();
             }, error => {
                 console.error('❌ Erreur chargement repairDossiers:', error);
-            });
+            }));
 
             // Liste des garages, partagée entre Contrôle Marge et Réparation.
-            db.collection('garages').orderBy('name').onSnapshot(snapshot => {
+            __trackUnsubscribe(db.collection('garages').orderBy('name').onSnapshot(snapshot => {
                 cmGarages = snapshot.docs.map(doc => doc.data().name);
                 cmGaragesAttached = true;
                 cmRenderGarageOptions();
@@ -2721,21 +2810,21 @@
                 renderReparationView();
             }, error => {
                 console.error('❌ Erreur chargement garages:', error);
-            });
+            }));
 
             // Objectif de chiffre d'affaires MENSUEL (module Réparation) : un objectif
             // par mois (clé "AAAA-MM"), donc automatiquement remis à 0 au changement de
             // mois puisqu'aucune entrée n'existe encore pour le nouveau mois — pas
             // besoin d'action de remise à zéro manuelle. Modifiable via le crayon sur la
             // carte KPI "CA réalisé / Objectif".
-            db.collection('settings').doc('reparation').onSnapshot(snapshot => {
+            __trackUnsubscribe(db.collection('settings').doc('reparation').onSnapshot(snapshot => {
                 const data = snapshot.data() || {};
                 const parMois = data.objectifsParMois || {};
                 repObjectifCA = typeof parMois[currentMonthKey()] === 'number' ? parMois[currentMonthKey()] : 0;
                 renderReparationView();
             }, error => {
                 console.error('❌ Erreur chargement objectif CA réparation:', error);
-            });
+            }));
         }
 
         // Navigation
@@ -5026,10 +5115,10 @@
             // (partagée avec Réparation), donc cmGaragesAttached est déjà vrai ici.
             if (!cmControleMargeAttached) {
                 cmControleMargeAttached = true;
-                db.collection('controleMarge').onSnapshot(function(snapshot) {
+                __trackUnsubscribe(db.collection('controleMarge').onSnapshot(function(snapshot) {
                     cmLedger = snapshot.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
                     cmRenderLedger();
-                }, function(err) { console.error('Erreur synchronisation Contrôle Marge:', err); });
+                }, function(err) { console.error('Erreur synchronisation Contrôle Marge:', err); }));
             }
         }
 
@@ -6492,8 +6581,8 @@
             document.getElementById('accompDelay').textContent = accomp.delay + ' jours';
             
             // Champs acheteur (déjà remplis si l'acheteur les a mis dans Commandes)
-            document.getElementById('formEstimatedEndDate').value = accomp.estimatedEndDate ? accomp.estimatedEndDate.split('T')[0] : '';
-            document.getElementById('formBuyerComment').value = accomp.buyerComment || '';
+            document.getElementById('accompFormEstimatedEndDate').value = accomp.estimatedEndDate ? accomp.estimatedEndDate.split('T')[0] : '';
+            document.getElementById('accompFormBuyerComment').value = accomp.buyerComment || '';
             document.getElementById('formNoCertainDate').checked = accomp.noCertainDate || false;
             
             // Champs accompagnateur
@@ -6515,7 +6604,7 @@
             if (!accomp) return;
             
             const noCertainDate = document.getElementById('formNoCertainDate').checked;
-            const estimatedEndDate = document.getElementById('formEstimatedEndDate').value;
+            const estimatedEndDate = document.getElementById('accompFormEstimatedEndDate').value;
             
             // Validation : soit une date, soit la case "Pas de date certaine"
             if (!estimatedEndDate && !noCertainDate) {
@@ -6526,7 +6615,7 @@
             const updates = {
                 estimatedEndDate: estimatedEndDate || null,
                 noCertainDate: noCertainDate,
-                buyerComment: document.getElementById('formBuyerComment').value || null,
+                buyerComment: document.getElementById('accompFormBuyerComment').value || null,
                 firstContactDate: document.getElementById('formFirstContact').value || null,
                 secondContactDate: document.getElementById('formSecondContact').value || null,
                 proposedRdvDate: document.getElementById('formProposedRdv').value || null,
@@ -7231,7 +7320,7 @@
         function margeAttachFirestoreListener() {
             if (margeFirestoreListenerAttached) return;
             margeFirestoreListenerAttached = true;
-            db.collection('margeData').onSnapshot(function(snapshot) {
+            __trackUnsubscribe(db.collection('margeData').onSnapshot(function(snapshot) {
                 if (snapshot.empty) {
                     if (window.MARGE_EMBEDDED_DATA && window.MARGE_EMBEDDED_DATA.length) {
                         document.getElementById('margeMigrationBanner').classList.remove('hidden');
@@ -7249,7 +7338,7 @@
             }, function(err) {
                 console.error('❌ Erreur synchronisation Analyse Marge:', err);
                 if (typeof showToast === 'function') showToast('Erreur de synchronisation Analyse Marge (voir console)', 'error');
-            });
+            }));
         }
         // Migration unique : envoie les données embarquées dans Firestore. Après ce clic,
         // le module ne dépend plus jamais du contenu figé dans le fichier HTML.
