@@ -730,16 +730,11 @@
                                 <option value="client_asc">Client (A-Z)</option>
                                 <option value="client_desc">Client (Z-A)</option>
                             </select>
-                            <button onclick="document.getElementById('odooSinistreFileInput').click()" title="Fichier Odoo (Dossier Sinistre, Montant HT, Adhérent, Tâche courante)" class="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
+                            <button onclick="document.getElementById('odooSinistreFileInput').click()" title="Fichier Odoo (Référence interne, Client, Adhérent, Véhicule, Tâche courante) — un seul fichier suffit, le statut suit la tâche courante sauf s'il a déjà été changé manuellement" class="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
                                 <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                                 <span>Importer Odoo</span>
                             </button>
                             <input type="file" id="odooSinistreFileInput" accept=".xlsx,.xls,.csv" class="hidden">
-                            <button onclick="document.getElementById('facturationFileInput').click()" title="Fichier facturation (Dossier Sinistre, Date de facturation, Montant facturé, Garage) — clôture les dossiers correspondants en Fin Réparation, ou les crée s'ils sont inconnus" class="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
-                                <i data-lucide="check-check" class="w-4 h-4"></i>
-                                <span>Importer Fin Réparation</span>
-                            </button>
-                            <input type="file" id="facturationFileInput" accept=".xlsx,.xls,.csv" class="hidden">
                             <button onclick="exportReparationToExcel()" class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
                                 <i data-lucide="download" class="w-4 h-4"></i>
                                 <span>Export</span>
@@ -8460,6 +8455,10 @@
 
                 const updateData = {
                     repairStatus: newStatus,
+                    // Un changement de statut fait DIRECTEMENT par le chargé de suivi (pas par
+                    // un import) doit être protégé lors du prochain import Odoo : ce dernier ne
+                    // doit plus jamais l'écraser tant que le chargé le fait progresser lui-même.
+                    statusManuallySet: true,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
@@ -8602,22 +8601,24 @@
             return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         }
 
-        const ODOO_TACHE_NON_ENTRE = new Set(['PRISE RDV REPARATION', 'LIVRAISON PR AU GARAGE']);
-
-        // Déduit le statut de réparation (rdv / en cours) à partir du texte EXACT de la
-        // colonne "Tâche courante" Odoo. IMPORTANT (règle confirmée par l'utilisateur) :
-        // la tâche "Fin Réparation" ne signifie PAS que le dossier est clôturé — c'est
-        // une étape du processus comme les autres (véhicule encore au garage). Les tâches
-        // qui signifient "en cours de réparation" sont : Bon de réception du Véhicule,
-        // Réparation: Dépose/Pose, Réparation: Préparation à la Peinture, Réparation:
-        // Peinture, Réparation: Finition, et Fin Réparation elle-même. Un dossier n'est
-        // RÉELLEMENT clôturé que via le fichier de facturation (bouton "Importer Fin
-        // Réparation") — jamais via cette tâche courante. Comparaison EXACTE (pas par
-        // mot-clé) pour éviter tout risque de confusion sur le mot "fin".
+        // Déduit le statut de réparation à partir du texte EXACT de la colonne "Tâche
+        // courante" Odoo (règles précisées par l'utilisateur) :
+        // - "Prise RDV Réparation" : le rendez-vous n'a pas encore été pris → 'aucun'
+        // - "Livraison PR au Garage" ou "Bon de réception du Véhicule" : le véhicule est
+        //   réceptionné / le rendez-vous est pris → 'rdv'
+        // - "Réparation: Dépose/Pose", "Réparation: Préparation à la Peinture",
+        //   "Réparation: Peinture", "Réparation: Finition", et "Fin Réparation" elle-même :
+        //   le véhicule est physiquement en réparation au garage → 'debut'
+        // Un dossier n'est RÉELLEMENT clôturé (statut 'fin') que par une action manuelle du
+        // chargé de suivi dans l'application — jamais automatiquement depuis cette tâche
+        // courante. Comparaison EXACTE (pas par mot-clé) pour éviter toute ambiguïté.
+        const ODOO_TACHE_PAS_DE_RDV = new Set(['PRISE RDV REPARATION']);
+        const ODOO_TACHE_RDV_PRIS = new Set(['LIVRAISON PR AU GARAGE', 'BON DE RECEPTION DU VEHICULE']);
         function mapOdooTacheToRepairStatus(taskRaw) {
             const norm = stripAccents(String(taskRaw || '').trim().toUpperCase());
             if (!norm) return 'aucun';
-            if (ODOO_TACHE_NON_ENTRE.has(norm)) return 'rdv';
+            if (ODOO_TACHE_PAS_DE_RDV.has(norm)) return 'aucun';
+            if (ODOO_TACHE_RDV_PRIS.has(norm)) return 'rdv';
             return 'debut'; // toute autre tâche connue, y compris "Fin Réparation", = véhicule au garage / en réparation
         }
 
@@ -8631,6 +8632,15 @@
             return statuses.reduce((best, s) => (REPAIR_STATUS_RANK[s] > REPAIR_STATUS_RANK[best] ? s : best), 'aucun');
         }
 
+        // ==================== IMPORT ODOO (module "project_project", suivi réparation) ====================
+        // Fichier unique et volontairement simple à produire par le chargé de suivi réparation
+        // (colonnes : Référence interne, Nom [ignoré], Client, Assuré [ignoré], Adhérent,
+        // Véhicule, Tâche courante). Ne touche JAMAIS "Montant devis validé" ni "Heures
+        // allouées" — ces deux champs restent tels quels (déjà saisis avant, ou vides), qu'ils
+        // soient modifiés à la main dans le tableau. Si le chargé a déjà fait progresser le
+        // statut manuellement pour un dossier (voir statusManuallySet), un ré-import ne
+        // l'écrase pas non plus — seuls les dossiers jamais touchés à la main suivent
+        // automatiquement la tâche courante d'Odoo.
         function processOdooSinistreFile(file) {
             console.log('📂 Début de l\'import Odoo:', file.name);
             const reader = new FileReader();
@@ -8646,30 +8656,23 @@
                         return;
                     }
 
-                    // --- 1) Regroupement par Dossier Sinistre (somme des montants) ---
-                    // Plusieurs lignes pour un même "Dossier Sinistre" = un complément sur
-                    // la même réparation (pas un autre véhicule) : on additionne simplement
-                    // leurs montants dans UN SEUL dossier, jamais un doublon.
-                    const groups = new Map(); // refNormalisée -> { refRaw, client, adherent, vehicleBrand, montant, statuses[] }
+                    // --- 1) Regroupement par référence (plusieurs lignes = même dossier) ---
+                    const groups = new Map(); // refNormalisée -> { refRaw, client, adherent, vehicleBrand, statuses[] }
                     let missingReference = 0;
                     for (const row of jsonData) {
-                        const refRaw = row['Dossier Sinistre'] || row['dossier_sinistre'] || '';
+                        const refRaw = row['Référence interne'] || row['reference_interne'] || row['Dossier Sinistre'] || row['dossier_sinistre'] || '';
                         if (!refRaw) { missingReference++; continue; }
                         const refKey = normalizeReference(refRaw);
 
                         const client = row['Client'] || '';
-                        const adherentRaw = row['Dossier Sinistre/Adhérent'] || row['Adhérent'] || row['adherent'] || '';
-                        const taskRaw = row['Dossier Sinistre/Tâche courante'] || row['Tâche courante'] || row['tache_courante'] || '';
-                        const vehicleRaw = row['Marque'] || row['Marque véhicule'] || row['Dossier Sinistre/Marque'] ||
-                            row['Véhicule'] || row['Vehicule'] || row['Dossier Sinistre/Véhicule'] || '';
-                        const montantRaw = row['Montant HT'] || row['montant_ht'];
-                        const montant = (typeof montantRaw === 'number' && !isNaN(montantRaw)) ? montantRaw : parseFloat(montantRaw);
+                        const adherentRaw = row['Adhérent'] || row['adherent'] || row['Dossier Sinistre/Adhérent'] || '';
+                        const taskRaw = row['Tâche courante'] || row['tache_courante'] || row['Dossier Sinistre/Tâche courante'] || '';
+                        const vehicleRaw = row['Véhicule'] || row['Vehicule'] || row['Marque'] || row['Marque véhicule'] || '';
 
                         if (!groups.has(refKey)) {
-                            groups.set(refKey, { refRaw: String(refRaw).trim(), client: '', adherent: '', vehicleBrand: '', montant: 0, statuses: [] });
+                            groups.set(refKey, { refRaw: String(refRaw).trim(), client: '', adherent: '', vehicleBrand: '', statuses: [] });
                         }
                         const g = groups.get(refKey);
-                        if (!isNaN(montant)) g.montant += montant;
                         if (client && !g.client) g.client = String(client).trim();
                         if (adherentRaw && !g.adherent) g.adherent = normalizeGarageName(adherentRaw);
                         if (vehicleRaw && !g.vehicleBrand) g.vehicleBrand = extractVehicleBrand(String(vehicleRaw));
@@ -8677,9 +8680,6 @@
                     }
 
                     // --- 2) Index des dossiers existants (orders + repairDossiers) par référence ---
-                    // Un tableau par référence (pas juste un id) au cas où plusieurs
-                    // enregistrements partageraient déjà la même référence en base — on les
-                    // met alors tous à jour, pour ne jamais en laisser un désynchronisé.
                     const [ordersSnap, dossiersSnap] = await Promise.all([
                         db.collection('orders').get(),
                         db.collection('repairDossiers').get()
@@ -8704,7 +8704,7 @@
                     // --- 3) Application : mise à jour des dossiers reconnus, création des nouveaux ---
                     const today = new Date().toISOString().split('T')[0];
                     const cw = getCurrentWeekName();
-                    let updatedCount = 0, createdCount = 0;
+                    let updatedCount = 0, createdCount = 0, statusPreservedCount = 0;
                     let batch = db.batch();
                     let opsInBatch = 0;
                     const commitIfNeeded = async () => {
@@ -8716,17 +8716,22 @@
                         const matchingOrders = ordersByRef.get(refKey) || [];
                         const matchingDossiers = dossiersByRef.get(refKey) || [];
 
+                        // ⚠️ Ne contient JAMAIS montantDevisValide ni heuresAllouees : ces deux
+                        // champs sont exclus volontairement de l'objet de mise à jour, pour que
+                        // Firestore laisse intacte la valeur déjà en base (saisie à la main ou
+                        // par un import précédent), quelle qu'elle soit.
                         const buildUpdate = (existingRecord) => {
-                            const upd = {
-                                montantDevisValide: g.montant,
-                                repairStatus: status,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            };
+                            const upd = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
                             if (g.client) upd.client = g.client;
                             if (g.adherent) upd.adherent = g.adherent;
                             if (g.vehicleBrand && !existingRecord.vehicleBrand) upd.vehicleBrand = g.vehicleBrand;
-                            if ((status === 'debut' || status === 'fin') && !existingRecord.repairStartDate) upd.repairStartDate = today;
-                            if (status === 'fin' && !existingRecord.repairEndDate) upd.repairEndDate = today;
+                            if (existingRecord.statusManuallySet) {
+                                statusPreservedCount++;
+                            } else {
+                                upd.repairStatus = status;
+                                if ((status === 'debut' || status === 'fin') && !existingRecord.repairStartDate) upd.repairStartDate = today;
+                                if (status === 'fin' && !existingRecord.repairEndDate) upd.repairEndDate = today;
+                            }
                             return upd;
                         };
 
@@ -8746,12 +8751,12 @@
                                 client: g.client || 'Client inconnu',
                                 adherent: g.adherent || '',
                                 vehicleBrand: g.vehicleBrand || '',
-                                montantDevisValide: g.montant,
                                 repairStatus: status,
+                                statusManuallySet: false,
                                 openDate: today,
                                 week: cw,
                                 importDate: today,
-                                importSource: 'odoo_sinistre',
+                                importSource: 'odoo_project',
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
                             };
                             if (status === 'debut' || status === 'fin') newDoc.repairStartDate = today;
@@ -8763,11 +8768,10 @@
                     }
                     if (opsInBatch > 0) await batch.commit();
 
-                    showToast(
-                        updatedCount + ' dossier(s) mis à jour, ' + createdCount + ' nouveau(x)' +
-                        (missingReference > 0 ? ' — ' + missingReference + ' ligne(s) sans référence ignorée(s)' : ''),
-                        'success'
-                    );
+                    let msg = updatedCount + ' dossier(s) mis à jour, ' + createdCount + ' nouveau(x)';
+                    if (statusPreservedCount) msg += ' — ' + statusPreservedCount + ' statut(s) laissé(s) tel quel (déjà changé(s) manuellement)';
+                    if (missingReference > 0) msg += ' — ' + missingReference + ' ligne(s) sans référence ignorée(s)';
+                    showToast(msg, 'success');
                 } catch (error) {
                     console.error('Erreur import Odoo:', error);
                     showToast('Erreur lors de l\'import du fichier Odoo : ' + error.message, 'error');
