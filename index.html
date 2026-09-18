@@ -488,6 +488,10 @@
                                 <span>Sélectionner</span>
                                 <input type="file" id="dashboardFileInput" accept=".xlsx,.xls" class="hidden">
                             </label>
+                            <button type="button" onclick="undoLastImport()" class="mt-2 inline-flex items-center text-xs font-medium text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors">
+                                <i data-lucide="undo-2" class="w-3.5 h-3.5 mr-1"></i>
+                                Annuler le dernier import
+                            </button>
                         </div>
                     </div>
 
@@ -582,6 +586,10 @@
                         <button onclick="cleanAutreBrands()" class="px-5 py-2.5 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap" title="Corriger uniquement les marques 'Autre'">
                             <i data-lucide="car" class="w-4 h-4"></i>
                             <span>Marques</span>
+                        </button>
+                        <button onclick="deleteUnassignedOrders()" class="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap" title="Supprimer tous les dossiers sans acheteur assigné">
+                            <i data-lucide="user-x" class="w-4 h-4"></i>
+                            <span>Suppr. sans acheteur</span>
                         </button>
                     </div>
                 </div>
@@ -4440,6 +4448,11 @@
                     });
                     
                     const cw = getCurrentWeekName();
+                    // Identifiant unique de ce lot d'import, stocké sur chaque dossier créé et
+                    // sur l'entrée d'historique correspondante : permet d'annuler précisément
+                    // CET import (et lui seul) via undoLastImport(), même si d'autres imports
+                    // ont lieu le même jour.
+                    const importBatchId = db.collection('uploadHistory').doc().id;
                     const newOrders = [];
                     let skippedExisting = 0;
                     let missingReference = 0;
@@ -4507,6 +4520,7 @@
                                 partsStatus: 'en_cours',  // Statut par défaut
                                 week: cw,
                                 importDate: new Date().toISOString().split('T')[0],
+                                importBatchId: importBatchId,
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                         } else {
@@ -4531,13 +4545,14 @@
 
                     // Mettre à jour l'historique
                     if (newOrders.length > 0) {
-                        await db.collection('uploadHistory').add({
+                        await db.collection('uploadHistory').doc(importBatchId).set({
                             name: cw,
                             startDate: new Date().toLocaleDateString('fr-FR'),
                             endDate: new Date().toLocaleDateString('fr-FR'),
                             orderCount: newOrders.length,
                             date: new Date(),
-                            uploadedBy: currentUser.uid
+                            uploadedBy: currentUser.uid,
+                            importBatchId: importBatchId
                         });
                         console.log('✅ Historique mis à jour');
                     }
@@ -4565,6 +4580,73 @@
                     addNotification('Échec import: ' + error.message, 'error');
                 }
             };
+            // Annule le dernier import Excel : retrouve les dossiers créés lors de ce lot
+            // (via importBatchId pour les imports récents, ou par repli sur la date d'import
+            // pour les imports plus anciens qui n'avaient pas encore ce suivi) et les supprime,
+            // ainsi que l'entrée d'historique correspondante.
+            window.undoLastImport = async function() {
+                if (!uploadHistory || uploadHistory.length === 0) {
+                    showToast('Aucun import à annuler', 'warning');
+                    return;
+                }
+                const last = uploadHistory[0]; // uploadHistory est trié par date décroissante
+                const count = last.orderCount || 0;
+                const dateLabel = (last.date && last.date.toDate) ? last.date.toDate().toLocaleString('fr-FR') : (last.startDate || '');
+
+                if (!confirm('Annuler le dernier import (' + count + ' dossier(s), le ' + dateLabel + ') ?\n\nCes dossiers seront définitivement supprimés de la base. Si un suivi (accompagnement, réparation...) a déjà été saisi dessus, il sera perdu.')) {
+                    return;
+                }
+
+                try {
+                    let toDeleteIds = [];
+
+                    if (last.importBatchId) {
+                        const snap = await db.collection('orders').where('importBatchId', '==', last.importBatchId).get();
+                        toDeleteIds = snap.docs.map(d => d.id);
+                    } else {
+                        // Repli pour un import antérieur à l'ajout du suivi par lot : on prend,
+                        // parmi les dossiers importés à la même date, les plus récemment créés,
+                        // à hauteur du nombre enregistré dans l'historique.
+                        const importDateStr = (last.date && last.date.toDate) ? last.date.toDate().toISOString().split('T')[0] : '';
+                        const candidates = orders
+                            .filter(o => o.importDate === importDateStr && !o.importBatchId)
+                            .sort((a, b) => {
+                                const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
+                                const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
+                                return tb - ta;
+                            })
+                            .slice(0, count);
+                        toDeleteIds = candidates.map(o => o.id);
+
+                        if (toDeleteIds.length !== count) {
+                            if (!confirm('Cet import est antérieur au suivi précis par lot. ' + toDeleteIds.length + ' dossier(s) correspondant(s) retrouvé(s) par date sur ' + count + ' attendu(s). Continuer la suppression de ces ' + toDeleteIds.length + ' dossier(s) ?')) {
+                                return;
+                            }
+                        }
+                    }
+
+                    if (toDeleteIds.length === 0) {
+                        showToast('Aucun dossier correspondant trouvé à supprimer', 'warning');
+                        return;
+                    }
+
+                    for (let i = 0; i < toDeleteIds.length; i += 400) {
+                        const batch = db.batch();
+                        toDeleteIds.slice(i, i + 400).forEach(id => batch.delete(db.collection('orders').doc(id)));
+                        await batch.commit();
+                    }
+
+                    await db.collection('uploadHistory').doc(last.id).delete();
+
+                    showToast(toDeleteIds.length + ' dossier(s) supprimé(s) — import annulé', 'success');
+                    addNotification('Import annulé : ' + toDeleteIds.length + ' dossier(s) supprimé(s)', 'success');
+                    renderWeeklySummary();
+                } catch (err) {
+                    console.error('❌ Erreur annulation import:', err);
+                    showToast('Erreur: ' + err.message, 'error');
+                }
+            };
+
             reader.onerror = (err) => {
                 console.error('❌ Erreur lecture fichier:', err);
                 showToast('Erreur de lecture du fichier', 'error');
@@ -4747,6 +4829,33 @@
             } catch (error) {
                 console.error('Erreur assignation:', error);
                 showToast('Erreur lors de l\'assignation', 'error');
+            }
+        }
+
+        // Supprime tous les dossiers (onglet Commandes) sans acheteur assigné (buyerId vide).
+        async function deleteUnassignedOrders() {
+            const targets = orders.filter(o => !o.buyerId);
+            if (targets.length === 0) {
+                showToast('Aucun dossier sans acheteur trouvé', 'warning');
+                return;
+            }
+            if (!confirm('Supprimer définitivement les ' + targets.length + ' dossier(s) sans acheteur assigné ?\n\nCette action est irréversible.')) {
+                return;
+            }
+            try {
+                const ids = targets.map(o => o.id);
+                for (let i = 0; i < ids.length; i += 400) {
+                    const batch = db.batch();
+                    ids.slice(i, i + 400).forEach(id => batch.delete(db.collection('orders').doc(id)));
+                    await batch.commit();
+                }
+                showToast(ids.length + ' dossier(s) supprimé(s)', 'success');
+                addNotification(ids.length + ' dossier(s) sans acheteur supprimé(s)', 'success');
+                renderOrdersTable();
+                renderBrandStats();
+            } catch (error) {
+                console.error('Erreur suppression dossiers sans acheteur:', error);
+                showToast('Erreur: ' + error.message, 'error');
             }
         }
         
