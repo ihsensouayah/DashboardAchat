@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
     <script>
         // Chargement séquentiel et résilient de Chart.js + son plugin datalabels,
@@ -488,10 +490,6 @@
                                 <span>Sélectionner</span>
                                 <input type="file" id="dashboardFileInput" accept=".xlsx,.xls" class="hidden">
                             </label>
-                            <button type="button" onclick="undoLastImport()" class="mt-2 inline-flex items-center text-xs font-medium text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors">
-                                <i data-lucide="undo-2" class="w-3.5 h-3.5 mr-1"></i>
-                                Annuler le dernier import
-                            </button>
                         </div>
                     </div>
 
@@ -586,10 +584,6 @@
                         <button onclick="cleanAutreBrands()" class="px-5 py-2.5 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap" title="Corriger uniquement les marques 'Autre'">
                             <i data-lucide="car" class="w-4 h-4"></i>
                             <span>Marques</span>
-                        </button>
-                        <button onclick="deleteUnassignedOrders()" class="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap" title="Supprimer tous les dossiers sans acheteur assigné">
-                            <i data-lucide="user-x" class="w-4 h-4"></i>
-                            <span>Suppr. sans acheteur</span>
                         </button>
                     </div>
                 </div>
@@ -1152,6 +1146,12 @@
                                 </select>
                             </div>
                             <div>
+                                <label class="block text-sm font-medium mb-1">Expert</label>
+                                <select id="cmExpert" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    <option value="">Sélectionner…</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label class="block text-sm font-medium mb-1">Total MO + peinture (AUTOP)</label>
                                 <input type="number" step="0.001" id="cmMoAutop" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                             </div>
@@ -1297,19 +1297,11 @@
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Dossier</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Compagnie</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Date facturation</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Garantie</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Marque</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Garage</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">MO AUTOP</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">MO Garage</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Pièces vendues</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Pièces achetées</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Marge MO %</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Marge Pièces %</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Marge Globale %</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Ristourne</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Véhicule / Garage</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Main d'œuvre</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Pièces</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Marge globale</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Facturation</th>
                                         <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                                     </tr>
                                 </thead>
@@ -1816,6 +1808,123 @@
                     Enregistrer
                 </button>
                 <button onclick="document.getElementById('accompagnementModal').classList.add('hidden'); document.getElementById('modalBackdrop').classList.add('hidden');" class="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Bon de sortie -->
+    <div id="bsModal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-3xl mx-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                    <i data-lucide="file-output" class="w-6 h-6 mr-2 text-orange-500"></i>
+                    Générer le Bon de Sortie
+                </h3>
+                <button onclick="bsCloseModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
+                </button>
+            </div>
+
+            <input type="hidden" id="bsDossierId">
+
+            <!-- Infos déjà connues du dossier -->
+            <div class="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-gray-700 dark:to-gray-800 rounded-xl p-4 mb-6">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Réf AUTOP (N° Dossier)</p>
+                        <p class="font-bold text-gray-900 dark:text-white" id="bsRefAutop">-</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Assureur (Compagnie)</p>
+                        <p class="font-semibold text-gray-700 dark:text-gray-300" id="bsAssureur">-</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Garantie</p>
+                        <select id="bsGarantie" onchange="bsApplyGarantieRules()" class="w-full px-2 py-1.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm font-semibold">
+                            <option value="IDA">IDA</option>
+                            <option value="Bris de glace">Bris de glace</option>
+                            <option value="Dommage collision">Dommage collision</option>
+                            <option value="Tous risques">Tous risques</option>
+                            <option value="Connexe">Connexe</option>
+                            <option value="Recours">Recours</option>
+                            <option value="Non spécifié">Non spécifié (à la charge du client)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">N° Sinistre</label>
+                    <input type="text" id="bsNumSinistre" placeholder="Ex: 226031755" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Agence</label>
+                    <input type="text" id="bsAgence" placeholder="Ex: 144 Agence Teboulba" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Immatriculation</label>
+                    <input type="text" id="bsImmat" placeholder="Ex: 9124 TU 182" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Usage</label>
+                    <select id="bsUsage" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                        <option value="PRIVE">PRIVE</option>
+                        <option value="TAXI">TAXI</option>
+                        <option value="LOUAGE">LOUAGE</option>
+                        <option value="TRANSPORT">TRANSPORT</option>
+                        <option value="AUTRE">AUTRE</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Sinistre</label>
+                    <input type="date" id="bsDateSinistre" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date de sortie</label>
+                    <input type="date" id="bsDateSortie" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Réparateur</label>
+                    <input type="text" id="bsReparateur" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom de l'expert</label>
+                    <select id="bsExpert" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500"></select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom de l'assuré <span class="text-red-500">*</span></label>
+                    <input type="text" id="bsAssure" placeholder="À saisir manuellement" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">
+                </div>
+            </div>
+
+            <div class="border-t dark:border-gray-700 pt-4">
+                <h4 class="font-bold text-gray-900 dark:text-white mb-2 flex items-center">
+                    <i data-lucide="check-square" class="w-5 h-5 mr-2 text-orange-500"></i>
+                    Participation de l'assurée
+                </h4>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Seuls les postes applicables à la garantie choisie ci-dessus s'affichent. Saisissez directement le montant de chacun.</p>
+                <div id="bsParticipationFields" class="space-y-2"></div>
+
+                <div class="flex items-center gap-3 mt-4 pt-4 border-t dark:border-gray-700">
+                    <span class="w-48 text-sm font-bold text-gray-900 dark:text-white">Total facture</span>
+                    <div class="relative flex-1">
+                        <input type="number" step="0.001" min="0" id="bsTotalFacture" placeholder="Montant total de la facture en DT" class="w-full px-4 py-2 border-2 border-orange-300 dark:border-orange-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500 font-semibold">
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">DT</span>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">À saisir par le chargé. L'engagement AUTOP (= Total facture − Participation) est calculé automatiquement dans le PDF.</p>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex space-x-3 pt-6 border-t dark:border-gray-700 mt-6">
+                <button onclick="bsGeneratePdf()" class="flex-1 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-lg shadow-lg transition-all">
+                    <i data-lucide="file-down" class="w-4 h-4 inline mr-2"></i>
+                    Générer le PDF
+                </button>
+                <button onclick="bsCloseModal()" class="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     Fermer
                 </button>
             </div>
@@ -4448,11 +4557,6 @@
                     });
                     
                     const cw = getCurrentWeekName();
-                    // Identifiant unique de ce lot d'import, stocké sur chaque dossier créé et
-                    // sur l'entrée d'historique correspondante : permet d'annuler précisément
-                    // CET import (et lui seul) via undoLastImport(), même si d'autres imports
-                    // ont lieu le même jour.
-                    const importBatchId = db.collection('uploadHistory').doc().id;
                     const newOrders = [];
                     let skippedExisting = 0;
                     let missingReference = 0;
@@ -4520,7 +4624,6 @@
                                 partsStatus: 'en_cours',  // Statut par défaut
                                 week: cw,
                                 importDate: new Date().toISOString().split('T')[0],
-                                importBatchId: importBatchId,
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                         } else {
@@ -4545,14 +4648,13 @@
 
                     // Mettre à jour l'historique
                     if (newOrders.length > 0) {
-                        await db.collection('uploadHistory').doc(importBatchId).set({
+                        await db.collection('uploadHistory').add({
                             name: cw,
                             startDate: new Date().toLocaleDateString('fr-FR'),
                             endDate: new Date().toLocaleDateString('fr-FR'),
                             orderCount: newOrders.length,
                             date: new Date(),
-                            uploadedBy: currentUser.uid,
-                            importBatchId: importBatchId
+                            uploadedBy: currentUser.uid
                         });
                         console.log('✅ Historique mis à jour');
                     }
@@ -4580,73 +4682,6 @@
                     addNotification('Échec import: ' + error.message, 'error');
                 }
             };
-            // Annule le dernier import Excel : retrouve les dossiers créés lors de ce lot
-            // (via importBatchId pour les imports récents, ou par repli sur la date d'import
-            // pour les imports plus anciens qui n'avaient pas encore ce suivi) et les supprime,
-            // ainsi que l'entrée d'historique correspondante.
-            window.undoLastImport = async function() {
-                if (!uploadHistory || uploadHistory.length === 0) {
-                    showToast('Aucun import à annuler', 'warning');
-                    return;
-                }
-                const last = uploadHistory[0]; // uploadHistory est trié par date décroissante
-                const count = last.orderCount || 0;
-                const dateLabel = (last.date && last.date.toDate) ? last.date.toDate().toLocaleString('fr-FR') : (last.startDate || '');
-
-                if (!confirm('Annuler le dernier import (' + count + ' dossier(s), le ' + dateLabel + ') ?\n\nCes dossiers seront définitivement supprimés de la base. Si un suivi (accompagnement, réparation...) a déjà été saisi dessus, il sera perdu.')) {
-                    return;
-                }
-
-                try {
-                    let toDeleteIds = [];
-
-                    if (last.importBatchId) {
-                        const snap = await db.collection('orders').where('importBatchId', '==', last.importBatchId).get();
-                        toDeleteIds = snap.docs.map(d => d.id);
-                    } else {
-                        // Repli pour un import antérieur à l'ajout du suivi par lot : on prend,
-                        // parmi les dossiers importés à la même date, les plus récemment créés,
-                        // à hauteur du nombre enregistré dans l'historique.
-                        const importDateStr = (last.date && last.date.toDate) ? last.date.toDate().toISOString().split('T')[0] : '';
-                        const candidates = orders
-                            .filter(o => o.importDate === importDateStr && !o.importBatchId)
-                            .sort((a, b) => {
-                                const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
-                                const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
-                                return tb - ta;
-                            })
-                            .slice(0, count);
-                        toDeleteIds = candidates.map(o => o.id);
-
-                        if (toDeleteIds.length !== count) {
-                            if (!confirm('Cet import est antérieur au suivi précis par lot. ' + toDeleteIds.length + ' dossier(s) correspondant(s) retrouvé(s) par date sur ' + count + ' attendu(s). Continuer la suppression de ces ' + toDeleteIds.length + ' dossier(s) ?')) {
-                                return;
-                            }
-                        }
-                    }
-
-                    if (toDeleteIds.length === 0) {
-                        showToast('Aucun dossier correspondant trouvé à supprimer', 'warning');
-                        return;
-                    }
-
-                    for (let i = 0; i < toDeleteIds.length; i += 400) {
-                        const batch = db.batch();
-                        toDeleteIds.slice(i, i + 400).forEach(id => batch.delete(db.collection('orders').doc(id)));
-                        await batch.commit();
-                    }
-
-                    await db.collection('uploadHistory').doc(last.id).delete();
-
-                    showToast(toDeleteIds.length + ' dossier(s) supprimé(s) — import annulé', 'success');
-                    addNotification('Import annulé : ' + toDeleteIds.length + ' dossier(s) supprimé(s)', 'success');
-                    renderWeeklySummary();
-                } catch (err) {
-                    console.error('❌ Erreur annulation import:', err);
-                    showToast('Erreur: ' + err.message, 'error');
-                }
-            };
-
             reader.onerror = (err) => {
                 console.error('❌ Erreur lecture fichier:', err);
                 showToast('Erreur de lecture du fichier', 'error');
@@ -4829,33 +4864,6 @@
             } catch (error) {
                 console.error('Erreur assignation:', error);
                 showToast('Erreur lors de l\'assignation', 'error');
-            }
-        }
-
-        // Supprime tous les dossiers (onglet Commandes) sans acheteur assigné (buyerId vide).
-        async function deleteUnassignedOrders() {
-            const targets = orders.filter(o => !o.buyerId);
-            if (targets.length === 0) {
-                showToast('Aucun dossier sans acheteur trouvé', 'warning');
-                return;
-            }
-            if (!confirm('Supprimer définitivement les ' + targets.length + ' dossier(s) sans acheteur assigné ?\n\nCette action est irréversible.')) {
-                return;
-            }
-            try {
-                const ids = targets.map(o => o.id);
-                for (let i = 0; i < ids.length; i += 400) {
-                    const batch = db.batch();
-                    ids.slice(i, i + 400).forEach(id => batch.delete(db.collection('orders').doc(id)));
-                    await batch.commit();
-                }
-                showToast(ids.length + ' dossier(s) supprimé(s)', 'success');
-                addNotification(ids.length + ' dossier(s) sans acheteur supprimé(s)', 'success');
-                renderOrdersTable();
-                renderBrandStats();
-            } catch (error) {
-                console.error('Erreur suppression dossiers sans acheteur:', error);
-                showToast('Erreur: ' + error.message, 'error');
             }
         }
         
@@ -5123,6 +5131,7 @@
             document.getElementById('cmFormView').classList.remove('hidden');
             document.getElementById('cmAccountTitle').textContent = cmCurrentAccount.label;
             cmPopulateMarques();
+            cmPopulateExperts();
             cmRenderGarageOptions();
             cmPopulateFilterOptions();
             // Filtre automatiquement le Registre des dossiers sur la compagnie sélectionnée
@@ -5171,6 +5180,18 @@
             marques.forEach(function(m) {
                 const opt = document.createElement('option');
                 opt.value = m; opt.textContent = m;
+                sel.appendChild(opt);
+            });
+        }
+
+        // Remplit la liste déroulante Expert du formulaire de facturation (même liste que le Bon de Sortie)
+        function cmPopulateExperts() {
+            const sel = document.getElementById('cmExpert');
+            if (sel.dataset.built) return;
+            sel.dataset.built = '1';
+            BS_EXPERTS.forEach(function(n) {
+                const opt = document.createElement('option');
+                opt.value = n; opt.textContent = n;
                 sel.appendChild(opt);
             });
         }
@@ -5404,29 +5425,51 @@
             document.getElementById('cmLedgerCount').textContent = rows.length + ' dossier(s)';
             document.getElementById('cmLedgerBody').innerHTML = rows.map(function(r, i) {
                 const dateFactDisplay = r.dateFacturation
-                    ? '<span class="inline-flex items-center gap-1"><i data-lucide="shield-check" class="w-3 h-3 text-green-600"></i>' + new Date(r.dateFacturation).toLocaleDateString('fr-FR') + '</span>'
+                    ? '<span class="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400"><i data-lucide="shield-check" class="w-3 h-3"></i>' + new Date(r.dateFacturation).toLocaleDateString('fr-FR') + '</span>'
                     : '<span class="text-gray-300 dark:text-gray-600 text-xs">non confirmée</span>';
-                return '<tr class="animate-fade-in transition-all duration-200 hover:brightness-95 hover:shadow-sm ' + cmRowAccent(r.margeGlobale) + '" style="animation-delay:' + (Math.min(i, 20) * 30) + 'ms">' +
-                    '<td class="px-4 py-2.5 font-medium text-gray-800 dark:text-gray-100">' + r.dossier + '</td>' +
-                    '<td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">' + (r.assurance || '') + '</td>' +
-                    '<td class="px-4 py-2.5 text-sm">' + dateFactDisplay + '</td>' +
-                    '<td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">' + r.garantie + '</td>' +
-                    '<td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">' + r.marque + '</td>' +
-                    '<td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">' + r.garage + '</td>' +
-                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmAmountCell(r.moAutop) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmAmountCell(r.moGarage) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmAmountCell(r.piecesVendues) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + cmAmountCell(r.piecesAchetees) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right">' + cmMarginBadge(r.margeMo) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right">' + cmMarginBadge(r.margePieces) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right">' + cmMarginBadge(r.margeGlobale) + '</td>' +
-                    '<td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">' + (r.ristourneMontant ? cmFmt(r.ristourneMontant) + ' DT' : '-') + '</td>' +
-                    '<td class="px-4 py-2.5 text-center">' +
+                const ristourneDisplay = r.ristourneMontant
+                    ? '<div class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Ristourne ' + cmFmt(r.ristourneMontant) + ' DT</div>'
+                    : '';
+                return '<tr class="animate-fade-in transition-all duration-200 hover:brightness-95 hover:shadow-sm align-top ' + cmRowAccent(r.margeGlobale) + '" style="animation-delay:' + (Math.min(i, 20) * 30) + 'ms">' +
+                    // Dossier : n° + compagnie + garantie en badge
+                    '<td class="px-4 py-3">' +
+                        '<div class="font-semibold text-gray-800 dark:text-gray-100">' + r.dossier + '</div>' +
+                        '<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">' + (r.assurance || '') + '</div>' +
+                        '<span class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">' + (r.garantie || '-') + '</span>' +
+                    '</td>' +
+                    // Véhicule / Garage
+                    '<td class="px-4 py-3">' +
+                        '<div class="font-medium text-gray-700 dark:text-gray-200">' + (r.marque || '-') + '</div>' +
+                        '<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">' + (r.garage || '-') + '</div>' +
+                    '</td>' +
+                    // Main d'oeuvre : AUTOP vs Garage + badge marge MO
+                    '<td class="px-4 py-3 text-right">' +
+                        '<div class="text-gray-700 dark:text-gray-200">' + cmAmountCell(r.moAutop) + ' <span class="text-gray-300 dark:text-gray-600">/</span> ' + cmAmountCell(r.moGarage) + '</div>' +
+                        '<div class="text-[10px] text-gray-400 dark:text-gray-500">AUTOP / Garage</div>' +
+                        '<div class="mt-1">' + cmMarginBadge(r.margeMo) + '</div>' +
+                    '</td>' +
+                    // Pièces : vendues vs achetées + badge marge pièces
+                    '<td class="px-4 py-3 text-right">' +
+                        '<div class="text-gray-700 dark:text-gray-200">' + cmAmountCell(r.piecesVendues) + ' <span class="text-gray-300 dark:text-gray-600">/</span> ' + cmAmountCell(r.piecesAchetees) + '</div>' +
+                        '<div class="text-[10px] text-gray-400 dark:text-gray-500">Vendues / Achetées</div>' +
+                        '<div class="mt-1">' + cmMarginBadge(r.margePieces) + '</div>' +
+                    '</td>' +
+                    // Marge globale : mise en avant + ristourne
+                    '<td class="px-4 py-3 text-center">' +
+                        '<div class="text-base">' + cmMarginBadge(r.margeGlobale) + '</div>' +
+                        ristourneDisplay +
+                    '</td>' +
+                    // Facturation
+                    '<td class="px-4 py-3">' + dateFactDisplay + '</td>' +
+                    // Actions
+                    '<td class="px-4 py-3 text-center whitespace-nowrap">' +
                         '<button onclick="cmEditRow(\'' + r.id + '\')" class="p-1.5 hover:bg-blue-100 dark:hover:bg-gray-600 rounded-lg text-blue-600 dark:text-blue-400 transition-colors" title="Modifier">' +
                             '<i data-lucide="edit" class="w-4 h-4"></i></button>' +
+                        '<button onclick="bsOpenModal(\'' + r.id + '\')" class="p-1.5 hover:bg-orange-100 dark:hover:bg-gray-600 rounded-lg text-orange-600 dark:text-orange-400 transition-colors" title="Générer le bon de sortie">' +
+                            '<i data-lucide="file-output" class="w-4 h-4"></i></button>' +
                     '</td>' +
                     '</tr>';
-            }).join('') || '<tr><td colspan="15" class="px-4 py-8 text-center text-gray-400">Aucun dossier ne correspond à ces filtres</td></tr>';
+            }).join('') || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Aucun dossier ne correspond à ces filtres</td></tr>';
             setTimeout(function() { if (window.lucide) lucide.createIcons(); }, 50);
         }
 
@@ -5441,6 +5484,8 @@
             document.getElementById('cmMarque').value = r.marque;
             cmRenderGarageOptions();
             document.getElementById('cmGarage').value = r.garage;
+            cmPopulateExperts();
+            document.getElementById('cmExpert').value = r.expert || '';
             document.getElementById('cmMoAutop').value = r.moAutop;
             document.getElementById('cmMoGarage').value = r.moGarage;
             document.getElementById('cmPiecesVendues').value = r.piecesVendues;
@@ -5460,6 +5505,281 @@
             cmResetForm();
         }
 
+        // ==================== BON DE SORTIE (généré depuis Contrôle Marge) ====================
+        // Liste des experts (res_partner) fournie par AUTOP - utilisée pour la liste déroulante
+        const BS_EXPERTS = ["Abdelaziz LAALAA","Abdeljelil FOUDHAILI","Abdelkarim MAMI","Abdelkarim MSALMI (MSALMI  EXPERTISE ET  CONSULTING)","Abderrahim TLILI","Abderrahmen BEN LAMINE","Adel BEN MANSOUR","Adel El Amri","Ahmed Ben Mrad","Ahmed Ben Soussia","Ahmed Dridi","Ahmed Fehri","Ahmed Hayouni","Ala Jemaa","Alaa Salem","Ali Lassoued","Ali Lassoued, Bureau Ali LASSOUED","Ali SELLAMI (Ste sellami expertise et  consulting)","Amara Ayari","Ammar Missaoui","Ammar Missaoui, Ammar Missaoui","Anis Bouallegue","Anouar BEN CHAABANE","Arbi BEN MABROUK","Atef BAHI","BEN HAMIDA MEHER","Bechir HADIJI","Bechir HADIJI, Karim HADIJI","Belgacem MEDINI","Bilel BEN ZEKRI","Bilel FRIKHA","CONSULTING","Dhaou BOUAJILA","Elyes MAMI","Ezzeddine BOUHLEL","Ezzeddine HAFSAOUI","Ezzeddine HAFSAOUI, Bureau Ezzeddine HAFSAOUI","Fakhreddine CHEBBI","Faouzi SMICHI","Fateh FITOURI","Faycel Amri","Fethi BEN SASSI","Fethi SLIMANI","Foued BEN GOUISSEM","Frej Sami BENZARTI (STE BENZARTI MECANIQUE)","Ghassen BEN ATTIA","Ghazi BEN JEMIA","HAMZA FATHALLAH","HOUCEMEDDDINE FERJANI","Habib GADRIB","Hamadi Barkallah","Hamdi ABDELKARIM","Hamed Boughanmi","Hammadi JOUILI (J.H CONSULTING)","Hamouda TORJEMANE","Hassen BEN AMEUR","Hatem Abdelkader","Hatem FARHAT","Hédi Atri (STE HS EXPERTISE)","Hédi CHOUCHENE","Hédi YEDAAS","Issam BOUZAYANI","Issam Eddine NIGHAOUI","Jamel MAATOUG","Kaddour Meimri","Kais MASMOUDI (STE MK  EXPERTISE)","Kamel BESBES","Kamel OUESLATI","Karim HADIJI","Karim MEDDEB (Sté PREVEX AFRICA  AUTO)","Karim THEMLAOUI","Khalifa ZOUARI","Lamjad HFASNI","Lazhar DIBER","Lotfi CHAANBI","MEHDI DAAGI","Maher BEN HAMIDA","Maher HADIJI","Mahfoudh KHOUAJA","Mahmoud FEKI","Makram CHATEUR","MamounTAJOURI","Mannoubi Amari","Mansour LETAIEF","Mansour OUESLATI","Marwa BEN ALI","Mehdi Bida","Mehrez HABIB","Mendariss MEZNI","Mohamed  Zinelabidine BELLAAJ","Mohamed Amine Daoud","Mohamed Amine FEKI","Mohamed Amine OUERTANI","Mohamed BEN SALAH","Mohamed BEN SALAH, Mohamed BEN SALAH","Mohamed BOULILA","Mohamed BRAHAM","Mohamed BRAHAM, RAMZI","Mohamed Brahim MKAOUAR","Mohamed CHERIF","Mohamed CHERIF, Mohamed Cherif","Mohamed Chaabane","Mohamed EL HADHRI","Mohamed Fethi BEN SALEM","Mohamed Hedi DAMMAK","Mohamed Lahbib LARNAOUT","Mohamed Moez Marzouk (Sté Marzouk d'Expertise)","Mohamed Monâam FLAH","Mohamed Nabil TORJEMANE (TORJMAN D EXPERTISE)","Mohamed Ridha NASRI","Mohamed TRIKI","Moncef KHAMASSI","Moncef S'HILI","Mongi BEN HAMIDA","Mongi KAABACHI","Mongi MOUSSA","Mongi RHOUMA","Mouhib BEN AMOR","Nabil Boughanmi (SBEM)","Noureddine CHERMITI","Oussama KHELEFI","Rachid CHAKROUNI","Rachid FENDRI","Raed BEN ABDALLAH","Riadh Ben Ayed","Riadh GHORBEL","Ridha HAMMAMI","SANS EXPERT","STE SEAT","Saber BOUSSAIRI","Saber GHARBI (SGS)","Saber GHARBI (SGS), Bureau Saber Gharbi (SGS)","Sabri CHOUAICHA","Salah BEN HASSINE","Salah HILALI","Salah SANAI","Salem FERJANI","Samir ZRIBI","Slah FEKIH","Slim M'SEDDI","Société STAMBOULI D'Expertise","Sofien Youmbai","Sofiene BEN OTHMAN (SOCIETE GLOBAL  EXPERTISE )","Sofiene HOUIDI","Souhail AISSA","TAHER BEN JOMAA","Tahar MATOUSSI (MT CONSULTING)","Taher BEN LARBI CHERIF","Taoufik TAANICH","Thabet KHADRAOUI","Wael KHAZZAR (STE KHAZZAR D'EXPERTISE)","Wajdi FARAH","Walid BEN YOUSSEF","Walid Hamdi","Yassine HADIJI","Yosri SLAMA","Youssef BEN FADHEL","Zaki BACCOUCH","Zied BEN HADJ SALAH","Zouhir MKAOUAR"];
+
+        // Logo AUTOP (PNG base64) utilisé dans l'en-tête du Bon de Sortie
+        const BS_LOGO_B64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANwAAADcCAYAAAAbWs+BAAB2BElEQVR42uy9d5xdV3X+/d17n3LLdI16sZqLJHdLlixbkjs2mN5LgAAJhBYIvYaE0AklwC8NQjABTLUNLoCrJHdbGKvaVu99pCm3nHP23uv949wZzcgdCK8d3+XP+diy7r1z5+zz7L3Ks56lRERoWtOa9mcx3bwFTWtaE3BNa1oTcE1rWtOagGta05qAa1rTmtYEXNOa1gRc05rWBFzTmta0JuCa1rQm4JrWtKY1Ade0pjUB17SmNQHXtKY1rQm4pjWtCbimNa1pTcA1rWlNwDWtaU1rAq5pTWsCrmlNawKuaU1rWhNwTWtaE3BNa1rTmoBrWtOagGta05qAa1rTmtYEXNOa1gRc05rWtCbgmta0JuCa1rSmNQHXtKY1Ade0pjUB17SmNa0JuKY1rQm4pjWtaU3ANa1pTcA1rWlNwDWtaU1rAq5pTWsCrmlNa1oTcE1rWhNwTWta05qAa1rTmoBrWtOagGta05rWBFzTmtYEXNOa1rQm4JrWtCbgmta0JuCa1rSmNQHXtKY1Ade0pjWtCbimNa0JuKY1rQm4pjWtaU3ANa1pTcA1rWlNawKuaU1rAq5pTWtaE3BNa1oTcE1r2rPAguYt+MNMRBCRJ/16NeIPqvEv1byRf4618h4ZtgbyR3zW0GcoUJKv5VNZxybg/nDEoUUhSqEUiByFKhm5Qm4QZyLgPdo0nYs/wyKBgBcBBaI1gsLIH/5xHkHEo63gAw0KzFMBrDyVbfpZbJnzuQ/uLImB0ITYLMM4hw0h8Ip8OQZvrELn6414oaqFUmqoK0tcKOIQwkATisYjKKVonnd/GnPW4ZTDKPCpI4tiShrq9QpeBWjtjoqr9NG4GgYQGuuoUEZhjUGpkBhIrUd7hw5Mvn5P4qRrnnBPNthVIJlQ955CVOD+X/6cNV/4ImdLG07qoD2B10cfgkNHn9OWLAH39tdzylv+ht4sw4gHNE2o/WnNa0/gDNYLaSEisCnXfvIfSH9zA7PiVozNRtxz4SgADgOOQmFQOCW5NxNEMGU6pRdeSNull2ILLZRchgmCoVDj8YDXBNxT8N29s5RKBQ6tX8vSD36I0x7aSCdFhASLYI/yKT2CQYMytIinB0+x8z14gUAElP7jAoqmPZrXh3KO1AuBCSn09fKTD72f/v/4PpdKSFESMjQeP7RaHnvUWg8HnG6ALj/lwJByF70/+imHX/EKxv/bF/DFEkZkKDZvnnB/zOIB3nvwDhU5kqTCjz7wAWZu2Mmp7ZOp1xJc1ElkIXDD4jid/7f3HlD0+BrpzFmMXriYKkJoBR3pxs+R5in3x4XTKCX5eongk4ys3IKuVvjJW96EvepXXNY6ipa6pScuU0gU4YgPeGyXMv/QxjppjdGCIqHdpez80ffoPfskyu94B+Lck/OUmsv12GDzjQyXsw6bWYKgxJVf/2fc1TdyYssoqpUaXoHKLJm3OJXhyK8MSyopuBQCIcqqpLNmUB4znoyMOI4IUaByF6YJtz8iZhOQLCV1FWpJgimV4WAP333zWyj94ldcGnZB3TMgiqjqcOKww6+j/hlcQ0eGUxZHipAirk7mqqRWYXxMq0qpX3sDpHWs0jifIaKagPuDXEgB4/JdUxRExSIrb7qObV/4Fs8tttGRVEErlEh+HeUbKvFoEZQCj0fQjHvueVgDLXWHb975Px3gtEcRIj4mKxQZOHiIH7z2VcQ//THnFEdjM0EQNGrQ8XiU7XX49eh/p1T+TERa0xcIZQlRm/dhD/YSKfXITHUTcE8taBPnsN5jtOHwrj387O/ez6K6o+BTEvf491YJaA9og80SelpHYebOxQFGqyfcCZv2eC6kjLgC70m8RYchZtsOfvza1zPh5qW8oLMLXcvyLPDjrpVC5ZWDERePAj8FKC94TZ5p1gYCjecx3tCM4Z78oqZasAihMnzvo59kzspNzCp2UvMarYo4qo+5pQkQobBaYWtV4iXnUD7uBKLUUgsMxeYt/pNZVnfYUkx/z06uettbmHDrrSxunUitnlJr1wR1CzROIK3zovUwSDmdeyACeOcxjZhaeTACXg1LhGlFhie2UCNFHzcR09WBFRmR3WwC7kmCTCmVM0i8xzpLKS5y6ze+gfvpDzi/YzS2ZolEk0otrxU8lptjhDALqWoHOLoXLSYoRnjvKCrTjNn+GOejsUbe+zwpFYf0rvwdP/uL13Diyoc4IShy8NBOQjRUEvIVOGK24dqZxuUAT4EQQ4CnWG6lP8nwcUycOFJ15HRzCow2WJWhMbiFp6FNiHEOTNAE3B+8a4pQiIs8fPsy7vnEp3iJlMmcRyFolbsoj+U9iIJyCoeNxQuExQ7M4jOGMp6iFUo3IffHgk4phTEGVa+y8vqbmHLsyUw6aT5pNSWLI2pKU/KCi8wIt1IUWAEneVyXpA6FwYjl4IYH4fcbmRwV6c8SaigCpYdofIIiIC+uV1s7OebshWhAGnSjJyp+N5kmj3bCeY9Viv7Dh/nOcy/ipBWrOSNsx2aQaUHL0a7Go7iT3pMEIfW0n2jObDrvvJ5iuYvAerwCbZqn3J/KUitEKudYJXi81WRJHWOrGFFoHzfOp0ZWw+flg6zhSAalgLQcE6Go7tjKt5/3XOat3cacsIUktXijhk44qyH2IdX0IMmppzDxluuJWtqIjTnCMmoWvp8k4GjUccQTasWvPvxRJt51P6e3dlNJoTDIyXuC4FgDVaNoB7xPyebPJSqPIrMpoQ5RCE8iodW0J2mGjFSgVhdaopi9uzfxk1e+lrn7DtCpA6xN8lOo8frQK1IEnKW3pcwpP/4hrbNOpKIcrZPGo7rH4ux6bBgjUQwuOwo1Hp1aymfOQ3V0ETqX8zUBrXXTpXwy5kVwXnBOCKOApZf/G7u//Z+8or0b5wGvcFowjXSUfyK0SIAzFTSCueACFBBZwcegVTM5/Kc0qyFyBqfBaNi44i7kznuYqCNi8sK4HEl7EGCoRZq2pEJl9imE02eivaEQGQ5u3US6eRtjwhbqOLAZgRq2v3pFqiqgDdHFz6GF3DU1xozwkh5vM35Wu5CDl0ZB4kgjxdYHf8cNH/o0F4ejKVeFNLFPid0vCCGKzGoOjR7LuAV5/KYaJNem/WktUgbRGheCJ2PdL65lki7SUmqDoAhhEROXGlcLtlgkLpSpqoiZl72UYksrFe8IlWb9Xffht26no9SGiCLQDPkiAhilUPWU2tQZjD71FBLkKa3ps3urlbwgKgLOOxyeoL+Xn7zjPSw5MMBxyuRJjiAkcvYpAC6nDvWmCYX5p6KOmUCQ+jzA56n30jXtiWOBzHsipejZuJE9N9zKjLCAdh6vI9JAUdOSX0bAKXw1pT8qE517Dh4wQR7jbVy+jOkedOpBBxjnGgFAIz7TkIklO/tM9DGTcS57UhzKZz3ghEaq2AkKhxVPoRTz8499nOItdzC/GFOTOqnJF8J4/9Q+XSu0Uoy64FwSFSHijjSeikKJGkFuGIwLfYP0PNRo4Bt/ISOvwddngPdHxZSDPtQfeImARXANjsyTvqGNlzry+qUM/z54ED/4CzXcs2Fv+yP2HyUK5xwRmjXX30B5/366SwVSm+GUJrKaQmYoZJqCNQgBxluYOgV3yhycc4QKKof2sOueu5gYhGjrECuIOopBpByWkLbFZyOBIsjkKQXjz+oYTkTQzlHBUw4K/P7aq9j3H9/neS2jyOopiTIECFhH+hS6DJXSJDYlLJdRCxZgrCeTAbyNEdE5WVblhNvB7JmogMgbhJzbN0hC0uLAOASd57MbHo4ZRFqpQCYe4xxKNwhmIg1C7pN/EryWEXhVzuccTxPgVM62ecz34nHKo5yAzxncqhHbOK0QZVCiCETwCjKfx0UhGufyFiWjNMqYxq/41MjcImDCEO9SNi1fzjQRjDiM1xjr82J3I02lRCNhgSjppXX+mUQTxkDdoULDhgfXoR7czNhiGWoZgVL4YRARFIHNkK5xtM9bkH+mCUd2FzzBafesBZwCQiXUBHRQYNe6h/nVO/6O5/oSXRlUlHpKnbxHIQ5ta/hZp9Fy/InUAk0cdGIYSRsabg6oqoyiCxFJiaNCnhAgfNRFSg2kQLGaQexxYUz8R574ww4esgB0mtPbVPjom9Xg76q8oJIEZxToEK8DtM7rVcGjuFMFAiwwABRqdZS3+GKE4HFAgH5K9z5TQmA0B9et5+DSOzkxbsdnLk9safWI3641TThIyKhFZxIAVnkiY9hx82209vdRaB2Lx+JVXv4ZfLfWmoEkwZ88m46Z03HiCJRpSiw8lYdMG0NYGeDq976bObv3cEzcjliH8QFK+0fl0snjujf5TigqQ1+0CN3ZzsHV91BPHEabIQqt94JICuQyDUGaYU6ahS93ESeKBzatonXA0p4qMp8hBsywcoJH8ElANms6/mAffXt2UdaayGusAZ/zl55ClrZxT1R+qvpaH6VZp2C6RlHGPybglPNYpUmKZQwQeo/dtZPeLRtxO3YR7dxH2ttHPaujtSZubyEZ00XpuOMYdewsBkaPIQJKQOrSnFrV2GyevEspGGDFrbdQ3neQiS2jIa2g9JGu+6H1Rgh9Qr29G33WGTkxQSvqWZ2Nv72J2WGJ0PrGvcgB51S+WWilyMRTXHwWUi7jbY3gqJO/2YB6VPZQvKCVxgukmaMQR/zqs58hvOVGTi12UanVCE1EpDSJdxit8SovG6iGi2S85GyRYcgTBcZDGmhiLxwQGLVkMYd37eHy57yAcwc8Y0XIJN/rtQioCFEak/bRM2M2J/3mJxRbFL279vG9Sy5jyZ4ap7oCFZOQisM0+u281oit0dsxiVPuu5qffe6zdH33R8wJ2gickGjw6DxOfNKA86gG+CPnGOhoY+Z1V1IcNRqXeQIjeCU5tcl5EMErQxAYIKW25mHqv/wV1WtvwK5bS9azlxQITERUbiUKW0kDzYC3JFmFPoGdUQvxiSdQftEFjH3BiyhOPRZvIM0yQgSlDVYbtHr8ZEOoNd6mrPz19ZygoOA9dQ/SKL94lTebaq9Ba/qll+jEM4imH4dP64RBzKYH13J41YOMKRRQiTDYi+/wBGhSLQTU8XErrYsW50Vzq/HREU2TJ5MIC55NYLPeobzCu5yDVyjG3P+Ln7Luy1/nJXEX5Qp4FYMVMhwKTSiGVAmCJxSo6rzR1HHkRisgUxA5IStoooEBsvGTGHP62dxx5zLK+w5wTKGVwB6hB4U+RVSEaE2W9NJ+6myK48dhgI2r7qVt83bmtE2kVK0SmhSv80SLVposVDAwQGn+KdhCF4d/exenouh0DpN50iDfztVTSERoMXlcqQ0+qaDGTyaccwJ4wSqFFkFsHqtZC6YY4asJe2/4DfX//B76plvorx8C3UnxvPl0LD6dtpknoWZOJxnTimnpRBdasH09RL2H8Xv30PPgGnrv+z27//2/Ofj5bxGdOZ/O97+LtnPOyd3sWo0g8qAi0OGjnrLeOUwQsHXtarjjXmZoTWKreKUbca+glGOoI1gF1L2l8zkLiYtlXKUXFRfYdc/9jDrUT1d7K945vNYYgXoglK3GRYKuH8bPOov41NPwQOQDrHry8duzCnB5m7wmUx6tPWEYsGfHem7+8N9znm2lrDQWO7STKhQYRSaCFyH0CqMUBmmwCfyIaEwJeKUJbUYmluLi+ejuVtb+5npmWEW7FKn7ZCjAFmLILEHBUQ9aaTv3LKRBfn1w+a0c50NaEiHzQhaGBKLyorsSjFVYQsY+/zIeXPc7sm2bmVDuRqp1UGaoOP9UfEqtc76gEejFUb7wYkpxjKvXCaMIrKCsIitFhCH0//q37PzyN4huuo2IKgNnnkrHa19F4fkvpjxpCqVQUxuK2UBXM+qVKuUJUwjHT8HPOpnyuRczFchqdfrvXs6un/+cXW9+O+bYUzBf+igyaxZSP4yJHv0x9d6TZRYTBPzummsoHTjA6LYJpPXqiN88dDn/Pw0E7RN03EHh7EXUgFAHCLB+6TLGIRSdIhmWjAmMJlWW2GtSq+k4ZyHRqBYy8RCqpwygZ1dZwDeIq8riXMa1H/sUE7ZsZYpR1JQ8gpbjvM/ZBgpiZTioM3qVRSmF9jIyFhSNNnmhtKpiui85j0pSZ+DOu5msAxJRiBhENOIVzsQERpFlfdDegTp7LiFQ6+9j7x33cJw3aGdxgSYgQLlGusUbXN2StLZRXLiYLb/8NVOylGKiENFYDCIGh8GhH/OyKJzSeDQOhZU8XnXeE8VtlC++mAwQyUhthhePLRmiQz1s/cQn2PaqV9Jy0zUEc+fQ/uOfMO3GpYx/93tpmzaV2r7tbFv9ADqz+KSCdnXc3r1svvFGYuew1QHqNuHQrl1sW7EaWwwpn3sRJ37j35h+88/Zumgsa1/5Jvq+8C0kbCNTMS7LcpdNGHGihFFIltbZevMtnBiU8izkCLgpnArwjSSYSauo42cQnHQqkbeYQoneffvYc/fdTDUhzmZH3q/AeyEyEWQZWdhKeMm5KKWIUocEAso1AfeYpTEB6z3FoMh13/gK+gdXsqDUgkqrFH3OoRwEkAK8ZHgTUPSGgdCzLRaUy0+/kTlMIfAaE+UZRjpG0bn4fHbcvxK7bh1t5TIpjaZFTZ4q1yBGk0pG6+xZlI47Dg9sX7MGvWEz3WGRFJ9zlTx4pXCE1APBuToy+wT82BJbb7qZ6XEBKxqvA+pBvqqiBKfzS1Sejh9+GRWAKFI9KP0m1ENP6qvE046hfPopiHcEKiDNhEocYlevY8vL3oD9py/gKBB95h8Zf+N1tL7ihUQFh6pnFJzDVCocuuVuImcJTIQyMZl1DOzYAUYhYREdxBy6ew217TspiKGv1kd94ACdE4/lzA99mRk//3d2//5uVv7VW2HPDrJQU09SUjwZHhrrZYxh84oVDNzzABOjEpWshhqWyFAIVnucVngtOJUQzZ1HOLobn1ZRSrHl/t8TbNvG2KiEFTe8+oJx4AxYl6DGTSQ+eXYOXGXwfwAj9tkDOAWZOApBxJbblvHwZ77EwiCAtEpiFNp7UAqv8lPQI4RBQMFnVLTwQEdIj9aMcVEDAGbECWdQZFoj1T5a55yMnj6Dtb+5nu5ahUgCCqlHN0CvAeUtxjuszbALF+CCIgZ4aNkyWvf3EEchyoP2DTaMBkSjQk9ASnDJi9m6bwvJht1MDtqoywBFLNqkeJOgyFuJjAxeDF1a8p6wWGlKgSJQGSUdUoxLRAg9i+ajO7sgszgTUSwXkKW3s+1lr0bffA3m5JM59mdX0PHRT5A5zYarf4NNHfVAk2hD69hJZIcqDAz0gjGYvH2eUinKI1gvRN5x4N41jJ05k5qCgooxxVHse+ghDm3YTsuxJ3Pajy6n9ZzTWPqxz5Bs3g2FGFvL0C5Pq9ZxCLDx5luZ3FunjCIShRmqQQoKD1i05HdkwAjhBReQILjGqffw0lsZXe2n6HImkDd5hleJYLym6hKUpJROOpV44mSstRCqfNN6ihB6VgBORHDOocKQyp6d/Pzd72JBT4VO00ooIdoEpEEwIvWfak2gW5GkwsElc6iceBKlviom0mQ+HaFholBkymFdiiIivfB0PMK2629mpi5Sdjl3ZLgYcyoaIxkqaCO6YBF1gKzOwzfezBgd59zOYa9XyiMqpZgm1FRM1wVncf9VN9LRtw9dOUSWHCJNDiIDVXyW4BqMW+MfWQoJlELZOvuTPrKBfpJqD3tr+0h6eqi7lOK5ZxJpTVVBFhqyG25lx2vfBA89QHjBc5n2q19QvnAJfbUq7a0lDm3YRu9dD1IIDPUsIyiXGT3/NPrrCbHSZN5T6Opm3BkL8q0pDOgb6CWeMY7y5LEk3hILuAP7ePCH1xN2lKFuOZwlzHrT2znhTW/k/m/+ALbugVKMOIdoCExIrdrL2l/+kmOCiIJXBN6MyBaKUohXaAOFusV2jSNedBIRigIan2Vsv+VWxoRh3pqlDGYw+SFCiqOsApyEqIWnYMMAn2X8ocy84P++J5l3BosIyqf8+H0fZNwDDzOrrYOkavNGUCFP0w9jOGgtZMlBesYdQ9f738buD3yBs8IiyjuUkRwAcuRnFJRCtOYwIW0XL2Tvlh0MrFnLlLCIshk+1+gaen1ETMX3ok44ieJppxEA+zZtoLp6NZOjApJljZpdbsaHZIHC1S3ZtONpOXYSx2wfx4z3vBdCQ1EFpFlArISNV/+Cjl276FIBoYdM526kGkwGOcG1dMGrLsHGXcQ6wUUOU/NUY8+4MxZivac9iqmvW8Xuv3kv4c71mOe+hvL3v4zvGo/tTxkVBySh45TLzmPVD39N9+knU2qLsBomLlxAn8mQxJIYS7GrzLh5p0AjVtQm4OTnnke9NaJtAGptIVu++0uOnXUc5e4uBg4cImqNSRPH+HPmExQLrLj2Ok58zUuhowTVhFKpyNq77mZgzSomFcvYap1MlfNgfUhi3hMpA8pR9zXi0+dTmHQMaU2ICgW2rFhNsmol4wsBqm4bHo40TiKNVp7YCj0tXbRdtJACoMLwCdtwnnWAE8l5C8YqnLNEhZgbvv0v9P/051zU0kkVAZO7H0pAeRATkPmc0hQbR4/UmPJPn2RD2EqybhXjC50kSYbXGryMOIMcHqo1qjNmMvO0eSz73o9oTfpoCTvwLsMbjRJ/5EzUjrpL4dyFBN2jiID199xLy/59dBa6UcNUioRcLcqFIXU85cVnY8dNZP5r3oh/zbCYE+g7tJfl1/+U88QzCoNVvtG9kIuf2kBQ1RoH557OzG9+kSgoEzWYLhHQDwQ1cFmKqQ2w4f3/QHnjKtTZz2XSd79F3QfsvOIqJrz0gjx7mkJw3DRGvWQxhyqHGV0ek9csixFtQQFJMkomxOPxyiDeoxWUiyVMqYwRIStqavv3UCy00/Gq59J332p23LeSya97Hq4UEQ5ktJ4xm+nlmH13PsAx555B5jQZsPZX1zK9ntFWMljJyIwnGEFvVBgJGZAqDqF87tkEKqbu6qAK7LrrbkZVqnR3jMKphtPnpUG9Ax84bK1O9ZwFFE+ajXZ518cfavr/GsiGF3K9F2rOERViNv7uHm792D9yflymJUnQmUZ5R05dVogWcOACTdEo+gYOE73sVXS8+bU8dP0tTEgz2pzLowarjlAzGqeGaMhcP/HF5+IKrWy642YmKY8RTSZ6+MsHnUq0KtFy3nkIOVl4863LGWctRRPkTJHhGdPAE2aWTDyt5yxAYfD1OirLMNaSJQmR92xetpxow3ZGB0WMg9QofEPhWQEoT50Ko844jSgoY1yGWIuq1fH1lGI9wYUZEods+8qX6bzuaqKpJzLqP/8ZxnRQ7iiQpAnrv/RtygMOVAgZTJszi/YxnfhAUFqhNBjvUZEhEkVBDIHkxWitDEYbPIpYaZCEUJcY86ZXMLDqPu547/vpnHss5ZZ24tThy4o4gwnHnUD7rGkMHOqjVCjSW+ll4y03cawpEtZB6RilXYOj2njAlcICkdPEpTF0LV5CAhSiPAO5cdlNTAgVcRrlTakNreW8c85CIFgcbRecjSl24Kz/o8Sy/8/GcAqFcposNPT27uXHb38X83sck3wJ70FsOqSypIaBFJdwuN6HnHgKk77yBQ5U+9m2bCnTwxZc5gm9IkQRDNtDvYLYeVIdMv7cJfRVq+y8+/eMp3TElRjugmjQdUtt3Bg6Tp5DCFQP7mbPXfcxISyAtTiRESLOdaMhqxKMnUFx/mkoIAhDdBCggwAxOYvi4etvYlJmGWUNUSZD+K4rRxYagkTRG7fSfe5i4pwOAFoRxFGeLNCKOAg5cM89JF//FvWWmPbPfQI363hsb4ZVAdNe/zJ8Rxcrb1xOahRRJhilCYNwaDDGoOaIGjwqBv/cmDY0FFt7nyeHRnWQ3bGCXRe8kunPX8z4ufOopiliDAEGEwTUXErn1EnEnR3oELYuX0a2aRttxVIuKKTlEcV+EYFIUUwdyezpuBOOyxNX2nB4xy72rLiPMXEr4h1ecu9m8MZ7oJBCpdDK2AVnNYR7/7i2Kv1/C2Qjb3SGp00rrvvUJ5l2933Mj0tQT0nDCPQwl7ChT5KZjE6l2Fdup/WLnyKeOIHdD/wOfr+GcVGBBIvVgjMM6VxA3pRYyRIGJk6h9fwlbLrnHgoPr2eSbiXLUgjMkAuaZzQ1mU8wpx2PnTYZA2z+/QrMjt1MCCN8lqIDM8TaFKDkAmoygJ47j8KsEwi8HVLHFxGKQUilNsDeO1dwTBjn6sIaMgOhhdgLFnBWiE6YQTT/DFKnELE48YgoMi2oMCCo16l/6RuEfQPUX/86Cq96KSUcqqww1qNqnplvehljTz+JQupIY4XSOo9rVF5EVyMAdtTV+EerXNnaFIrUbryOfS94Pt2TpzDzHW8jEUuIEIvCN/oHjVLYekIxyLmW66+9ngn9Ke2EaCfD4tSRz4RW0EuCWTKXsHMMPk0xQcj6391PuHsXXTpGsoY4b6MNS5H3vvkko37sRPwZJ2I9GC1/VCvR/ynAZeIQZxHvyDJLEIXc/d3vsP0//ptF7aNQWUZdObyAVgHiG71nJtcaLMUhfUmN8R9+F+VLnksmws6lSxlTr9ImEV4FCLnopzTYJaLyupoiJTz9FOju4sFfXsV08RQbs8lEgfaeTDyRFwZCsDhazpmPDgp4YMfdd9Daf5gWIhT6Eby8PBJzyDmnY02ITrMhmT7vc+jtXLWS+qb1dEQhCY4sgMCTP0haEXmLMEC8YAGqazRYR2BiAqXIVII4BWi237gUueZqggmzmfW3H6O6Yz8P/vTnVA7sIoo1RiliHTFuykRCpXG6Qct4MlxWyYdnKO+pJRCGEQd+chWVV/019Uqdln/4IJQ70dYT6oYSSaMHMNQBsc4JBgM9+9h48y0crwOCzJKaPN2lB+PxIcoaICmWkMIFC3Jx3oZGydqbb6TNWlq8GRqw6EQheDLtcaYE1IkWnkrUMQabZfjBU/vZDjghL2qL9VStJYxjdq1dy00f+0cWqxImy2laymhC5/EuHz+kUWgPYRhQ6d+PP+8ixn7w3cRpvvtuuu12xpiAglIob9CDSRY5kuhXWlMno+ucM3HAtmU30xXEOJeiVDCkDqyMwpGDLyiMom3JEgKgnlTZcvNyJoeGUIcgZuSER6VIjScqFOk8/ywQsCZvcB3O31t/2zI6a320SN6UKUDo82J7oiDMLF4r2hedR4AiVB5DhNEGAwQSkviUvv++gmp9AP7iuXDcZArdJTpaOrjzWz/gwaXL8TovizjnkEhTRqO0flw+ofce5xzOWuqZZcB60oJh5399nwNvezfxwZ10X/ZiWp9zMcZmxDrIe/ACTWAMgTF5v5/K4+XVt9yK37yVKcUYlyZkYd4ZYI4kKHPvTyu8rVGePJXo9FPBgdYB1WqVfUuXcZwNCRxHyOiD7q8GbQ0Znpazz6JMiFaNmTuqecKhgBiDE401Blvr4xfvfQ+nHehnFkVUlo8TGmqvUYIEmhBFMYxQ1RqVGTNp/9bniFwZHwq927eSrl3PpLBMzaYM9yUGe5eNKALnqLSNoXTBeex9eD3Z1p2MamlBUMPiRIVCUytHtFbqVE6eSXTKKbkUw8MPU1mxjkmFDmyS5GwMGcFhQpIB+qcdRzRrFiYDHwR557fklDTvMtbeejPTVESLREfabWgUcJWQ2YzqxEm0zT2lcQ/yk8mjUGlEFEHl4dVE119L0DGB7le+ilTyjWnKpedx6VveSJqk1Ko5m0Opxu/3JDQ2c3dSI96iJYRI0ffPX+LQ37yX1oH9+DHT6P7gX9IfCloMyuQu6oj0e2MklAbuv/IqptYdZR/mDa5eHoMjqkiTCumps2nvnkq1mhAUYjbddTfJpk0c09JK1pDPUCqn5gmKyEVESS993ZPpPGtR7k4aM6y403QpIaiDtrSbgKs+/Wlafnsr88pF+uu91PTIKE8pjfcOcUJVMurFApO/+E38rOOxaYVQG9bffw9q2y7GqBBRMrSLDxVUtSLwirTWT3HKFIqnns6qa69n0sFDtIqBwVMIqAfgxBM7SKlTuHABqtyFAlbeegtth/sZ5SKU9aTih0YkDX7X0FWIF52Hae3A4Yik0R3d6L/avXkzh1auYmoQ4nxDmHTYZpQzxByF42ciM6Zh7TDJB8CLI1OQXX8bvrqf8qIzKc85hVASQhWQZKCOGcvJF59PqaWEUkck4Z5MW4pSCpzFG4NWGQc/8Q/Y9/89k6OQfgT9trdi5p1NIamSheYxvRhjDD07t9Nz+z3MCYokWZZ3Ujza65UizDwVPPFzLyAwhlJ7zKHKIVZ85RucVE3JgobbPzivG492OegH6Icz52GmH0eWeioq5Y8dCRE84/1IBNeIk2zFY1rKrL7y52z8xjd5aamDrJpgg6gRoMsRvReBQAIqhYR6pZ/yu99F8fkXI/UaSQnaBDbcsJzxztMShfRVErQ+UvNSDT6fjQ3eWjovOBenNNtvX8p00RRFYSVPVKiGixcHEdb3Y8MShUXnEJCL36y/bTkzUBjvkCAgcB4xoBoUpYwqEhrKl55LCFRsHR2U0C6vTgQKtt5xJ207D9BSaCNNcld26DZ5oW48ZQKyJfNQQQhJCqFpuFIWohzo/tZlJBhGP+d8rBHSnl7K3e1EFKhIRpZklIIYeZzCr2vEXNpbUAYRR815rIkpJ57Nn/gowVf/nXJHK4eSQ7TMOI3iu96EeE/sCo2Z3GqEN6G9kNmUKIpZd+ttmO3b6Sq04NJcvkE1tJWHqHmNtydKKJQ7YdkytmzagvV19q9ezZRb7+PYQgeSuEEnIj9AxYEpUi1EYD2dFy7BaA06I1IBIn+cnugzv/AtYLQmc5YwbmXTxoe56sMfYZH1tBmFJyRqKPKM3J2Ew62OrkN1ZMESOv7pkyjjCV2EGMNAbz97lt/FQh2RpAlGR3iyoQcg8EI9MgRKMCYkeN75DPQcYM+9dzMvKueuIRE27/9GaYN4CGxKOm0WbSeegQH279rFoVWrmaAbmUWVK34p58l0XheM6ynVyVOI550EAoXAIHi0aCre0hpErP3tDUx1EUaFWJ9gjDpCJtN50T2N22i/6LxG3HlEbt2T/w52fw/qwbWUCqMJlyyh92Av2355K9QO0DntJKacdTrSWqCmoPg4fWBKKTKbEWlHmlmigqYchLj9+9j4kY9S+85/0dV2DK5uGaiHTHn/eyh1j8bX6xAWHvFEiyfvUdQ5B3Xdb3/DMWhipfBWocO8qJ+farlO5eAaJ0ZRyDTpj36GQ+GJmIAlKpXwNiPwCq8HT/qcXxlpQ1pPKHaMomXJAgygjW4wVp7FJ5xH0DpXbNICxtW4/m/fy7QNmzmltZtKJQNjHtXlcVoYVavSO24io7/xWQqtHZgkw+mAWMG2NfeTbVjHuHIHLklz9SYZWefLgoBypYadMp3ignms/s1NFHbuob2tG131Q3r2ShSJ8RRMgK9bDp96LNMnTABgx4p7KG3fTWexjKQ5C8MqKGBI8GSBos1HJPMXEIyfQpY4TGjAOcTkCYW+w/vYe/e9zCoUcwk+Ew8rKOTgiqo1Dp04h+7j5pAhlIxpCBUNyjFoKusfxm/aTHTiXLJJUym2tHLSiy6md9tGevYn9FX7KXYW8V6eME4JEKwVgkKJFQ/uYMtDWzhw1S+ZcPmvOKtlPFV7gFId/IteTOkvXoR1lmIQk+lB6Bw5QXWj0z4MIvZtXc/eW2/hkqhMkIEzGuf9iDhS+5FlIo8iitspiEGjSHWGZJ7gKP8wbyTWxFjipJ+++QvpmjMnv6d/oqGZz2jAuUFdDe/RYchV//wlCtdex6Udo0iqCqUeDWz5zQvF0J9oSp/5AH7umaj+GroQUFeeEob7r/kVk9KE9kiTeoU1fmSHt1aUE0Vm6wwsOZ3JrV2s/PVvmOnJXUOrhlrCRSlMlqFUxAABnRcuzhMICBvuvI2xAzXK5TZS8UjDJRpQ0KIMJnHsw9B9ztkEOsC4DBsrAvFYl1AMCzy47F7Ku/cxxoTgPF4VMZI2uKEapwTr67QuXoDuGAXWooNwaP/wDdm9ZNd2AlendvxEOlqKUK9RG9VKZ/cZdJHLg7vUEunHf2xsVkd5h/cRX/zKD/mPH93IgcTTUVQce+YLWdSznzftvIt97QmTPvYOamFEOROS0KPxxDLyJFE4rFfEGB667gbKO7YzoaUbW3MkgWCcxwyjk5thEUdDqwsnFocllzzM64VuWBuONAgMxiv6ChZqjviy5xPG+UmozZ8GKs/IpMmQgI1y1JIEF4asuX05D3zpC5xd7sTWhHSEfOdgSCBIGKGVwSX96De+jol/8QaiusWXgrxdwysSX2fPHfcwVoV4Z7HaoRqFctVwPZQ3WOPwZOhzF1NNLVvuvIcxQUjgZESMI3hiHWN9lXp7F93zzyUTyA4fYsey5YyPYyx2mI4jRCJUQ4UmISjHhOcsJAR0pAmVwZiAus2fmO13L6e7XqMFDdYTOTekpe9UozvAxMjiM0EZvJUj8pCSDydRQNBzMH9gJ0whUiGFoERBBVinsGmKS1MKUdhQI35sMyZEx2W+/v3r+NJ3fkkcF5na1U3U1s2achs/nDiWK+JjKLztA7TNXUCp7lEmZ6uYIW2zYQAWn+vFSMbKX/2SaQSIaJQyDXd95PxZH0gu7SeakgsInRB6IRCPEY+XQfVPj8eTGSHRQmumCMIAnKM+fjyjX/JcrM3pYX8q2V79TAUbgLYQ6ZD+vTu59q1v4+zU06YL1JxGazdyDLAHj8GYKmG9l32nnciUf/wAh4OQotF4I1gUcajZufFhqps2My5sxXgB8WjnR+RqAoFQ6rjWTo4572I2/X410aZtjI1bkLodMaddoUgVSDJAy6knYWZOQ2nYsW4d1ZVrmNDSQpZmSMMtMiiUuLxulVXghOkUZx2Hdx4VKAy5Lkscx9QHetlwx1Im6JzK5ZUgyh5hqWiFZJZgyjRGzZ+XE6gD3XimG2WFRo9edqiXDGifMBGvHL0DB+ndsYuBvXvIBmpEyqAeoTr7yPVR2rDn0CG++4trKHaMQYqamq+jkhptWUbFCTedMofCm/+CDIsN8iRJQK7ZMkLJWASLxoSa7evXcHDVA8wMW1BJ3vSrHyVcMInCeE0aCL1RhjURXsUIRRQllC7iJEIkRnQB7QJG2wK7ywpbr6KqnravfJpsxnRwbkTG+FkJuPzyZGhUaPnZ+9/DMQ+t58SoE9VfAzPI0JERqXUUOOrsbSsw9sufI500nSBJCZRH+zQfp66EPXfdS3HfQcYGJUyWu5Ij6zwaFThMtZ++WXOIp0ziweuvYWqa0KkiAh0g7qhGNCNoUYTnnkNaLhEAK5fdQnelRldmCAiGzmQRIQugiMJ5qF5yDmEhd22GD8ONNOx/6CFqK9cxxZRQNsMZTxoIgwQlrRQDWZWe2TNpnTQJl9aJ1JGNYPD4N0DqLHVAtxYw1ZRdN9/Guu9ewZr/+jFb1z2cj9eVxxfLGdwQd27bRb1SpRgXcanL65VeEVlPu+vggThip84oSZ7wGPzMR4u3LQplYONvb6BjzwHG6CJxlitDPxr0syAkVBGlekYps4ipYIMKLhjAmgGs6kOHdQiriOonNQMckB6i/oP0tmla//Uf6HjVawirDsLsKPWaZ1EMJ0MS33kCIw4N1//rN5ArruPsUie2b4AwCEkjja5kKGOGbpZTHiUD7O8TRn/h44w9/3x8mlI0AVWEgo3xWpHg2XLDUianQhTkWh82MoR2WF1MhDRQVBFGXXgxFYR9d9zIRJ2ibIbyQmgMTtyRepC11EotlM9bRCvgXMq25XdwAhA4R90YlHdDANDiqKGwhTa6lpz9iAfLOYsJIlbdcw9dh3rpKo/DZQmiIXQOvEYZ3fj9hc7Fi7E6QEuKcjTKDjJ0inggigvUAJtmRC1FTnjhRWhzcR5USkAqjjAInkCYM380i6USQVCkmlqKWqM9WAOpErxRjK0bxkUtuXraMDHVI+GCGqKDRcZQtRU2/uYGTrExJlQkwaCrqR6h7Z+ZBE2AdUJWNDn/0fmh1xUycI32pzgKMXFAMnkS5uIlTH7LK2g7ZT42S9FaYSXkTzl/5RkFOAUY60jxRFHMprvv4O5PfJqXFiKKaKoorAaTebQZnOU8mBnXVOuOyS94PcH7303VQ5uJ8CbvA1MNzmFyeC+b7lzOJcUCmUtwWjfUsnKqlyLIywf1Okm5lUnPXUR1+34q61YzvtxCVgMVhA3Xq+HLKgXJAH3HnkjH7BMIcOzatonq6jVMCMukmQxtDKqRlfNhRFgdwM46ldbT5uaL1ehKFxF0g8C77pprmGWKiDakOiRwCu3ImSUqIEj66Y1DRp99Vu7OmFwVWTXAoRry4xYgNrQB0l8hBSwBERlWGUIcBo2zFqVzafJHdZmUwjvLtCmTmDG+gwfW1zFtbYjqR3lFS1TmQP8hTjnpGMZ2d5CJJxgmgXf06SleCDTsW72OnrtWMKFQwIrFqsHiWZ5r9Y141WlFWRSqfoiB5z6f7k+8n4JonD7SXCxJHWstSkAXYuyodsa2dMHECbkgQ82iY4UPdU4weIoTcv7PAM6T8wJTHEnPfn729vdxTkUzKjTUbZYrG4sQNpgWcoTfA/WUYPyxpB99HWrHTsJ6yt6SQfk8HnPO0VqK2XbTdRS2b2NM0Il3Ludb+pE5L7RCbJ3SrJMonXkad//kWmRnDxPbJiBZHRfnxd58kfLSRY2E8rwzKI8ejUWx4Z4VhPv20xm1Q+oR5Ud0L2insC6jNHcuxe5x4FwuZUcD+Mawb9dG0jVrGUNMkmSICnLirhIScfnPdiktc8+g9aQ5eX+XyfvRjrYQiMeOZwAo7dhNkAreKcJYE1Igw+G9xSdCFIaPG4yIeAqx4SPvexN//bdf4NChlLAQEwfCgYP7GNWpeeffvoKwGJDZkSn9oRnrwziYgTGsuP56ogM9jB41BddXHdb6cyT/E3gIrZDGUNPQ+bIX0Dl/wZOSTXcAWYZGkFChVEDQGJ35pxwx9owAnG+cFraRsWoxiv/6+w8y8XermFscQ1YfIBkEhHoUj8d7JDAEA71UXvd2kmrG7sH52412Q+XhsCnhKod4qemiNXVUlX5U390oxWEy4jMXoMIy6379E2aIopxChqIiNh/EmOfQMF4YIGDsxYsBjcOz7eZljKs7SsWYuqo1puvowWMCk1oO6YCu8+cRorDeDfXUieSp7y133UW8czdj45z5P1R3U5BqRdkLfXiCcxZCWydVn1HSAbi82314tUoBjJ9MrzIUt2yh4hKMMVQ37WDrfetJJeOY+afSMnkiCcLjiZGbICSzdRadMZvv//sn+da3r+T+tduIA8u5C0/mLW94EfNnTcf7LG/3fCzxKxG0MUiW8vB113NSUEBXMzJRI/MqjbcHQl7IzhL8xGPoXLQQkzoyMxI0+ii/STXWlDAcet7+t+b4Pe0BJ4M8N/GIc5TimKX//V12//vlvKJzLGl/naxRb9PqcQbdG82h7DATNxyiEkG70qgG/0fnxSgSlTHKRKBC+nRI+BhBvPZQVdB20WIqlTrJsjuYXChR8w4J80mpoT/CnvdZQlvXFMJ5C3FA7dBODt51F2eEJaRu8UZQZthWjcIhBN2jKSw8IwdY43QbLGQDrL3pVsZ5jzLg7bB0ikAxiilVHYfimLYLFwMQO9MQM8pd46HCiRIyIJoylbYpx2DXbaSwu5d9lV52LruJtuIYxp88k/LoTpzRjygYP+Jee4UmJsuqzJ09he9+9f3sP9yHQdHd0QpALcvQShMZ3cgmq0dde601G+5YgVu9nplRTD3LEGNyChZH1k+AREO9YLADA7SceQl+2nSqNqVo4hFaleroUQlqWG4A/mC9kmc84HJ9d8HpOmSaOCywfc1K7vzYJ3lO0E4p8WQ40AaNwXv3mL1KygtjfZl6DEaESAyZHjZrWwllsSgPSgKcyqeqMOIcMKgA6tJLMPYYOs89n4fuuZto+1462zuxtdwtLLhcYcQQUYsz4qRKsvBMChMmEQB7V6yl+tA6xha7sJV84J9yR1p90Jo0q5KedgaFqdOx1mN0Lj7rci4blYP7OXzX7zglLBJbT+Z9o1eroWFpE0RVkYnH03byaSA+h9jgXITBvV2DlhCXWlonjiE97jj6br6F3u2bGbtoLq2zJtMRFLFA5jKCwWFuwmMPIlS5pxHqGGcdSqWM7WjJN5Isz7TGw5MvR32MU57Aa1wjflt586/pGuilrVjGpTofAT2CnO1BNXRTfAWNovi8F5BoTSymUf4/KhnwKImeR88B/WlPuqd1WSATwVuPOMNAEFGpH+Z/3v9eTt7Tw7SggMpc3h7SKGY+UTop1R6RvJWzRoYXh4jDSz560GFIlaaqPYn2R/NTMCbASQZpSmnWKRTGdrPylt8wWiIKgzr25E2PhlyaXNkMiGg57yyCUj566qGlt9GZOiIv+Vw2pTDDMzwqT5x0LzkPbwrYepKflJKrSRkU21evwm3cxphCCRoJgCNUKCgEMQdtjWj2LKJxE3LxG6MwxqCPmviiUIRotIkon7MQ5RJ6b7oFqwMKWUS9ViVJ6nlBG0VQczzReMp8KVT+Hh3iHDgnKGPQYYBWKk/eqEcO8BIvWJuB0QzU+9jw2xuZqkKUFYzWR7Krw+Iv8Z6SCSjU6qTHzqTzvCW5psqjDQJRR11/Rnua1+FyNqJNhbLWXPvZT9Py65uZ39KFrVbykPYp3DA1spL2yJ/WeGqDRjwwPEjwRiPiicKQqoeW51+EFcfum29iHIbQBiPdWRG8ccRZRtoxiuLCeSRAmtXZuuwWpuqQgjcNqtkRDRCUQtKMWtxJ6byz89jEaJw4RCtso3drw61LaentYayJyHA4dYSiZLwQiKOqAjqfc15OXvYyJH3waDfGqVxUNbzsUrJ4FPWf/IS0vycfKF8M0DEcuuVeHvrtbewnRRrSg491KgzXL8lbeY4A7ImWzCid0+GUYtPdd2NWPcT0oAXvNRkuz0APv9tiECzW16mKRS57DhwzicBZnHHwNJru/LQGXNSQJi+XCqy56ids/+p/8oLCaNIsIY1KGAkeyXpouDpa513IT/YSctKwNHz84QecIlfVCkVR8ylS7CC8YBFbN69Hr1vHmDjffUc8y0qRaEeS1YmmTSU68QSKwPYHH6L/obVMDmMim/MYj8QN+dPpbZ3wtDkkJx9PlIKEirqWoQJ+PXP8/qZbmK4LmGoFp2SEPLdXoGxCVG5Hn3VKvpmYx+9bq2uPSQR38hzCiy6k+PBK3I13owqGbOc+fveVb7PqrjsYP20KJRPhrUMeZwzz42maPOE2K0d0NFf95BpGV6q0xiGpz2uKHBU6aK8wgaaPOlmx3KiNgrgsv8eqCbgnZCqICD4TVBSw/eHV3PS37+cCiSmIIk0yNGC1DAXDGigTEAcayar4+iFcvZes3out92HrfWSNP2f1XtJ6L2n9EFIfYKDeT+AcRQdFp8gC8mmeg99JQWBV/v+qfdQnTaXtuGPZeMtSij39dEY5F3LQrfMKBENRG8Bz+LwzKLW04fBsXHEn0b4+SkGRtKFjrzxkJDivsFEA1LDnzKe9NBZrqwQqICRAu7xfbvuGB3EPrmZSsYj4xlwgf2QxXaA5mPQTnXoCnSeclmcwtXpMj1uAUOdzEVqDIl1//Sa8Uuz73k9J6kLvzi1MOH025374XbQcN4VianFhiEdD3VHH/0mfASMeqw0DvT1sWn4jY4yQWUcgJs9CjlC9JpefEANZij/meEoLFlAUIQgidBjxNMLb0zNpIiJkaUqGIU4Sfvyu9zJj227GdYylVknyRkCf18iGH3ADqoKXkP5xE1GnzUGlFaJGml01YqzhIFJZCroILmPHutW0HK7R6fPubu2H8XuBSBQV42gXTXruAoJCkTXXXssUFaEaCQsz7LxNjSdVDkeRriUXUhFD0cKGm+7keBNTEsmLt3IkqVMMY6r1Ki4oUJh/OgEKGxu0QIhCnMWEIRuW30xrzyFK5bGkSYI2waBaQj4YknyeWzB/Hq4corKsUXt77EcvVAqJArxzdF24mN6LLyX71f/Qe9OLmPS8F1AnI01Bi6dWMrhqP76vSnnsaILUQzRS+OiPSTY48cQmYPXtd6A3rmdK2IpJ8xg9VTwiMRYoITWajrowsHgBxa5RuCxDhQF/nOTPswRwSuWya+Uw4MZ/+gJtv13G4tZu6vUkdxXF55od6kiyV1SejldZkTHf/TqFC86hkGl8cIQipEZktoTACU5HUK/xrYsuZu7vV9IexBjrh9gLRwAqudKULtN22QUc3r+f2or7mVZqhdThgxAz7B2BCJlzVHVMRzlGKejr2c3+e1cw3wQolydTGlpWBDok0wmxq7F/3HhmLjqHqpBn2RqUNh2GKBH2LV/GNB8R+1zkJhBBo/MMpgJlLbrQQeGCS/K2EyzB4yy1IhdFFaVw4lDFAu0f+RC9v72WPZ//J8aceTGMivAiFIyBnl7u+s7/cNILLiWbMIYwdU84avcpRe46IBLPg9dfz7RqxrhiROJdrg72aG6ad1inSaMS7a96Pm5YHI1ST6tn+2kZwzmbEYYh9117JXd/4YtcUh6FSy1Jo0yg1ZEC8GCWTQPVmiX95Ftpvfg5kEWgCygpYFSBUBcxFIZdRaw3OBOw7eENJBs20RIXCTOfS8sd9UBmoaKl5jgwehSjlpzFxuX3Uj64nzFBgPH5EIjhs6QDbwhVxChStr71HRx6+SvY98Y38ZxtBxjlNanWw5OSZAKJtqRphZYz5hKNGUeUCYHLxyxl4lAmYO+uvey+7x6mmgK6bnM3d1B2XeUxnstS3NQxRCedgc4cObFEPWFaUaOIVICpp3QuOofgXR+kcNu97P7CZymisdpRObCX333rO0xdfAqF2ZOJ++uIzml0zrkhksIf491EWnNo5y4eXLqUY6MWAueHetdi15C+G1Y6IgBdr5HMP4VwwTyUzaUPn472tADcYHE7cQP4ShUXhOzZs4ul7/sw850n8hqnAiJMrh3YONmSwFFwoHTEQaqUl1zE5Pe+A516WhwEoRAHQqiFQOX/DrVglEeLJWzUjB6+/UY6D/cwxkUkjQhBe08gntQYnPJEYsmkQueMEwjax9GzYRXFWopWQqaFOBs5Hccqj8+EICgzZuNesp/9CvPrZUx1QqBCxOVZz8EUeqBKGGPzTfm88zAKQp1LhSttCJJcH2XjyvuQLfvoKpZIlSeUECWaTKeIcvk4YjLCOWcRTuiATAj0oySXjn4QhhTNBK3BuSqzP/whkrMuYv03P8fOn/wPbWHElk07mfq8xUxceDbZgKcSGrLqALsfWIdkgsogtZaq81jn8TbBin3yz0IDsGtWLCdet57JcTsD5On9vPGXEZlpJYKNAjwDtJ5/HoViB1oJgTaYx2AKNU+4wTS6CrFhhE8qXPeRDzHloU3MidoJU0dsc1eJYY9OSxqTxQmH/W5au4+l698/S7WlDbEOHdqGbPWjXYNPeYQWx5ZbbmOiNQ0OZk5iFtVY3EaJwOA4gCd+6cV4FPsG+vKWmtQ3Mpwe3+gidg0RG60UKaAKRaJiB8ViG1nj2+ujn39voVKj3j6GUWfPy3fuwcRlA5UBsPHaXzO9nlHwuqHMles0eiI0AXGaUaVG6/lno3SANwp5ErUTNeyk84FBOUNlXCdT/uNLHNt5HPW//jsO3r6M2QtPp+W0ebgatLiQtkLMyltu5PCDD0HBkOgEbIqzGVZ5lOi8NepJJ8zyb7LuymuZbXN6XDasRClHsYlEawoDGUlHF6VLLyYQhdP+aRa5PS1dSkFlhjgOWfbNfyG5/Ecs6BhLrV5jILJUQjdC+s0roRZFBN5DJpQ+8yHM8XMoVy2F0GAD/Zh7+mCCQQWKytZN9N53H9NMMW/haJhtgC10uVABYok7J2LOXoIBukZNoE8HKBPlqsiBetR6qoKcy+kcWJcL0hyVIUQUKnD4DNzceRROnp0/fI0HVSGkUcDhw/vZescyxhdjtDsyj9xqlbNtlKCzDN82jnDR/Dx+E4sbRO6TiZ9FcICRkHK/xZx4Ch0/+Bf2FkL2veDN7LrjVqJAg/PsblP0btqKXv4gx5+3gLpYfKBxvf3svndlrvev9NC8gScCm7MWbTQHtm9h3/U3cULcSj2tP/77tca5KvUzTiQ+fR6uav+kDaP/ZwHnvKMQB6y95Rbu++xXObtlDEG10SyphThzeaYu9wIxXlEkoa8uBH/5Flrf8DK0s8RRSGoEpeLH3OXydrqchvX7O26nvm8PbeUYbz0ajVc56Th2OeBsqOlPqqiTZtF57BwqeGYtWkBfa5EBfK6QlWXEThM5ReTyZkvVYFIrchFUNazGpxpqXiYXWyQJPE4c4xYsJIlizDDwey+UtGLffSvJHnqICYU4n3jTmGftlMJoj5CQilA+8Qyi6TMw1qLwOOHJF39VXjj32uIjTamWEZx/AROu/Dm1SNNzyWvYf+1V6HLA2ESzfeN2pv7FC6mMGY2pQ0jEztUbCTbuohSEWOuf1PDCQcABPHjbnRQOHCJoyWlZj1e7Vgp6jTD2kosohjFOO4xIE3CPZhZwaYa1KVZpevbu4Zr3vZdFlQrdGSAhWgxhlg9/z3QONKcMBkOh2kO68GzG/PNnMGlKpBUSKMKGdPcTeLBYYMM9dzDVhyiVkkYKZ3I3RbQiDRxpISU2ghATnz0P12XQA8Ixp5/KSW/7K67v3wMoOoxHAqEaeSqRx5tcMFIFCq1iajSUn31IYhyi8w4GHQm4ASr9+8nKo1BLFlJvUNqGn4MOePh3KxifWVptgAsCbNBQ5JKcZ1kIDKmy1C9ZQKFcxHjBhCGxenLy3IPqyCYICMMQE4EJFNTrjFo4lxnX/ZjopFnsfMHL2f3pL5JSZ+ZF59B6whzCupBFjlCEgYc30HHMaARFkAn2CSbOWBxOPDaIcd6y7rqrmCSW9lq+ybqj3q9MgCFfH50NEHWORS55HkYEa3ItzKer/f9aFtAelDIkCLGBKz/5SbofWMfMtjakWkVUPLQ7eq0oOkWiPfXYkiYpB9rGMOmrn6DYOoosS4mGu07q8dEWhCG9PbvYcs1SLskiXK8j5fAw9yXXtHQNidEaMaMXn0MGFI2iblOe88mPcndbG7defgXTt+5mdPUgKUKEYAmoo0nwtGAYHZZIdEi/ySgGMT5LsT4jTVPq7RHxJa+k/M63k519FuXUocIgbzUSQeuAgYF+1lx7HTMzj8s8FQby4j+DNDWPI+OwbmXKojOGdn+l9JDc+lMtzQSSd1kYbTDVjNpppzL+11fQ9eHPs/NzXyD5xdV0fvNzlM5ZRIAhqAZkdoC2GWNoOeV4KjjKUfCIpZCGUOxQdlQERBOHmn0b13Hgtjs4I25F27wdS5shzYyGvLvHaUXJGWxmUfPPpOOE2VhrKYURT2dTIv//nb/iPWlmieOI5d/5N1a84328pNBJKatRsRmBKozwJYwHWxDarWZ7vUrXp/+R8sffi6kmBHFEpJ/cTu5dzsc7eHA3q6+4ihmpUDcZpcZEnUGBHa88VuVd5kFUou1Vr8R3dtKSeVA+73gLNX27trH/rhWE+3YTubwRUrxgMo0rhey6/Tb2//DHzBjVSktqMBXDgN9N/6h2Wp//Sjr/6s0UF86lBpT7PSZU1Au5psng8vQe3sean1/FxIEUHYLzhrAxWEQjJCGE1RRbamf0K19McVT7UMbvD203GZxL4H2jy6DuIQyoFhT+jrvY/bFPkS1fTuvLX8yYt72HeMncXGnapgTiqKuQgpJciEeHMFItc6hEppWinjqKhZDb/u0rrHr3B3l+2IWqpdgwnw83kokCA8Yzyhc4YPsp/NsX6PyrtxFn9Tyjq0OepjmTPy/gju56ylxCYGIeXHEH17zoFVzca5mQqXx0bBBhMjci+PDiiEIhq2Ycet3rmPEfXyZWMWmocnXlQGOexJ0WkRzsOleJCoG0UYY++vsOSh9oIGt0h+NsrgmCJhVPFAS4xmsHHyvX+G8F/Ncn3k/4+a/ywqiDWnWAfaNG0/qSVzD6ra/HnDEHIR/UHjly3XIlaBXkPXAieOdJlSU0Mabxc+RREjQCJEBgLaEJhsRr/9iCtPP5pBytINUQJIIUQyzCwPVXcfjr/01l9UaCWd20PfdSCs95Hp3TjyMuRNjHcqNEyLIs74JQCqcNBZXxH8+/jNHX38iZhU5IVUOeUA9R+IR81l1PUVEYsLjJ4xh385X46cdRymq4ICJUQRNwOWByd0AjOKdINbjKfr7x/Odx8rK1nFnoJPWWwYqQbjxVriHo7uIC0t/HwemTOeHmX6GOmUbJ+aFhDk/1wfKZw3mXnxJao41+vBwqXsnIdWxMcvE+T4CIlyFv1jlLBU9Qq/KV009j3pYdzOyeSeFFl1H861fRMW9+/ro0F2w1JkBrM/Qzjk74eNsoKjcOYG1GMv+9a2hYqdzF1MGfbpcfzLloybPDGgXOYVFokzvhBzY8QO+Vv8befg+13j4GiiVKM2fSMusEdFcXqtRCFmrSUBG0FIlNQFvnKEZPmUpNhGIYsmXNSv7r3MW8rk/TqSJsw/X0eiQRIcbQW0ho7atTe/lLGX/FtzGZJgjNiIErz/oYTpM3RyYun59cMjE//IcvMHrZKha2jiat1sCEI0418fnUGqehpW45UG5l/Nf/nviYaehqBqXwEf1RT3q3CTXBYNz3BDQgRT5QYnDMU6PHMh+2aBo8QjVs0oOExEqzdc82Zj3vxUwK2+h+7Ssxc0/KX5JYvM4lBKDReKoevW0I8kHuRvSwEPUomW6TczlHKCf9qXblwVN0+PczBu0cZBlWB4yaeQrdHzgF/wGo7tlOtnE9Pbv24fvrsPcQXvVhxrSiOwqUip20jh5La0cnzgg68RDB75bfyJiDfXSXx1FN0/xn6cH+wiO/dz0Uyk5RQdN56QUUdIxTWV5D9P5/tWP7GRbDCV4UA9WUtnLEXT/8Lr9+y7t5Q3EU5Vo/qVcof+ShytXNPCYKQYTd9QqjP/xeOj73SWwC7ShUbIYCcPU04s2JE9LMUtWOQlTAIDhSVN0SGQM6AH3EAVZK8UyzwUK1x5K6BC0h2hgyr7GBoq3hWg+65cEjPB6P9xnGh4iyfO2Fl3LaDXcyOyyRDatlGBm2vUhekwzTlIMTJzD1tmspTpyGdh7V2Piezvfyz5ulFEido1yM2P7Aam748Cd4YVSirV4nyxQSmBFDy6WRKFEmIBvoJTx/CR0fey86UbSkFls2Dfrv08+cdkiQ0eI1OrF47wkDhw8LSCNhoJ+BIHu0OpjCoCliBhXOJEWnGXVHPtlGGtQd1ZjYIwbvIQzzxlgJNRtXrcStWMnotpiBNKGowqE2HDe83VSgBU9fVqXjOedQmDgZ7JHepKf7xhX8eXbBRgxgHV4prEv5+d+9k9P39TAmaKeWZrl+u5MRRDkdGGyYQS2hZ8IUjv3qF4hbOpEkwZSjIXm1P9dNPtoZeLyfG2AIVCGvxylFgEYIh6haaigl8wjH7c/+Xf9wsA32IipiM1wVK0YTIUGOAz2sDph3MDZamUTwKsB7YdX3f0Rp7wEKpog4S5Xa0P0YJlDYkD/y9FJi3MUXUycgEotp1N6e9SecavjViFATTymMuOIDH6F883JO6RhLllhCY4akAVRDQUlJPkzPRClJvUb3Z74GJ89BW4sPQ7x4nqi8/afqzzp6Sx8k+T7h1m9GitcMZjtHpiP+906eP+9RN/KP5jFmYY+MPXPZh9Q7Jl94ASfPmU2bxIgVjBnZXzdiWIcWunVI++Lz8DWHCfT/Ruj6zI3hvBdclmHiiBXXXc01L3k5fxF1MCoL6Hc212HMJbpy9kTjoBMPYa2HyutewbT/vhzvFJEhH5TuPcaYxwSaUgpnLSYwI3bKwRGW6lFl2Rr5SDX8z+pJP8SD7x/6dPVkcn/DU0pP3UWXoSbWYTPM5cl91yf6jiJHMkP/GwDOk5AeqxSReuRpxlHlj6PvXMU5TOKIIkMQ5Mmvp/sJ978OOBHIsgQThhzetIF/f+ELuWDbdo5NIrwPSLUlM4rAkRORB0NsrSGts33uAo676nLicROJnCPDDbHPTaMhE/F5YVbpxgnZAGRgGOirUCjGuUy490PPpojko4kayycenLeYIER8o8XGZYj3Q5lE5yxKD9bHBiW/wwZJ2A21XAserVXjwW/8uwEIZ/MPD4J8MIb3PtdFlJwVMlz74/EeHud9g4/p84GKgzuUzvVcfEPkx/ucOR9E4RC+vT/SdZGL+ughT0Qk/z5KmbxLXARPXjoR7/NxxYNye+LxTvLSgMkZLTknstGQqvWQcJEMvp+clK1MLokuotDiSawHnZcYlHi882iT3wfv8u81SD3TGLJQEypFpvLBiqE+wsx59gLOCdZ7MmqITfj2a9/E6OtuYFG5RM0p+oDCMIWKfFazakxz8RwudDDlJ9+hc/ESwrrNxVJ1DW1aAKi5lFAUylpMoUjdeiKp48ISIXD7/fez9v5NvPwl51MolYiiPL4YOnmdw0uCeEdgCigTkmUZWhuccwQadNCYjaYcUWjIfBHvUuLQ4zGQGRweE+oRLm5KgskU1jniQhFsSuJTAlXAhDkFymUhhWI84kRJs5TABCMEdwYFUYdb3TlCZcEmmKht2GfkY66Us/l3jloQ7/E+B6nofEiJagjupdKHTmKCOB4WZ9WoOUVoc2m+uHBEZ9k5SFwVLRoljrhQHvo7m1RR2qBMOPR9nbc4lxCF5cH0LShD4nJqWthYS4B6MoDSAdoLYVzEuwzn6ihVIAiPzB+o1ROCQBNoM6R09oxJMv2vAs6Ty7oZIav1s2vVBtq0Igwt2jVY+cOykkZypogXwTtHWGxDH38sygSEWJxzhHHA7feuw6iAeadNRbyhkgi/unEpl553FqPay/zuoa3cc/tydhzsZcbEabz8svm0tHWzc99hbrp5Kbt372DKMRN50XMvxfqUllILD27YypqVG3nZiy8ks/nCb966n42bN3PJBYsRPDcvu4MTZs5g7LgxbNy2lx1b93H+4mOxXrH3UMayW5eyY8tuuieO40UvfQGdOh/M+Nvl93DijAlMmjSehzftYtumvZx/wcnUkozlt/2endt2EgWOU06dw5w5c4ZqSYMPrfcyJDk3zE/He7DK8Jtld7PuoTVEBp5/4UVMnTQxP7cDzU+vvI7zzlnI2O42RHlqqefaX99AtTej1NLGhReezKjWDlY/uIW7776HKCpxwvFzmDN7MlGUYb3h5lvXsG7zg4hPeOllL2DyuDaUMlTrjmuuvZ6dO3dw0fnnMmf2sZiwwPK77ueOe27nmMnjed5zn0M5Drn7zlWseWg9cauhu200F547D+eL/OynN2Gp0VLs4OKL51MqCZWq5e67VrHo7BMplcrc98DDrFhxN60tEaM6R7N40SIKUZjL/z3DSir/qxVCUYIJDOKEuNjGjAVnMvrMebSddhYtc+fTccaZdJ4+f+hqOWMe8RlzKc6dR3n+AtTJs8mUIiR3NbUBEcO//OsV/Mflv8CYInUCPvq5b/A/P7malmIMaC7/2XUQFHjLq1/G/DPmEBcjNmzewZe++D0KcQfnnnchlQpUqilxoURfLeGf/99/c8Uvb6BWS1DiCEzE9Uvv4u8+9VX29FXp70+4+po7MSrfWa/81Y08tGEzShXZvGU3n/38N5Eg5JJLzuP2e+7nBz/+JSrQ9PT3818/+hl16wHDL35zGyvXrUOriC079vOTa29h/sK5nHzybLq7ux91QL0xuuGiNmbjkbuKohVf+Nq/smbVai5YOJ8xXZ309/fifIaOND/4+fV8/d8vZ+2mTZgGM2Xd+g3ceOv9nL/kTH55zU3cvPROlA64/IrraRk9mvKoDr789W8TaE3iinz5m5ezas0aFs8/DR+V+MyX/zNXgjYh//SV75OYIkvOPYes7gijAldfdws3LLuXyy69mHJbB95mJBn88KpbmHLMDBacfjrTjplEHJV5YNVGblx6B4sWns5Pfn4Dd9+zligocu/qB7nyupsIwwjrhct/8CvGjp/M/HkLmDJlElEY5CyfZ2BZ5X81S6mUwjlLGIRYAeszjAjG5xr3/qi2ZzmKZxGLogh47RFRGB2wZsNGxo4fT1gosnnvQa69YSmVDF72ksuIo4iDPYfYuGU7x08aw84tmzjrrIU4nfL1//wOz7nwdC675Fw8NeafegKpdYgyfPXfvs1zX/gC7r13DTt37WbmjLH0DNSoJsL5F1/KT67+LWedeiKjRo1h3Pix9PQPsHHbNv7+/W/DWvju96/kORcv4YUXnwPAcy5cwoMPbgTgvpUrGTdxNFMnTyYReHDDZv7u7a8H4K77VnO4krB5x2bOPGkWY8dOyN3BhsqyF+H25bdTqdRYfM5CWlpK+UB77zFhyM+uv4m+6gBf+uQHUMDcU+bgxaJVwNU3LqOnv5+/eutfsX3vntyDUIalt62g0NbB9oN7mXncZM6cN48Dh3pZv3Evz3vxJdxz3z1cctnZxIWIK356C/01+OLH3ggIY6bO4IN3fQZRGu8S9uzbQ2/tEAvPfDXTJ0zC+ozevsM8uG49W+eeymUXXoARx+oNO9m4rYfDPT0kXZ6TTzoNUNxzzwNMnjaBXQf3M+PYsZwwayog3H3/WhYuOocoKrB+5w42797Lwb6EnsN9nHn6qbmk/TO0hvm/zoExJt+NAq2IdIgxEYQGFQZoE464jDEjLh1oiAKUymc6owy33bWaBQuOZ87sGbztnR9k2rgOjp85ielTxgGwfMVaZk+fwOK5J1Iot6B0xs49vWzcsJ/nXXIukJFVLfWknygwfO9H13HvvQ/hsgEeWL2RNDWgQtZt2oa2FT7xrtdy//2r+db3r+OCc2cDsOrBzbSWupk0tpuDvf1s3tXDkvMWAJZKmvCbX9/KRWefDcCtdz7A+QvmEhjF8uV3Uy4GzJwylsxmrH1oO6985fOYMHY0UVgYAptp6Kgk3pGJIXHBUIZ1uDLgjTct5dzzFw9tUvWkjlIBW3fu4xv/dhVtrSUeuPc++ip1AKpJws6dfbS2F/nUP3+Pd77t5UwdP4bldz/ACcdP5T+/9X1iWnnjK58LeB5Yu5Zzz50/tB3+6LtXsPisk4kLEaIcl3/zE8w741Te/eEv0if9pNrxxle/mC995u/4/Fe+y23L7gdlWLbsAc45+xROnDOFUksXqavR219h08Z9KF3gc1/6Lz7yob9m0viY3oEKWzbu4Kx5x4N4lt33IKcuPJ25c6bR3tKGc1mj7ejPW4N9xgDuT5XpNFpTTTI2PrSRs+edynFTO3n5Cy5m4Zlz2bp+HaefmIPh9jvuolZN2LrvIDoISDPLmI42xoyK+MxXvssvrlrKd7//M2qp58777mfl/Sv4+pc+wtxZ05g+oZtdO3cBAXcsv5uZU6cztqPM4nmn8sBtqzjj1NMQEe5afgenn3QsILS2xHSWSnzpS1/jp9cu521/+w3OXbSA+QumAlAuRvzmhtv5wU+v5WdXX8NrXv4CioFm8+b1bF6/Aakn7Nl7CK0LjYyebvSiCUXluWjJWbzksvNoay2PfMAETp41m+//z1VceeNSvvkfl7N+y3YO9w/w5X/5Vz7wd6/leefOZ94pJ7F/+z4AHlizlqx3D59735uZNWkcdyy/D9DcvmwpL33R2bzn3a/j/nvuZqCWK6/MOnYaV/zPNfzs6lv4/Ne/zeHePt7w8svwqeXr37mKy39+Pb379vHSi8+jK2zjt9cu5Wvf/B/uXbmecy88iRNPP57eapXb774TIWPjjn34oEAQtnHv/atIpYd/+MjrmTi5gzvuvR+jy9z7uzW0lUOmTZ5AmmUs+83tSLXGjp07cqrqn3DA/f8fZj71qU996pmR3lHU0jrjx45jyoROpk4az9xTT6b30D6OnT2HKWO7yNIByqV2Olrb2bN/B51dbUwePx6t4JxF89m+Yyex0ixedBYdnR3s3beHc89fxIzJ4+hqKzJx4ngmju2mtS1GBRFzTz2OQqSZccxkFp09jzFjyygllAoxc0+bQyHOWczzzzyTNO1n/4EBVq96mNe+8hJGdZZIMsfc005FCfQPVPjL17+c46dPRFydFEd7x2iqfQdI6hVmzphJqRgN1dK01ojkpYjBk29wCMfgYMa5p51EqRizbftuTj/5BE4+8Tj2Hz7I1GnTWDTvVNrLiknjJjGqq41x4zqo13o5/eRTGdXdwayZxxBHitGjuxjV0cFxxx7D+LGtdHV0M6a7C6Mdp544i86WNg4cOMhJJ8/ida97EQUN4hIKpTI7Nm/hpNnH8tIXXEi9WqW7u4sdu/aTuoTXv+oltBUCnEsY1dVFHHh6D/YxYXw3ozrb8S7jjFNPZGxXO8edMAO8Y8LoUShtOPWkE+nuKOO8paWlnUIsDPQeZtL4cXSM6kQr/Yx1Kf+4LOWRfD6DZKVB8XF1JMfc4HW5IQ7CiDSmAA0WvKi8zWWoB7TBOhkk4nudElDEplW0DrFeEWiHC2KUzTDUUUHriK+YJPV82J4xBOZIyOoyiwk1aZaAEwIDLggwKsK6CpEp46SCsjHg0KGQOIfDUzIFnM1rZ14c2kQEJi+8PrxpI94Kx02fSmZrxGEApthILDqsy0ArnIKijh9ZsG/cN9+YCJXX0hyBMXmdq3G7nRK8TQnDI59hsypBGAEBSeoITRUlBVQQ4m1vI+tZJrM1wihCENKsThyWcWKxvkZsOvCkuKSWJ2uG3c+Kq6MllxiMwyJ5xx/U6/25LEOgoVF2SZ0DV0GHEKi24bUirK+h0WgdkGUZJgzRaLJqlbBYAhVgsxomEJQqjXjg3OBQkmfoCffHA86D6FySx4tHUcvFWhsCN6JDlBhEORBPPuY9VxO2SlASoJ2G0OLEo3zekKiVQ4tBROWfrSyBQOqEkADxFhc04C150dSIQsQN6VxqbVD6SNF1uJSWUrmkdtAg1Tol6Eb6PVA6nw6jY/IOhzwrGIxgYGgQM9S7Z73DkVAqFhEgS7J8CkwDMGiDMkGDVyik3pJ5R6RMY7LNSCnyvOVo2FzqR8TGCvGezNo8g5kLnA8tjDE55XdoSL1EQxlO3RiFPJjp896jGgVj710+3GTYeGPfiB2PDBzJE2DO5xLwhoBMH+HMKu8J9BF+iIgfGuWV1800rtGNnpOZG8rSjYL9IDHAuXy0mBZNFlhiB2JKiFYE6tkIOBq7vFNoLYiyOFFoZRuAi3Da4qhAWiTUEYPNuIq8y1oa+2Tm+vDERCYeerhcY790XhBRDFhPIdZDnMTwKBqQP2ovOJr45Ya9/tEoRHoYLVAd9Xkc9fcc4cQcXXocKZH3GEQuOep16g90LgZ/5qN9Nz/sex8drKtH+TzFo7M7H+u7WY7wQ/1Rr9VP8XcZ/vP1o7yi31eJxBBJBMGz9IQTfH7Ee40KBsj8Q2RJXiBVylOQAtYdII1mUQ7Px1fXM9DzAEb1EVLEuJSKTUgLs2kffxamVufA/bcS9e+nSIwtwYAdINWtTFr4YtJiifqV19C/ZQMmboMswJmGO+v90PyxXKs/AJ+rFedzAcBYjzG6MdxD4bUj07lmZCiatBShnc8Fa5wgLsEM095wHJlvJhpELFoGi/cKLUE+GkkUGofDkXPpBVSAJkaJz0dkOY9zDofku7w+Mnp3qLu64ZoLRzrJh/RAdN5p5nx++uSKl2rIDS2YBj3O56dUfieOgGJw2f0wxr8MG8wrjU4MUSo/bRsTWnPZBoOREB9YIuXR3jJQb7BEoqhBjQuGoo3BT5bBxl2Vi9eqYT03qjFjAVEYnw9eMSYgq1bwx0xh3EuehzMBhcxCFMIzFHLBH3yyNcbOCg6vDMr3kfT+K3F6BdYLGofSKV61oMJvoJ2nuuFbcOB7OIkIvcapPtJsMsWT/4E4EPbe8h32/M+nGFduoa+e0eYVA/U65qVvxxVfTe8vf8n21/8N7QMD1NAUSElJyCOHCIeQIYSEHKJGBENNkClQRlFHjsyEbuzMRQKEXFi13ljKECjTQh8OTYBDI9jGyZcTxAKgTpZPD8UwgFDG4/DUULQR4MkQFCEpdfK51AEhA6RDp6gHIjSaGGn8PgkxJXTj88McXI2f6cllKjKyRvUybweyDdh5oI+AlnygFAlRPpIZ8ok85KMuBSgjeKCCp4wmbUjyDcI/wOIJSBobbIjKpevIEIRWLBUMfS2TCCUhqhxq3L/8m1ggI8SQNd6XD08MifDkvW4BHk/auM/5NwsIEBQDVIjf+1EmvuxFZE7y+d7P4Cxl8AfDTbJcxlpAmQHswI+J7c+JfIgxHqUDlBfC8E3o4msZ2P5D1J5fUY7bcVmZgq7Rb+qUx7+M0pS/oPLwrRy8+r84tqDpN56gM8Ds7yM+7zlMfOX72LtnL4fe+VHG1lMKnZ10U2VnHUa95e8wk8vs/+x/MDZzeD3AQNbBxPe/CrPrIANXXs2Yj38S/7ub2f/TXxK9+mWMOed5HOzdTTR5Em21Gv2f/BJ253ZaLnkpo169AJd10fvtbxCs3EA5gDYnJCJEFHFKSJWgvGA1jLMxA2IJTExLEFHXjlF1SyUI8cpTyHpBF+mdOJNgyljie9cRV/upn3g6E7/ycQ797Fr0f/wE1RogiaLsHQOR0JJEaFOnjYCk0IJ3GWHmEBNg0xRNSKvKeYdGayruMJx2HmO+9WF0XKKWaoJV69j6vvcyqWbQxuG1R2X5jDnJLIkROjLN4YKi0+adZnURYm+xDQ0+V66hXBHnPMp4Sk7jVMjhSBhbVdTTPpKLzufY736V9F2fon7trwmVJ6TAgWJKV18dMa0UTUrVKNJqRlsJqEfUdc6J1N5Q05oWG1EPFYFzpEFMIDVCPY7Ol1+K1irX6gzNI9Woni11uFxQJoLqTdj6lwjDPoj7UVE/adhPf3QBqvQP6J6tZDu+SEFX8VmJWO3H2j3Y0qWEx7+DQ/0H2XH5l5jQtw8fdWEkZfRhS73jBMov/yTWjKX+gY9S3rUDVYpQWY36ocP48xYz9uufpXLpC4kq/XhxpP0DuMVn0vbpz+OriuiiFyF/9w529AutqaeVbvrOvoAJ7/sgHX4yrN/MwO796I98iNL3v8C+lkm0v+FVqA+/g9pAjcKA4WDfIWz/AWr9PaR9Pejew+zu30+t9zCltERrVkDZGvbQDtTBfSSVOmFvDZdVcVXYlsGEf/0m9iMfJUmE/bZKvOcgO69fhrtlLSQ1dh0+QCGrcahSIT2Uz0ZIvaLeX6O6fz/9Pf34fkeUWAqJIUpA1VMksajUkdSh5T3vJBx/Eis+/f9oHTOB7MTTKFSLDFR62DlQ5eChPvYMVKgd7senA4SZo1b32EM19vRn7OuvIVY4WNDUrMW7mIE+TXZY4fsD7OGE3TXF/ppQGLBUTY1DEqFX7Wf/6/+W6s3XU7YJOiszEAZM7glwbVPpby+QJRm6z6M7R9MnMVuCiEqxjb7+KlnYTSVuQ9WhVzTUA6wP8X2W4vFnUD7pZFIRIq1QPu8OeVadcINbjCYEv5Ks/6uUwsON1giDzwSrZhOVP4rWKX0bP065fwMiMVmQEGA5XJhG8fj3EsXj6bv8Y7Q8dBempKg5TcEH7NYx5Td8hM6Jp7Ph379Fy/9cwd7WMm0ByKGMQ2cuYfp//Qv9QMtNt9OXHSIojWF31M1xH30f2cqVPHTNlZx+92+QW2/EXX8driVi60+uZPqb3kz/tjU8/OpLmISn87SLKX/6k+z5wAep/vYOkoufQ+f//Jaa1OibNZfyq94Ne3tw7SX6t+0h6EuYcM5csntWseHKH9CZevZHnbS+8kW0nHcydk8vle/8gvadm+ifcRxjPvK3FM5djP7lNUi1n2zqcXS87x34q6+munop7iUvZOJrXsW6D3+Strf8JW1xgH7fJ/Cmjd6/+UumnXcevt+x7Xs/pO222ykGEUlDosFrTW99AE6cR/Tihax95TspbVyBH1tkxwe/TqGyGf+G1zH+NX9JddceCseOZWDpPfT9/ecZXY/of+lFBH/zCowpUfztUvzXvktX32EOzjmJ1n//Ki19B+k3hq664sADqxh/wQIqG7aSvvMTxP3bqSxawrTPfoneT3yWwwcPo046k67v/T8OffMr7PrdNsb85ofUP/5xgu98n30nzueYK79Dva+PVmlB+34O3HcfrUsuxuzfzIFXvoPSgX24qEyLhf1kdF1yLr6lDdKMQpRPaVWYZyzg9FODmcVhUV6BquFdhXTgXzHhUsRaMBFIgEgrhcKbKRQX0r/tP1E9PyOyJRxtBEVFzbdQmPBudNfZ7Lr1Koq3XkG5XGdfwRMqT5IGsOj5jD7rJfT8fjUDn/knKmGRsdKau2PlVo773lfoWbmL7FA/yfr1iG6ht9YHF56PXzKf/R//e7qWnIOZfTq7/vkKRonFVzzjX/Ji2hafRs/Xvs3MMKTXtKA+8nbirTs4+O0rmP3Zj5Lt3ErP9b8lw1J4z+sY/ZEPU1+8kOgfPsL4f/wY7gUX0PLedxC+6SWEJPSUCnR86+u0fvYfqR2/gO6//0eiN76GxNfIpnQx9o2vZc+mHfhrf05GhbYXvZpR73w7aVCkSxmmv+Ud6Dlnw8tfx3Ef+BD29xvYJQnZ//s4M9/5btbu6iF602sY8xcvJfN1rLEYhJCYQMdoX2XUu15La9jK+L95E7OX3sfhZauY+NOrKbSOpeWjH4eZx3N4fy+jp80g7hqHWMf2d7+R0f/vc/TesZnxo2ZT+ru/omdsC9gq7W99M+60Mzh40+8Ze/yZBAtOo9JfwZx6JoWZJ5FZy4AzjH7fuzFTptC/eSdlSpTe9g7CWSdif7OOtve/m6gSoa+6n/1eEb79LbhJx7L9364m7B5NNHkiu9Y+hB49CW3a8ZUKqhBQizK87aPeUia65GxCIDYG8YJDPa2HdTwJ2tSTNy9OEntI0rQqYmtS7f+cZAdHi+8x4va2iN9fkuyQlurA20Ssl/5dt8jum2dIem23yPXHi71xktR+0yL9979Jsmq/9G6/V1a99yzZ94pu2fXGcbL7TRNk70vLsv5D50tyYIP0VQ7JmnMvlR2UZWP7ZDlYHCcPB4Ec+MEVsvb22+WmC18uWVKRdRe+RLaqoqzXBdn36xvl8EMrZFl5tNRXrJRddy2TFeF42VYqytpyl2T3PSDbblwmq4JJslcVZdNJp8lhEVn3vvfJvQsWStWJbPjr98hGkN2nz5fUVmTtB/5elp9wplQyJ3e/6o1y+wteJlVXlQef/wLZArL9zR+UREQeWHKOrHrD22XAVuXeSy6QvSBrX/4SqWc1Wffiv5QNIBvGz5L9u/bK5u//Qh6iIFvj0dKzfq3s3bxN+g8ckM2f/CfZDLLtOS+UqogcuO8BufPf/lOkWpfVL36VbFaB7Cp0yd5ovKwvdsv2sFO2nbFQeiuHZNuPrpYNn/qUbPybt8nDY6fJOoNsfuNbxTonDz/nElkHsqVrtDxYapXV4ybKge2bpebqsuXyH0vS0ysb/+UbslMZWXny6XK4dlB2fOLTsmzCZKnW6vL7N75V7j3zfKl7kY0vfrNsAHl44TliM5F1f/0O2QTy8KlnyO70sGz46Adl7XELpCJetr3rvbINI/fNmyv+UFVWf+zDsuqYY6WepnLfq18h95+zRNI0lVXPf4VsoCxbW8fIgbhNtgbIwwvPF1tPxDov3jvx3ov38oy2pwQ4cV5c1i81qYur3CTp/i5xBxHZH4jfF4vdi1QPXCSZ3ydZ3xbZt/T5UrlOi/x6kqTXTZPqsoL0/eo06evfKn2uJge++GrZ+/IWOfzWCbLvDeOl8upu2fiWE2X/vb8UKyIbPvBxWYWW/vZO2VfukvswsvH9H5aKiOy/a60cvO0uOXxguzw8Z4FsR8lDFz9HBpyTVZedJ7+/7NWSisiq514m21CykZJsfNlbpVcGZMulr5Y9uiz3GCPrv/GfkmzZIze2dsiu3/xW9q5/SDa3T5SHjJYN/325VA70yO/aynL457+SQ+vXygPF8VK9917Zc9td8nBYkgfaOmX/vffL9uuulzV0yv79O2Tfj34mDxdCWdM2RnbffrfsvfVWebC1JGuDgmz+wNckc4msP/M86SGU7aefIz0He6QiIrt+/EO5PyzI7uIYeejG38q+362W33/6C7L25uXy0Oe/JhsLE2VLS5dsL3fLfj1BtrQVZSPI1u/8QA737JE1bbNlLchWkH2FktwfFKX/jjvl4F33y32FVjlQ6pYdrd2yVsWy6oMfkWrfPnng45+TB69eJit+dZ3cN/N4eRjkwa99R6qVHrl7/ATZ8ZP/lvqu7XJXYYIcuuVe2b1ytWwotMoOkE3X/lKqm3fKivZuWUMge7/2bTm0/4As7ZoqB665WnZv2i7bOyfLKoVs/s7lMnD4sNzVPUb2/eK/pXfbRrm70CU9v7tX9t57h2zWkWxtGSPbimNlZ6FFtmNky5e/LKmI+DQTL74BOP/sAZyTmmTeiq9tkKTnDPF7A7F7usXvj8Uf0pIcPlWy2h3is0wOr3ujVH/dIXLdZKndOEbS37bL4RsmSnXnf0oqItuv+qzseE23VF5znGx/7UTpeXuXbHttp+z+2b+IE5E9v7xSNsSd0hN2yLrOLnlItcrm571cDqR9sumfvijr3/ce2dGzU3Y8eL+sbhsj21S79P78l7Ijc3LXG98hA1vWyIHrrpU1UYv0xS3yYPd0qa/bKrt+c62sCEbJQW1k07EnyGFfl0033CXrP/V5sf0VWfPKN8hDICsWni9VEVn3zr+R9UsulLqIPPCKv5StL/9L6fv/2rv7WMnuuo7j79/DeZi5M/fe7bZ7d9suheIat+WhEa2PIBqEhAjECLFEbTGKbsRSQKNBTIhAYxujJqQWqiARZWuNVP8gNVJiYiHBVsPSLdvt7nYfuu32ttt9uE8zc+ac3+/39Y8zd/fu7W1agkJavq+/5iZz5sw9dz5z5s75/r5fETn8jnfLEZB9b367BBHZ/9d3ytHdd8vCqZNy+LVvkHmcfPONb5JGRE589k45CPLoK6+R8XAsT/3t52VPlstRMjm0631Si8jS1x+Q/7nsCjmRdeWhV75WahnJY/ffJ4fu2C0nvnqvPHjVVXLazsqRclqe8ptlvtwiTzgnB3/29SIicugDN8lRY+WZmVnZu+UVcsJOybHffp8siMiBt7xLHveFHO9ukyeyS+Ww6cvwK1+WM8OhfGP3P8nyvgPy4A2/JSfoyNEfulqWJMm3Pv4JefgnflgqETl4/W/Kgbe9VaKIHL3uvXIA5PBbfkGiiBy78Q/kKFaOXLpThqdPy9PDSo7f8yUZiMjJ93xEHgN5+JprJYjIIzd/Qvb8SHv72A27ZO9bf1GWRGT/L/+qHHZGThZb5clyTk66Qh7ask1O7dsrdRAJsTkXthd74J6neHntEF0hSUYKy6TBh7H11zBle1FYQkbjDaH8fUz5TuyRu6iPf5rC+PbSQScyqiNTc79Ds+N3qfbtwXzmj3DFaVamZijGidFohebqN7Pt+o+y/MyIx69/Dxc9c5xhd5ruouXMju1c8elbefLe/2Tx/TfSPPAgl7/j7dQP7af64j0YsYyueDkzL5vj8p/6SR778r08/Yd/wmUxZ75u2PL6H8O/7ed5/MO30DlykLLos0RG3HYJ/VdfSbZljkc+cjPdf/t3fDOmf90N9KZ7PHLzzcy969dgecz8LX/BzI3vZvitw5z95F9xSXIMUkl15VaKV12OnD3Lyfd+iOrQf+N9j6mBZWluivzEE6z8x1fpXHstZ3ZspfrYbczMn6AuO3Rf8yqWu575P/4Y/tABNmebGNWBYROY2jyLWwic/MvPMfPwQ4ydITcZmXiiM5S1J7zhxxkMVhje8nls005GLQaJJivI3vQzyJ5HWfmHvyOPgWQM3jqiNBx64jFmxhndOOTY7Z9i291fIfqCwc4dmLMDVm77DL0f2E52rGL+b+5g6+tezco397P4j1+kHxP2qmsYHDnKmc99gU4lxNKzcGYeuec+hscOE+5/gKV/vhPqwPRlL+Op0/OE2z7F1i2XsXjkFCfu+nsufvl25L/2Mb77XyEr8BWQOepmmfRzb+SiXbuw4jBWzrXBezEuyfk2Kk0mRTdiiFIhscaNdxPD+/EhJ9kG01gaGqS4CTfzp4SFPXD/jZQcpPEZWZhmFIeMNl/LptfcwbjucPzPfoW5Q1+j6PZYiV1m05Cnpi5l+qNfoNi2nW+8cxfb/2U3frZLvRzp2Q5LMx1COUVvfp5u7pifskz1L6Z4ZoAZj8AnFuolmN6EMY78zElK28e6jMYIS12Ls7P0l05R+sQpW1JUA5J1SHea8bDCpZrNLjBwjrOzm8iXB1yUhMrDsIp0fUGQiB3XGJ/jfCJvoImWxa6jGSywlQw71aEyY8w4stK0Ld9Cx5Bqy0ydkzLBF4FRU5HF1R76kb71VJnDEFkcrVDYjCyNycmJnR6CkMe2neByJsyGjHkr5LWjbxuSM0RhMuNaOBUtQYS5HJpAW3liwGGxowGjdlwjOTW+06MWRxKHG9eUZcZCHOOaAWVnE8tNoIgBKUq8zXCjihUZk3zOrClwMbKcBpOvvk078y3vYqxHiGTVkNz3WEk1pCG5n0ZCgzAmdz1y2oJubx2n6kWKP7+VbR/6IGk4pizP9yB9sXtBpV0igSBDmvoAzfg68jRPRiSMNiPZMil/HfnUZwmyicW9H8Cduou+2UrNEjErGPlpLrn644T+L/H0HTeR33c7sd+nSDMspQUaV3Dxr9/KRT/9Gzz6yds583sfZK4sGJgcFyzBjNmUIguxIfVKMrHk0RHiiMpYsA5XRcrc4kINSagKjzGOMrbdt4xph/3WNCDQsT2W8wFZFchMzhBDnnmaVOEEsuSIqQHnqE2ikxwj58maSHKOlDukieTGMqShJDGb4KyzmOixDoKp6MaMWmw7FKcOjHxBaRJjU1Fj2vpA4zB4aokkImI91qb2YrfLkJQICTAWK23ZV2Ub+slSidAxOQEh2tWiZ0M0FT7lWGMZmwrI1rQGFJxNJN9pu2GFMUIOqcHQYJ1BJAfniQnKlJBYE31beo4kfGqHsRQ4vIE6tVU0mWmLngOCxyAxEmzbYS1rEjXSzpxLiSaFtgObOKII1lhINdX0Vl7x9S9hr9xJr4nE0k5m/73kA3f+DBekIcUnIe7H2Q7GJCQUBLuI50eJ5mKaeJKsfhLMMqZxIB5cA1kP293JYgPx+F56skJ00xAFG8dIt4+9fCchBqoD+ymGZzFFF1s5MJGmaNfruEk1hIjB2sjqxGwrDXhP3VgK277DV8nhfIRJRYxL0naSc55mMt62lIQ4S3RCtAbfmLbOUQypqXEuw0pO4xJZMwYMVcfgg5A1hrA63ie17emCTyTryKLHjgPkwsAFipjhgkeySPRgmoRrJlX7vl3djUw6aU3awdlkJwV0bVW/nKvxaUOTIQRCG6jJmc9zfnFmdDIpBgOLw4g7v5oXARchTar/bYTGIxaijyQj5DaDkNq56gZMFJIkxExmP0g4F+AAYBy5GOrJao0S1x6aGNszqzWTVnftItsU46RGdXWQyiRQkki+QH5wB13XxzlpX0aY76PAYSdzsWsk5ci5Pu6JmCzWrGBCu6QjufLcxxq7+icRCHFMlmpM3qWZNJRbregfA1msIY0xWY+KtpfJaoW/f9azaesFV2ePucntuObiotug+t2sWykgnJ8L5ybbr95ntdQ3W7MvO9mfrNl32qDif7U+0k22WR1o4dfsP657XnaDIx/W/B7mOVYJuHWPI+u2Z83zlHUrKey6VRb2wlVXF2xnN1hhsdEFXVn3n/+GFUrrnu/6pq9DwNU1BR5xcq635ffNR8oLDlaqL3wAE9vyWdM2I22n36w2RD0/VtZg2nfHlDCSJq2pz1eoi5ksIpF2bdazK+SfvWjErGs4vtGL8nkPwHO8kMyGXxu9wAdbe3N16RnffmPzZ/+Gz7m77+g+z7XR96pk0WDaM+Lqzy/iBaffceAuvPtGAyle+Gft9e9a38Ppxy85z3dGeL5j/d3827xUzl7/L4FTSn2XaimVUho4pTRwSikNnFIaOKU0cEopDZxSGjillAZOKQ2cUho4pZQGTikNnFJKA6eUBk4ppYFTSgOnlAZOKaWBU0oDp5TSwCmlgVNKA6eU0sAppYFTSmnglNLAKaU0cEpp4JTSwCmlNHBKaeCUUho4pTRwSmnglFIaOKU0cEopDZxSGjillAZOKQ2cUho4pZQGTikNnFJKA6eUBk4pDZxSSgOnlAZOKaWBU0oDp5QGTimlgVNKA6eU0sAppYFTSmnglNLAKaWBU0r9X/pfyY4BU0E56BEAAAAASUVORK5CYII=";
+
+        // Participation client à cocher selon le type de garantie
+        const BS_GARANTIE_RULES = {
+            'Tous risques':      ['franchise', 'tva', 'rp', 'vetuste'],
+            'Dommage collision': ['franchise', 'depassement', 'vetuste', 'tva'],
+            'IDA':               ['vetuste', 'tva'],
+            'Connexe':           ['vetuste', 'tva']
+        };
+        const BS_PART_LABELS = {
+            franchise: 'Franchise',
+            tva: 'TVA',
+            rp: 'Règle proportionnelle',
+            vetuste: 'Vétusté',
+            depassement: 'Dépassement plafond',
+            timbre: 'Droit de timbre'
+        };
+
+        function bsPopulateExperts(selected) {
+            const sel = document.getElementById('bsExpert');
+            sel.innerHTML = BS_EXPERTS.map(function(n) {
+                return '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>';
+            }).join('');
+            if (selected && BS_EXPERTS.indexOf(selected) !== -1) sel.value = selected;
+        }
+
+        // Construit les champs "Participation" applicables à la garantie choisie.
+        // Seuls les postes pertinents (non applicable = pas affiché) reçoivent un champ montant à saisir.
+        function bsApplyGarantieRules() {
+            const g = document.getElementById('bsGarantie').value;
+            // "timbre" (droit de timbre) s'applique à toutes les garanties, comme sur le modèle papier
+            const keys = ['timbre'].concat(BS_GARANTIE_RULES[g] || []);
+            const defaults = { timbre: '1.000' };
+            const container = document.getElementById('bsParticipationFields');
+            container.innerHTML = keys.map(function(key) {
+                const val = defaults[key] || '';
+                return '' +
+                    '<div class="flex items-center gap-3">' +
+                        '<span class="w-48 text-sm font-medium text-gray-700 dark:text-gray-300">' + BS_PART_LABELS[key] + '</span>' +
+                        '<div class="relative flex-1">' +
+                            '<input type="number" step="0.001" min="0" id="bsAmt_' + key + '" value="' + val + '" placeholder="Montant en DT" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">' +
+                            '<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">DT</span>' +
+                        '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function bsOpenModal(dossierId) {
+            const r = cmLedger.find(function(x) { return x.id === dossierId; });
+            if (!r) return;
+
+            document.getElementById('bsDossierId').value = dossierId;
+            document.getElementById('bsRefAutop').textContent = r.dossier || '-';
+            document.getElementById('bsAssureur').textContent = r.assurance || (cmCurrentAccount ? cmCurrentAccount.label : '-');
+            document.getElementById('bsGarantie').value = r.garantie || 'Non spécifié';
+            document.getElementById('bsReparateur').value = r.garage || '';
+            document.getElementById('bsNumSinistre').value = '';
+            document.getElementById('bsAgence').value = '';
+            document.getElementById('bsImmat').value = '';
+            document.getElementById('bsUsage').value = 'PRIVE';
+            document.getElementById('bsDateSinistre').value = '';
+            document.getElementById('bsDateSortie').value = new Date().toISOString().split('T')[0];
+            document.getElementById('bsAssure').value = '';
+            document.getElementById('bsTotalFacture').value = '';
+
+            bsPopulateExperts(r.expert || null);
+            bsApplyGarantieRules();
+
+            document.getElementById('bsModal').classList.remove('hidden');
+            document.getElementById('modalBackdrop').classList.remove('hidden');
+            setTimeout(function() { if (window.lucide) lucide.createIcons(); }, 50);
+        }
+
+        function bsCloseModal() {
+            document.getElementById('bsModal').classList.add('hidden');
+            document.getElementById('modalBackdrop').classList.add('hidden');
+        }
+
+        function bsGeneratePdf() {
+            const assure = document.getElementById('bsAssure').value.trim();
+            if (!assure) {
+                showToast('Merci de saisir le nom de l\'assuré avant de générer le bon de sortie', 'warning');
+                return;
+            }
+            if (typeof window.jspdf === 'undefined') {
+                showToast('La librairie PDF n\'a pas pu se charger. Vérifiez votre connexion.', 'error');
+                return;
+            }
+
+            const refAutop = document.getElementById('bsRefAutop').textContent;
+            const assureur = document.getElementById('bsAssureur').textContent;
+            const garantie = document.getElementById('bsGarantie').value;
+            const numSinistre = document.getElementById('bsNumSinistre').value.trim();
+            const agence = document.getElementById('bsAgence').value.trim();
+            const immat = document.getElementById('bsImmat').value.trim();
+            const usage = document.getElementById('bsUsage').value;
+            const dateSinistre = document.getElementById('bsDateSinistre').value;
+            const dateSortie = document.getElementById('bsDateSortie').value;
+            const reparateur = document.getElementById('bsReparateur').value.trim();
+            const expert = document.getElementById('bsExpert').value;
+            const totalFactureInput = document.getElementById('bsTotalFacture').value;
+            const totalFacture = totalFactureInput !== '' ? parseFloat(totalFactureInput) : null;
+
+            // Postes de participation réellement affichés pour cette garantie (dans l'ordre choisi)
+            const activeKeys = ['timbre'].concat(BS_GARANTIE_RULES[garantie] || []);
+            const partRows = activeKeys.map(function(key) {
+                const input = document.getElementById('bsAmt_' + key);
+                const val = input && input.value !== '' ? parseFloat(input.value) : null;
+                return { label: BS_PART_LABELS[key], amount: val };
+            });
+            const totalPart = partRows.reduce(function(s, p) { return s + (p.amount || 0); }, 0);
+            // Engagement assuré = total de la participation (timbre inclus) ; Engagement AUTOP = Total facture - participation
+            const engagementAssure = totalPart;
+            const engagementAutop = totalFacture !== null ? (totalFacture - totalPart) : null;
+
+            const fmtDate = function(iso) {
+                if (!iso) return '';
+                const p = iso.split('-');
+                return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : iso;
+            };
+            // toLocaleString('fr-FR') insère une espace insécable fine (U+202F) comme séparateur de
+            // milliers : la police Helvetica standard de jsPDF ne sait pas l'afficher (elle rend un
+            // caractère cassé de type "/") et le texte déborde du tableau. On formate donc nous-mêmes
+            // avec une espace normale, compatible avec toutes les polices PDF.
+            const fmtAmt = function(v) {
+                if (v === null || v === undefined || isNaN(v)) return '';
+                const neg = v < 0;
+                const fixed = Math.abs(v).toFixed(3);
+                const parts = fixed.split('.');
+                const withSep = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+                return (neg ? '-' : '') + withSep + ',' + parts[1];
+            };
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+            // Charte AUTOP : rouge #db0c15 (logo), encre foncée #1c2536, fond clair #f2f4f7
+            const red = [219, 12, 21];
+            const ink = [28, 37, 54];
+            const lightRed = [252, 231, 231];
+            const pageW = doc.internal.pageSize.getWidth();
+
+            // Bandeau d'en-tête (fond blanc comme le logo, wordmark rouge)
+            try {
+                doc.addImage(BS_LOGO_B64, 'PNG', 14, 4, 20, 20);
+            } catch (e) {
+                console.warn('Logo AUTOP non chargé dans le PDF:', e);
+            }
+            doc.setTextColor(red[0], red[1], red[2]);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(22);
+            doc.text('AUTOP', 38, 16);
+            doc.setTextColor(ink[0], ink[1], ink[2]);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text('MÉCANIQUE - CARROSSERIE - AUTOMOTIVE PREMIUM', 38, 21);
+            doc.setDrawColor(red[0], red[1], red[2]);
+            doc.setLineWidth(1);
+            doc.line(0, 26, pageW, 26);
+
+            doc.setTextColor(ink[0], ink[1], ink[2]);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('BON DE SORTIE N° :', pageW / 2, 35, { align: 'center' });
+
+            // Tableau infos dossier
+            doc.autoTable({
+                startY: 40,
+                theme: 'grid',
+                styles: { fontSize: 9, cellPadding: 2, lineColor: ink, textColor: ink },
+                body: [
+                    [{ content: 'Réf AUTOP : ' + refAutop, styles: { fillColor: lightRed, fontStyle: 'bold' } },
+                     { content: 'ASSUREUR : ' + assureur, styles: { fillColor: lightRed, fontStyle: 'bold' } },
+                     { content: 'AGENCE : ' + agence, styles: { fillColor: lightRed, fontStyle: 'bold' } }],
+                    ['N° Sinistre : ' + numSinistre, 'Date : ', 'Date de sortie : ' + fmtDate(dateSortie)],
+                    ['Immatriculation : ' + immat, 'USAGE : ' + usage, 'Date Sinistre : ' + fmtDate(dateSinistre)],
+                    [{ content: 'Réparateur : ' + reparateur, colSpan: 2 }, 'Assuré : ' + assure]
+                ],
+                columnStyles: { 0: { cellWidth: 63 }, 1: { cellWidth: 63 }, 2: { cellWidth: 62 } }
+            });
+
+            let y = doc.lastAutoTable.finalY + 4;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.text('Expert : ' + (expert || ''), 14, y);
+            y += 6;
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            const texte = "Conformément à l'accord de prise en charge des frais de réparation du véhicule ci-dessus, et suite à l'achèvement des travaux de réparation, AUTOP TUNISIE autorise le réparateur, cité en haut, à délivrer le véhicule à son propriétaire sous réserve de payer sa participation aux frais telle que ci-dessous détaillée.";
+            const lignes = doc.splitTextToSize(texte, pageW - 28);
+            doc.text(lignes, 14, y);
+            y += lignes.length * 4.2 + 4;
+
+            // Colonne gauche : pièces vétustes (à remplir par le chargé)
+            const leftRows = [];
+            for (let i = 0; i < 10; i++) leftRows.push(['', '']);
+            doc.autoTable({
+                startY: y,
+                margin: { left: 14, right: pageW / 2 + 2 },
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 2, minCellHeight: 6, lineColor: ink },
+                head: [[{ content: 'Facture AUTOP Tunisie', colSpan: 2, styles: { halign: 'center', fillColor: red, textColor: 255 } }],
+                       ['Pièces vétustes', 'Taux de Vétusté']],
+                headStyles: { textColor: ink, fillColor: 255 },
+                body: leftRows
+            });
+            const leftFinalY = doc.lastAutoTable.finalY;
+
+            // Colonne droite : participation de l'assurée, uniquement les postes applicables à la garantie,
+            // avec le montant saisi par le chargé (imprimé directement, pas de case à cocher)
+            const rightBody = partRows.map(function(p) {
+                return [p.label, fmtAmt(p.amount)];
+            });
+            rightBody.push(['Autres', '']);
+            rightBody.push([{ content: 'Total part assurée', styles: { fontStyle: 'bold' } }, fmtAmt(totalPart)]);
+            rightBody.push([{ content: 'Total facture', styles: { fontStyle: 'bold' } }, fmtAmt(totalFacture)]);
+            rightBody.push([{ content: 'Engagement assuré', styles: { fontStyle: 'bold' } }, fmtAmt(engagementAssure)]);
+            rightBody.push([{ content: 'Engagement AUTOP Tunisie', styles: { fontStyle: 'bold' } }, fmtAmt(engagementAutop)]);
+
+            doc.autoTable({
+                startY: y,
+                margin: { left: pageW / 2 + 2, right: 14 },
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 2, minCellHeight: 6, lineColor: ink },
+                head: [[{ content: "Participation de l'assurée (" + garantie + ")", colSpan: 2, styles: { halign: 'center', fillColor: red, textColor: 255 } }]],
+                body: rightBody,
+                columnStyles: { 1: { cellWidth: 32, halign: 'right', overflow: 'linebreak' } }
+            });
+
+            y = Math.max(leftFinalY, doc.lastAutoTable.finalY) + 10;
+
+            // Blocs signatures
+            const blockW = pageW - 28;
+            doc.setDrawColor(ink[0], ink[1], ink[2]);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+
+            doc.rect(14, y, blockW, 20);
+            doc.text('LE REPARATEUR :', pageW / 2, y + 5, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.text("La signature du réparateur sur le bon de sortie vaut reçu de paiement de la participation de l'assuré aux frais.", pageW / 2, y + 12, { align: 'center', maxWidth: blockW - 6 });
+            y += 20;
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.rect(14, y, blockW, 22);
+            doc.text("L'ASSURE", pageW / 2, y + 5, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            const texteAssure = "Je soussigné(e) " + assure + ", agissant pour le compte de ......................................, avoir récupéré mon véhicule immatriculé " + immat + " en bon état. Je reconnais avoir été informé(e) que je dispose d'un délai de 6 mois pour réclamer tout défaut constaté dans les réparations ou résultant de ces réparations.";
+            doc.text(doc.splitTextToSize(texteAssure, blockW - 6), pageW / 2, y + 10, { align: 'center' });
+            doc.setFont('helvetica', 'bold');
+            doc.text('Date et signature de l\'assuré', pageW / 2, y + 19, { align: 'center' });
+            y += 22;
+
+            doc.rect(14, y, blockW, 15);
+            doc.text("L'expert", pageW / 2, y + 5, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.text('Je soussigné ' + (expert || '.....') + ', avoir validé la réparation du véhicule immatriculé ' + immat + '.', pageW / 2, y + 10, { align: 'center', maxWidth: blockW - 6 });
+            doc.setFont('helvetica', 'bold');
+            doc.text('Date et cachet de l\'expert', pageW / 2, y + 14, { align: 'center' });
+
+            const filename = 'Bon_de_sortie_' + (refAutop || 'AUTOP').replace(/[^\w-]/g, '_') + '.pdf';
+            doc.save(filename);
+            showToast('Bon de sortie généré : ' + filename, 'success');
+            bsCloseModal();
+        }
+
         async function cmSubmitDossier() {
             const errEl = document.getElementById('cmFormError');
             errEl.classList.add('hidden');
@@ -5468,6 +5788,7 @@
             const garantie = document.getElementById('cmGarantie').value;
             const marque = document.getElementById('cmMarque').value;
             const garage = document.getElementById('cmGarage').value;
+            const expert = document.getElementById('cmExpert').value;
             const moAutop = parseFloat(document.getElementById('cmMoAutop').value);
             const moGarage = parseFloat(document.getElementById('cmMoGarage').value);
             const piecesVendues = parseFloat(document.getElementById('cmPiecesVendues').value);
@@ -5492,7 +5813,7 @@
             const baseFields = {
                 assuranceKey: cmCurrentAccount.key,
                 assurance: cmCurrentAccount.label,
-                dossier: dossier, garantie: garantie, marque: marque, garage: garage,
+                dossier: dossier, garantie: garantie, marque: marque, garage: garage, expert: expert || null,
                 moAutop: moAutop, moGarage: moGarage, piecesVendues: piecesVendues, piecesAchetees: piecesAchetees,
                 ristourneOui: ristourneOui, ristournePct: ristourneOui ? ristournePct : null, ristourneMontant: ristourneMontant,
                 margePieces: margePieces, margeMo: margeMo, margeGlobale: margeGlobale
@@ -6012,6 +6333,7 @@
             document.getElementById('cmGarantie').value = 'IDA';
             document.getElementById('cmMarque').value = '';
             document.getElementById('cmGarage').value = '';
+            document.getElementById('cmExpert').value = '';
             document.getElementById('cmMoAutop').value = '';
             document.getElementById('cmMoGarage').value = '';
             document.getElementById('cmPiecesVendues').value = '';
