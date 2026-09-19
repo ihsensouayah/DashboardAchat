@@ -1181,6 +1181,24 @@
                                     <option value="10">10%</option>
                                 </select>
                             </div>
+
+                            <!-- Participation de l'assuré -->
+                            <div class="col-span-full border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                                <p class="text-xs font-bold uppercase tracking-widest text-gray-400">Participation</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Montant total de la participation</label>
+                                <input type="number" step="0.001" min="0" id="cmParticipationTotal" oninput="cmCalcReste()" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Avance versée</label>
+                                <input type="number" step="0.001" min="0" id="cmAvanceVersee" oninput="cmCalcReste()" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Reste à payer</label>
+                                <input type="text" id="cmResteAPayer" readonly tabindex="-1" value="0.000" class="w-full px-4 py-2 border rounded-lg bg-gray-50 dark:bg-gray-900 dark:border-gray-600 dark:text-white font-semibold cursor-not-allowed">
+                                <p id="cmResteHint" class="hidden text-xs text-red-600 mt-1">L'avance dépasse le montant total de la participation.</p>
+                            </div>
                         </div>
                         <p id="cmFormError" class="hidden text-sm text-red-600 mt-3"></p>
                         <div class="mt-5 flex items-center gap-3">
@@ -5241,6 +5259,19 @@
             document.getElementById('cmRistournePct').disabled = !oui;
         }
 
+        // Reste à payer = Montant total de la participation − Avance versée
+        function cmCalcReste() {
+            const total = parseFloat(document.getElementById('cmParticipationTotal').value) || 0;
+            const avance = parseFloat(document.getElementById('cmAvanceVersee').value) || 0;
+            const reste = Math.round((total - avance) * 1000) / 1000;
+            const out = document.getElementById('cmResteAPayer');
+            out.value = reste.toFixed(3);
+            const depasse = reste < 0;
+            out.classList.toggle('text-red-600', depasse);
+            document.getElementById('cmResteHint').classList.toggle('hidden', !depasse);
+            return reste;
+        }
+
         function cmFmt(n) { return (n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 3 }); }
         function cmBadgeClass(pct) { return pct >= 30 ? 'good' : (pct >= 15 ? 'warn' : 'bad'); }
 
@@ -5493,6 +5524,9 @@
             document.getElementById('cmRistourneOui').value = r.ristourneOui ? 'oui' : 'non';
             document.getElementById('cmRistournePct').disabled = !r.ristourneOui;
             if (r.ristourneOui) document.getElementById('cmRistournePct').value = String(r.ristournePct);
+            document.getElementById('cmParticipationTotal').value = (r.participationTotal === null || r.participationTotal === undefined) ? '' : r.participationTotal;
+            document.getElementById('cmAvanceVersee').value = (r.avanceVersee === null || r.avanceVersee === undefined) ? '' : r.avanceVersee;
+            cmCalcReste();
             document.getElementById('cmSubmitBtnLabel').textContent = 'Mettre à jour';
             document.getElementById('cmCancelEditBtn').classList.remove('hidden');
             document.getElementById('cmDossier').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -5795,6 +5829,24 @@
             const piecesAchetees = parseFloat(document.getElementById('cmPiecesAchetees').value);
             const ristourneOui = document.getElementById('cmRistourneOui').value === 'oui';
             const ristournePct = ristourneOui ? parseFloat(document.getElementById('cmRistournePct').value) : 0;
+            // Participation (optionnelle) : total, avance versée, reste à payer calculé
+            const partTotalRaw = parseFloat(document.getElementById('cmParticipationTotal').value);
+            const avanceRaw = parseFloat(document.getElementById('cmAvanceVersee').value);
+            const hasParticipation = !isNaN(partTotalRaw) || !isNaN(avanceRaw);
+            const participationTotal = hasParticipation ? (isNaN(partTotalRaw) ? 0 : partTotalRaw) : null;
+            const avanceVersee = hasParticipation ? (isNaN(avanceRaw) ? 0 : avanceRaw) : null;
+            const resteAPayer = hasParticipation ? Math.round((participationTotal - avanceVersee) * 1000) / 1000 : null;
+
+            if (hasParticipation && (participationTotal < 0 || avanceVersee < 0)) {
+                errEl.textContent = 'Les montants de la participation ne peuvent pas être négatifs.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            if (hasParticipation && avanceVersee > participationTotal) {
+                errEl.textContent = "L'avance versée ne peut pas dépasser le montant total de la participation.";
+                errEl.classList.remove('hidden');
+                return;
+            }
 
             if (!dossier || !marque || !garage || garage === '__new__' || isNaN(moAutop) || isNaN(moGarage) || isNaN(piecesVendues) || isNaN(piecesAchetees)) {
                 errEl.textContent = 'Merci de renseigner le n° de dossier, la marque, le garage et les 4 montants avant de valider.';
@@ -5816,6 +5868,7 @@
                 dossier: dossier, garantie: garantie, marque: marque, garage: garage, expert: expert || null,
                 moAutop: moAutop, moGarage: moGarage, piecesVendues: piecesVendues, piecesAchetees: piecesAchetees,
                 ristourneOui: ristourneOui, ristournePct: ristourneOui ? ristournePct : null, ristourneMontant: ristourneMontant,
+                participationTotal: participationTotal, avanceVersee: avanceVersee, resteAPayer: resteAPayer,
                 margePieces: margePieces, margeMo: margeMo, margeGlobale: margeGlobale
             };
 
@@ -6340,6 +6393,9 @@
             document.getElementById('cmPiecesAchetees').value = '';
             document.getElementById('cmRistourneOui').value = 'non';
             document.getElementById('cmRistournePct').disabled = true;
+            document.getElementById('cmParticipationTotal').value = '';
+            document.getElementById('cmAvanceVersee').value = '';
+            cmCalcReste();
             document.getElementById('cmDossier').focus();
         }
 
