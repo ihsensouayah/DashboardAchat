@@ -326,45 +326,54 @@
 <body class="bg-gray-50 dark:bg-gray-900">
 
     <!-- LOGIN PAGE -->
-    <div id="loginPage" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md animate-fade-in">
-            <div class="text-center mb-8">
-                    <div class="mx-auto mb-4">
-                        <img src="https://raw.githubusercontent.com/ihsensouayah/DashboardAchat/main/logo-autop.png" alt="AUTOP TUNISIE" class="h-20 w-auto object-contain">
+    <div id="loginPage" class="min-h-screen flex flex-col md:flex-row">
+        <!-- Colonne accès (gauche) -->
+        <div class="w-full md:w-1/2 min-h-screen flex items-center justify-center relative px-6 py-12" style="background:#132433;">
+            <div class="absolute top-0 left-0 w-full h-1.5" style="background:#db0c15;"></div>
+            <div class="w-full max-w-md animate-fade-in">
+                <div class="text-center mb-8">
+                    <div class="mx-auto mb-5">
+                        <img src="https://raw.githubusercontent.com/ihsensouayah/DashboardAchat/main/logo-autop.png" alt="AUTOP TUNISIE" class="h-16 w-auto object-contain mx-auto">
                     </div>
-                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">AUTOP TUNISIE</h1>
-                <p class="text-gray-500 dark:text-gray-400 mt-2">Connexion à votre espace</p>
-            </div>
-            
-            <form id="loginForm" class="space-y-4" novalidate onsubmit="return false;">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                    <input type="email" id="loginEmail" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500" placeholder="votre@email.com">
+                    <h1 class="text-2xl font-bold text-white">AUTOP TUNISIE</h1>
+                    <p class="mt-2" style="color:#8fa3b3;">Connexion à votre espace</p>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mot de passe</label>
-                    <input type="password" id="loginPassword" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500" placeholder="••••••••">
+
+                <form id="loginForm" class="space-y-4" novalidate onsubmit="return false;">
+                    <div>
+                        <label class="block text-sm font-medium mb-1" style="color:#c7d3e0;">Email</label>
+                        <input type="email" id="loginEmail" required class="w-full px-4 py-3 rounded-lg text-white placeholder-gray-500 outline-none transition-colors" style="background:#1c2f40;border:1px solid #2b4256;" onfocus="this.style.borderColor='#db0c15';this.style.boxShadow='0 0 0 2px rgba(219,12,21,0.35)';" onblur="this.style.borderColor='#2b4256';this.style.boxShadow='none';" placeholder="votre@email.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1" style="color:#c7d3e0;">Mot de passe</label>
+                        <input type="password" id="loginPassword" required class="w-full px-4 py-3 rounded-lg text-white placeholder-gray-500 outline-none transition-colors" style="background:#1c2f40;border:1px solid #2b4256;" onfocus="this.style.borderColor='#db0c15';this.style.boxShadow='0 0 0 2px rgba(219,12,21,0.35)';" onblur="this.style.borderColor='#2b4256';this.style.boxShadow='none';" placeholder="••••••••">
+                    </div>
+                    <div id="loginError" class="text-sm hidden" style="color:#ff6b6b;"></div>
+                    <button type="button" onclick="console.log('CLICK!'); handleLoginClick();" class="w-full py-3 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2" style="background:#db0c15;" onmouseover="this.style.background='#a30a10';" onmouseout="this.style.background='#db0c15';">
+                        <i data-lucide="log-in" class="w-5 h-5"></i>
+                        <span>Se connecter</span>
+                    </button>
+                </form>
+
+                <div class="mt-6 text-center">
+                    <p class="text-sm" style="color:#8fa3b3;">
+                        Premier accès ? <button onclick="showCreateAccount()" class="hover:underline font-medium" style="color:#e8891f;">Créer un compte</button>
+                    </p>
                 </div>
-                <div id="loginError" class="text-red-600 text-sm hidden"></div>
-                <button type="button" onclick="console.log('CLICK!'); handleLoginClick();" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
-                    <i data-lucide="log-in" class="w-5 h-5"></i>
-                    <span>Se connecter</span>
-                </button>
-            </form>
-            
-            <div class="mt-6 text-center">
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Premier accès ? <button onclick="showCreateAccount()" class="text-blue-600 hover:underline">Créer un compte</button>
-                </p>
             </div>
+        </div>
+
+        <!-- Colonne visuel (droite) -->
+        <div class="hidden md:block md:w-1/2 min-h-screen relative overflow-hidden">
+            <img src="https://raw.githubusercontent.com/ihsensouayah/DashboardAchat/main/login-visual.jpg" alt="AUTOP Tunisie" class="absolute inset-0 w-full h-full object-cover">
         </div>
     </div>
 
     <!-- CREATE ACCOUNT PAGE -->
-    <div id="createAccountPage" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 hidden">
+    <div id="createAccountPage" class="min-h-screen flex items-center justify-center hidden" style="background:#132433;">
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md animate-fade-in">
             <div class="text-center mb-8">
-                <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:#db0c15;">
                     <i data-lucide="user-plus" class="w-8 h-8 text-white"></i>
                 </div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Créer un compte</h1>
@@ -405,7 +414,7 @@
                 <div id="createError" class="text-red-600 text-sm hidden"></div>
                 <div class="flex space-x-3">
                     <button type="button" onclick="showLogin()" class="flex-1 py-3 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Retour</button>
-                    <button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Créer</button>
+                    <button type="submit" class="flex-1 py-3 text-white rounded-lg font-medium transition-colors" style="background:#db0c15;" onmouseover="this.style.background='#a30a10';" onmouseout="this.style.background='#db0c15';">Créer</button>
                 </div>
             </form>
         </div>
