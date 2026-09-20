@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AUTOP | Suivi Sinistres STAR &amp; MAE</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/lucide@0.363.0/dist/umd/lucide.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
+  // Filet de secours : si un CDN a échoué (réseau d'entreprise, coupure momentanée...),
+  // on retente via des CDN alternatifs avant de démarrer l'appli, pour ne jamais laisser
+  // la page bloquée avec un script planté et un affichage vide.
+  window.__libLoadFailed = false;
+  (function(){
+    function tryFallbacks(urls, onDone){
+      var i = 0;
+      function next(){
+        if(i >= urls.length){ onDone(false); return; }
+        var s = document.createElement('script');
+        s.src = urls[i++];
+        s.onload = function(){ onDone(true); };
+        s.onerror = next;
+        document.head.appendChild(s);
+      }
+      next();
+    }
+    window.__ensureLibs = function(callback){
+      var need = [];
+      if(typeof Chart === 'undefined') need.push({
+        name:'Chart',
+        urls:[
+          'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+          'https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js'
+        ]
+      });
+      if(typeof XLSX === 'undefined') need.push({
+        name:'XLSX',
+        urls:[
+          'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+          'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+        ]
+      });
+      if(typeof lucide === 'undefined') need.push({
+        name:'lucide',
+        urls:[
+          'https://cdn.jsdelivr.net/npm/lucide@0.363.0/dist/umd/lucide.min.js',
+          'https://unpkg.com/lucide@0.363.0/dist/umd/lucide.min.js'
+        ]
+      });
+      if(!need.length){ callback(); return; }
+      let idx = 0;
+      function loadNext(){
+        if(idx >= need.length){ callback(); return; }
+        const item = need[idx++];
+        tryFallbacks(item.urls, function(ok){
+          if(!ok) window.__libLoadFailed = true;
+          loadNext();
+        });
+      }
+      loadNext();
+    };
+  })();
+</script>
+<style>
+  :root{
+    --navy:#20496d; --navy-dark:#173a58; --red:#db0c15; --orange:#e8891f; --green:#1f9d5c;
+    --grey-bg:#f4f6f9; --grey-line:#e2e8f0;
+  }
+  *{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;}
+  body{background:var(--grey-bg);}
+  .watermark{
+    position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .watermark span{
+    font-size:16vw; font-weight:800; color:var(--navy); opacity:0.045; transform:rotate(-28deg);
+    white-space:nowrap; letter-spacing:4px;
+  }
+  .app{position:relative; z-index:1;}
+  .card{background:#fff; border:1px solid var(--grey-line); border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .btn{display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:9px; font-size:14px; font-weight:600; transition:.15s; cursor:pointer; border:1px solid transparent;}
+  .btn-navy{background:var(--navy); color:#fff;} .btn-navy:hover{background:var(--navy-dark);}
+  .btn-red{background:var(--red); color:#fff;} .btn-red:hover{background:#b80a11;}
+  .btn-outline{background:#fff; border-color:var(--grey-line); color:var(--navy);} .btn-outline:hover{background:#f1f5f9;}
+  .btn-ghost{background:transparent; color:#64748b;} .btn-ghost:hover{background:#f1f5f9;}
+  .badge{display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; white-space:nowrap;}
+  .input, select.input{width:100%; padding:8px 12px; border:1px solid var(--grey-line); border-radius:8px; font-size:14px; background:#fff; color:#1e293b;}
+  .input:focus, select.input:focus{outline:2px solid var(--navy); outline-offset:1px; border-color:var(--navy);}
+  table.sinistres th{position:sticky; top:0; background:var(--navy); color:#fff; z-index:5;}
+  table.sinistres tbody tr:hover{background:#eef4fa;}
+  table.sinistres tbody tr{border-bottom:1px solid var(--grey-line);}
+  .modal-backdrop{background:rgba(15,30,45,.55); backdrop-filter:blur(2px);}
+  .toast{animation:slideIn .25s ease-out;}
+  @keyframes slideIn{from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1}}
+  ::-webkit-scrollbar{height:10px; width:10px;} ::-webkit-scrollbar-thumb{background:#cbd5e1; border-radius:6px;}
+  .tab-btn.active{background:var(--navy); color:#fff;}
+  .kpi-icon{width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center;}
+  [data-lucide]{width:18px; height:18px;}
+</style>
+</head>
+<body>
+
+<div class="watermark"><span>AUTOP</span></div>
+
+<div class="app min-h-screen flex flex-col">
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-40" style="background:var(--navy); border-bottom:4px solid var(--red);">
+    <div class="max-w-[1500px] mx-auto px-5 py-3 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-lg" style="background:var(--red); color:#fff;">AT</div>
+        <div>
+          <h1 class="text-white font-bold text-lg leading-tight">Suivi Sinistres STAR &amp; MAE</h1>
+          <p class="text-[12px] leading-tight" style="color:#a9c1d8;">AUTOP TUNISIE — Équipe Technique</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <select id="monthSelect" class="input !w-auto !bg-white/10 !text-white !border-white/20"></select>
+        <button id="btnNewDossier" class="btn btn-red"><i data-lucide="plus"></i>Nouveau dossier</button>
+        <button id="btnImport" class="btn" style="background:var(--orange); color:#fff;"><i data-lucide="upload"></i>Importer Excel</button>
+        <button id="btnExport" class="btn btn-outline !bg-white"><i data-lucide="download"></i>Exporter</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1500px] w-full mx-auto px-5 py-5 flex-1">
+
+    <!-- KPI ROW -->
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5" id="kpiRow"></div>
+
+    <!-- CHARTS -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+      <div class="card p-4">
+        <h3 class="text-sm font-bold text-slate-700 mb-2">Répartition par compagnie</h3>
+        <canvas id="chartCompagnie" height="110"></canvas>
+      </div>
+      <div class="card p-4">
+        <h3 class="text-sm font-bold text-slate-700 mb-2">Dossiers par état</h3>
+        <canvas id="chartEtat" height="110"></canvas>
+      </div>
+      <div class="card p-4">
+        <h3 class="text-sm font-bold text-slate-700 mb-2">Charge par gestionnaire</h3>
+        <canvas id="chartGestionnaire" height="110"></canvas>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="card p-4 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2"><i data-lucide="filter"></i>Filtres</h3>
+        <button id="btnResetFilters" class="btn btn-ghost text-xs !py-1">Réinitialiser</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+        <input id="fSearch" class="input xl:col-span-2" placeholder="Rechercher N°Dossier / N°Sinistre...">
+        <select id="fCompagnie" class="input"><option value="">Compagnie (toutes)</option></select>
+        <select id="fNature" class="input"><option value="">Nature (toutes)</option></select>
+        <select id="fGestionnaire" class="input"><option value="">Gestionnaire (tous)</option></select>
+        <select id="fEtat" class="input"><option value="">État (tous)</option></select>
+        <input id="fDateFrom" type="date" class="input" title="Réception depuis">
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="card overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b" style="border-color:var(--grey-line);">
+        <h3 class="text-sm font-bold text-slate-700">Dossiers <span id="countBadge" class="text-slate-400 font-normal"></span></h3>
+        <div class="flex items-center gap-2">
+          <button id="btnBulkDelete" class="btn btn-ghost text-xs !py-1 text-red-600 hidden"><i data-lucide="trash-2"></i>Supprimer sélection</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="sinistres w-full text-sm">
+          <thead>
+            <tr>
+              <th class="px-3 py-2 text-left"><input type="checkbox" id="selectAll"></th>
+              <th class="px-3 py-2 text-left cursor-pointer" data-sort="numDossier">N°Dossier</th>
+              <th class="px-3 py-2 text-left cursor-pointer" data-sort="numSinistre">N°Sinistre</th>
+              <th class="px-3 py-2 text-left cursor-pointer" data-sort="compagnie">Compagnie</th>
+              <th class="px-3 py-2 text-left cursor-pointer" data-sort="nature">Nature garantie</th>
+              <th class="px-3 py-2 text-left cursor-pointer" data-sort="dateReception">Date réception</th>
+              <th class="px-3 py-2 text-left cursor-pointer" data-sort="gestionnaire">Gestionnaire</th>
+              <th class="px-3 py-2 text-left cursor-pointer" data-sort="etat">État dossier</th>
+              <th class="px-3 py-2 text-right cursor-pointer" data-sort="montantDevis">Montant devis validé</th>
+              <th class="px-3 py-2 text-right cursor-pointer" data-sort="nbHeures">Nb heures validé</th>
+              <th class="px-3 py-2 text-left cursor-pointer" data-sort="dateLancementAchat">Date lanc. achat</th>
+              <th class="px-3 py-2 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="hidden text-center py-14 text-slate-400">
+        <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2"></i>
+        <p class="font-medium">Aucun dossier trouvé</p>
+        <p class="text-xs">Ajoutez un dossier manuellement ou importez un fichier Excel</p>
+      </div>
+    </div>
+
+    <p class="text-[11px] text-slate-400 mt-4 text-center">Données enregistrées automatiquement dans ce navigateur (localStorage). Exportez régulièrement en Excel pour sauvegarder / partager.</p>
+  </main>
+</div>
+
+<!-- MODAL: DOSSIER FORM -->
+<div id="modalDossier" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop p-4">
+  <div class="card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-5 py-4 border-b" style="border-color:var(--grey-line); background:var(--navy); border-radius:14px 14px 0 0;">
+      <h3 id="modalTitle" class="text-white font-bold">Nouveau dossier</h3>
+      <button class="modal-close text-white/80 hover:text-white"><i data-lucide="x"></i></button>
+    </div>
+    <form id="formDossier" class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <input type="hidden" id="f_id">
+      <div>
+        <label class="text-xs font-semibold text-slate-600">N°Dossier *</label>
+        <input required id="f_numDossier" class="input mt-1" placeholder="ex: 3500/2026">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">N°Sinistre *</label>
+        <input required id="f_numSinistre" class="input mt-1" placeholder="ex: 226030300">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">Compagnie *</label>
+        <select required id="f_compagnie" class="input mt-1">
+          <option value="STAR">STAR</option>
+          <option value="MAE">MAE</option>
+          <option value="ATTAKAFULIA">ATTAKAFULIA</option>
+          <option value="AMANA TAKAFUL">AMANA TAKAFUL</option>
+          <option value="ASTREE">ASTREE</option>
+          <option value="HORS PEC">HORS PEC</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">Nature de garantie *</label>
+        <select required id="f_nature" class="input mt-1">
+          <option value="IDA">IDA</option>
+          <option value="TR">TR</option>
+          <option value="DC">DC</option>
+          <option value="CONNEXE">CONNEXE</option>
+          <option value="BRIS DE GLACE">BRIS DE GLACE</option>
+          <option value="NON SPECIFIE">NON SPECIFIE</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">Date réception *</label>
+        <input required type="date" id="f_dateReception" class="input mt-1">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">Gestionnaire *</label>
+        <input required id="f_gestionnaire" list="gestionnaireList" class="input mt-1" placeholder="ex: Amir">
+        <datalist id="gestionnaireList"></datalist>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">État du dossier *</label>
+        <select required id="f_etat" class="input mt-1">
+          <option value="En cours">En cours</option>
+          <option value="En attente">En attente</option>
+          <option value="Devis validé">Devis validé</option>
+          <option value="Achat lancé">Achat lancé</option>
+          <option value="Clôturé">Clôturé</option>
+          <option value="Rejeté">Rejeté</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">Montant devis validé (TND)</label>
+        <input type="number" step="0.001" id="f_montantDevis" class="input mt-1" placeholder="0.000">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">Nombre d'heures validé</label>
+        <input type="number" step="0.5" id="f_nbHeures" class="input mt-1" placeholder="0">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">Date lancement d'achat</label>
+        <input type="date" id="f_dateLancementAchat" class="input mt-1">
+      </div>
+      <div class="md:col-span-2 flex justify-end gap-2 pt-2 border-t" style="border-color:var(--grey-line);">
+        <button type="button" class="modal-close btn btn-ghost">Annuler</button>
+        <button type="submit" class="btn btn-navy"><i data-lucide="check"></i>Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: IMPORT -->
+<div id="modalImport" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop p-4">
+  <div class="card w-full max-w-lg">
+    <div class="flex items-center justify-between px-5 py-4 border-b" style="border-color:var(--grey-line); background:var(--orange); border-radius:14px 14px 0 0;">
+      <h3 class="text-white font-bold">Importer un fichier Excel</h3>
+      <button class="modal-close text-white/80 hover:text-white"><i data-lucide="x"></i></button>
+    </div>
+    <div class="p-5 space-y-4">
+      <p class="text-xs text-slate-500">Colonnes attendues (1ère ligne = en-têtes) : <b>N°Dossier, N°Sinistre, Compagnie, Nature de garantie, Date récéption, Gestionnaire, Etat du dossier, Montant devis validé, nombre d'heure validé, Date lancement d'achat</b>.</p>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="input">
+      <div id="importPreview" class="text-xs text-slate-600 hidden">
+        <span id="importCount" class="font-semibold"></span> ligne(s) détectée(s).
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600 block mb-1">Mode d'import</label>
+        <div class="flex gap-4 text-sm">
+          <label class="flex items-center gap-1.5"><input type="radio" name="importMode" value="append" checked> Ajouter aux dossiers existants</label>
+          <label class="flex items-center gap-1.5"><input type="radio" name="importMode" value="replace"> Remplacer toutes les données</label>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t" style="border-color:var(--grey-line);">
+        <button type="button" class="modal-close btn btn-ghost">Annuler</button>
+        <button id="btnConfirmImport" disabled class="btn" style="background:var(--orange); color:#fff;"><i data-lucide="upload"></i>Importer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer" class="fixed bottom-5 right-5 z-[60] flex flex-col gap-2"></div>
+
+<script>
+function safeLucide(){ if(typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons(); }
+
+function startApp(){
+if(window.__libLoadFailed){
+  const warn = document.createElement('div');
+  warn.style.cssText = 'background:#fff3cd;color:#7a5c00;border-bottom:2px solid #e8891f;padding:8px 16px;font-size:12px;font-family:Segoe UI,Arial,sans-serif;text-align:center;';
+  warn.textContent = "Certaines ressources n'ont pas pu être chargées (connexion internet limitée) — l'affichage peut être incomplet. Réessayez avec une connexion active.";
+  document.body.insertBefore(warn, document.body.firstChild);
+}
+safeLucide();
+
+/* ================= CONFIG ================= */
+const STORAGE_KEY = 'autop_sinistres_star_mae_v1';
+const COMPAGNIE_COLORS = {
+  'STAR': '#20496d', 'MAE': '#db0c15', 'ATTAKAFULIA': '#1f9d5c',
+  'AMANA TAKAFUL': '#8b5cf6', 'ASTREE': '#e8891f', 'HORS PEC': '#64748b'
+};
+// Compagnie et nature de garantie alignées sur les catégories canoniques du module
+// Analyse Marge (mêmes 6 compagnies, mêmes codes de garantie), pour que les deux
+// modules parlent le même langage. Ces tables absorbent aussi les anciennes valeurs
+// (ex. "STAR ASSURANCES", "BG") déjà enregistrées, pour ne pas casser l'historique.
+const COMPAGNIE_MAP = {
+  'STAR': 'STAR', 'STAR ASSURANCES': 'STAR', 'STRA': 'STAR',
+  'MAE': 'MAE', 'MAE ASSURANCES': 'MAE',
+  'ATTAKAFULIA': 'ATTAKAFULIA', 'AT-TAKAFULIA': 'ATTAKAFULIA', 'ATAKAFULIA': 'ATTAKAFULIA', 'ATTAKAFULIA ASSURANCES': 'ATTAKAFULIA',
+  'AMANA TAKAFUL': 'AMANA TAKAFUL', 'EL AMANA TAKAFUL': 'AMANA TAKAFUL', 'AL AMENA TAKAFUL': 'AMANA TAKAFUL',
+  'AL BARAKA': 'AMANA TAKAFUL', 'ALBARAKA': 'AMANA TAKAFUL', 'EL BARAKA': 'AMANA TAKAFUL',
+  'ASTREE': 'ASTREE', 'ASTRE': 'ASTREE', 'ASTRRE': 'ASTREE', 'ASTREE ASSURANCES': 'ASTREE',
+  'HORS PEC': 'HORS PEC', 'PASSAGER': 'HORS PEC', 'DOSSIER HORS PEC': 'HORS PEC'
+};
+const NATURE_MAP = { 'BG': 'BRIS DE GLACE' };
+function normalizeCompagnie(v){
+  const key = String(v||'').trim().toUpperCase();
+  return COMPAGNIE_MAP[key] || key;
+}
+function normalizeNature(v){
+  const key = String(v||'').trim().toUpperCase();
+  return NATURE_MAP[key] || key;
+}
+const ETAT_COLORS = {
+  'En cours': '#e8891f', 'En attente': '#94a3b8', 'Devis validé': '#3b82f6',
+  'Achat lancé': '#8b5cf6', 'Clôturé': '#1f9d5c', 'Rejeté': '#db0c15'
+};
+const SEED_DATA = [{"numDossier": "3037/2026", "numSinistre": "226024561", "compagnie": "MAE ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Sirine", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3161/2026", "numSinistre": "224014332", "compagnie": "MAE ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Amir", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3467/2026", "numSinistre": "226030166", "compagnie": "MAE ASSURANCES", "nature": "TR", "dateReception": "2026-09-01", "gestionnaire": "Amir", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3365/2026", "numSinistre": "2026731_0555026445", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3426/2026", "numSinistre": "2026369_0554024292", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3408/2026", "numSinistre": "226029576", "compagnie": "MAE ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Oumaima", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3397/2026", "numSinistre": "2026725_0555026545", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Hatten", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3465/2026", "numSinistre": "2026938_0555027451", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3443/2026", "numSinistre": "2026224_0555027303", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3315/2026", "numSinistre": "2026815_0555026050", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Marouane", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3457/2026", "numSinistre": "226030123", "compagnie": "MAE ASSURANCES", "nature": "TR", "dateReception": "2026-09-01", "gestionnaire": "Amir", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3483/2026", "numSinistre": "226030308", "compagnie": "MAE ASSURANCES", "nature": "DC", "dateReception": "2026-09-01", "gestionnaire": "Oumaima", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3345/2026", "numSinistre": "2026960_0580026344", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3448/2026", "numSinistre": "2026356_0555027370", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3441/2026", "numSinistre": "2026210_0555027222", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Marouane", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3460/2026", "numSinistre": "2026723_0555027365", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-01", "gestionnaire": "Marouane", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3447/2026", "numSinistre": "2026325_0555027336", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-02", "gestionnaire": "Marouane", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3360/2026", "numSinistre": "226028310", "compagnie": "MAE ASSURANCES", "nature": "IDA", "dateReception": "2026-09-02", "gestionnaire": "Sirine", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3455/2026", "numSinistre": "226021128", "compagnie": "MAE ASSURANCES", "nature": "IDA", "dateReception": "2026-09-02", "gestionnaire": "Oumaima", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3442/2026", "numSinistre": "2026500_0555027207", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-02", "gestionnaire": "Nourhene", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3463/2026", "numSinistre": "2026500_0555027360", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-02", "gestionnaire": "Nourhene", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3304/2026", "numSinistre": "2026731_0555025961", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-02", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "2699/2026", "numSinistre": "2026615_0555021230", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-02", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3486/2026", "numSinistre": "226030259", "compagnie": "MAE ASSURANCES", "nature": "TR", "dateReception": "2026-09-03", "gestionnaire": "Oumaima", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3489/2026", "numSinistre": "226030248", "compagnie": "MAE ASSURANCES", "nature": "TR", "dateReception": "2026-09-03", "gestionnaire": "Oumaima", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3191/2026", "numSinistre": "226027743", "compagnie": "MAE ASSURANCES", "nature": "IDA", "dateReception": "2026-09-03", "gestionnaire": "Sirine", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3231/2026", "numSinistre": "226027908", "compagnie": "MAE ASSURANCES", "nature": "IDA", "dateReception": "2026-09-03", "gestionnaire": "Amir", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3419/2026", "numSinistre": "226029773", "compagnie": "MAE ASSURANCES", "nature": "IDA", "dateReception": "2026-09-03", "gestionnaire": "Sirine", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3469/2026", "numSinistre": "2026349_0555027363", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-03", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3479/2026", "numSinistre": "2026183_0555027521", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-03", "gestionnaire": "Hatten", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3496/2026", "numSinistre": "2026630_0555027648", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-03", "gestionnaire": "Nourhene", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3482/2026", "numSinistre": "2026630_0555027528", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-03", "gestionnaire": "Abdelmajid", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}, {"numDossier": "3431/2026", "numSinistre": "2026721_0555027121", "compagnie": "STAR ASSURANCES", "nature": "IDA", "dateReception": "2026-09-03", "gestionnaire": "Hatten", "etat": "En cours", "montantDevis": null, "nbHeures": null, "dateLancementAchat": ""}];
+
+/* ================= STATE ================= */
+let dossiers = [];
+let sortKey = 'dateReception', sortDir = 'desc';
+let selectedIds = new Set();
+let pendingImportRows = [];
+let editRowIds = null; // used for delete confirmation on single row
+
+function uid(){ return 'd_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+// Persistance Firestore : un iframe chargé en data: URI (notre mode d'intégration dans
+// le dashboard principal) a une origine "opaque" dans Chrome, qui interdit l'accès à
+// localStorage/indexedDB (SecurityError). Les mises à jour ne survivaient donc jamais à
+// un rechargement de l'iframe. On utilise donc Firestore (même projet que le dashboard
+// principal) comme unique source de vérité, avec un cache mémoire local pour un rendu
+// instantané pendant le chargement réseau.
+const firebaseConfig = {
+  apiKey: "AIzaSyDjaYzS64cTQ63ozYzSgRZSyqPgqpmJgGI",
+  authDomain: "autopachat.firebaseapp.com",
+  projectId: "autopachat",
+  storageBucket: "autopachat.firebasestorage.app",
+  messagingSenderId: "61990255227",
+  appId: "1:61990255227:web:2126c73037ed2c07fbc0de",
+  measurementId: "G-CWTLMD8K3Y"
+};
+if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const sinistresDocRef = db.collection('appModulesData').doc(STORAGE_KEY);
+
+let __memoryStore = {};
+
+async function loadFromFirestore(key){
+  try{
+    const snap = await sinistresDocRef.get();
+    if(snap.exists){
+      const data = snap.data();
+      if(typeof data.value === 'string'){ __memoryStore[key] = data.value; return data.value; }
+    }
+  }catch(e){
+    console.error('Firestore load error', e);
+  }
+  return null;
+}
+
+async function saveToFirestore(key, value){
+  __memoryStore[key] = value;
+  await sinistresDocRef.set({
+    value: value,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+async function loadData(){
+  const raw = await loadFromFirestore(STORAGE_KEY);
+  if(raw){
+    try{ dossiers = JSON.parse(raw); }catch(e){ dossiers = []; }
+  } else {
+    dossiers = SEED_DATA.map(d => ({ id: uid(), ...d }));
+  }
+  dossiers = dossiers.map(d => ({ ...d, compagnie: normalizeCompagnie(d.compagnie), nature: normalizeNature(d.nature) }));
+  if(!raw) await saveData();
+}
+async function saveData(){
+  try{
+    await saveToFirestore(STORAGE_KEY, JSON.stringify(dossiers));
+  }catch(e){
+    console.error('Erreur de sauvegarde Firestore', e);
+    toast("Erreur d'enregistrement — vérifiez votre connexion", 'err');
+  }
+}
+
+/* ================= UTIL ================= */
+function fmtMoney(v){
+  if(v === null || v === undefined || v === '') return '—';
+  return Number(v).toLocaleString('fr-TN', {minimumFractionDigits:3, maximumFractionDigits:3}) + ' DT';
+}
+function fmtDate(v){
+  if(!v) return '—';
+  const d = new Date(v);
+  if(isNaN(d)) return v;
+  return d.toLocaleDateString('fr-FR');
+}
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function toast(msg, type='ok'){
+  const el = document.createElement('div');
+  const bg = type==='ok' ? 'var(--green)' : type==='err' ? 'var(--red)' : 'var(--navy)';
+  el.className = 'toast text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-lg';
+  el.style.background = bg;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='.3s'; setTimeout(()=>el.remove(),300); }, 2600);
+}
+
+/* ================= FILTER OPTIONS ================= */
+function uniqueVals(key){
+  return [...new Set(dossiers.map(d=>d[key]).filter(Boolean))].sort();
+}
+function populateFilterOptions(){
+  const fills = [
+    ['fCompagnie','compagnie'], ['fNature','nature'],
+    ['fGestionnaire','gestionnaire'], ['fEtat','etat']
+  ];
+  fills.forEach(([selId, key])=>{
+    const sel = document.getElementById(selId);
+    const current = sel.value;
+    const first = sel.querySelector('option');
+    sel.innerHTML = '';
+    sel.appendChild(first);
+    uniqueVals(key).forEach(v=>{
+      const o = document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o);
+    });
+    sel.value = current;
+  });
+  // datalist gestionnaire
+  const dl = document.getElementById('gestionnaireList');
+  dl.innerHTML = uniqueVals('gestionnaire').map(v=>`<option value="${escapeHtml(v)}">`).join('');
+}
+
+/* ================= FILTERING / SORTING ================= */
+function getFiltered(){
+  const search = document.getElementById('fSearch').value.trim().toLowerCase();
+  const fCompagnie = document.getElementById('fCompagnie').value;
+  const fNature = document.getElementById('fNature').value;
+  const fGestionnaire = document.getElementById('fGestionnaire').value;
+  const fEtat = document.getElementById('fEtat').value;
+  const fDateFrom = document.getElementById('fDateFrom').value;
+
+  let rows = dossiers.filter(d=>{
+    if(search){
+      const hay = (d.numDossier+' '+d.numSinistre).toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    if(fCompagnie && d.compagnie !== fCompagnie) return false;
+    if(fNature && d.nature !== fNature) return false;
+    if(fGestionnaire && d.gestionnaire !== fGestionnaire) return false;
+    if(fEtat && d.etat !== fEtat) return false;
+    if(fDateFrom && (!d.dateReception || d.dateReception < fDateFrom)) return false;
+    return true;
+  });
+
+  rows.sort((a,b)=>{
+    let va = a[sortKey], vb = b[sortKey];
+    if(sortKey==='montantDevis' || sortKey==='nbHeures'){
+      va = va===null||va===undefined||va===''? -Infinity : Number(va);
+      vb = vb===null||vb===undefined||vb===''? -Infinity : Number(vb);
+    } else {
+      va = (va??'').toString().toLowerCase(); vb = (vb??'').toString().toLowerCase();
+    }
+    if(va < vb) return sortDir==='asc' ? -1 : 1;
+    if(va > vb) return sortDir==='asc' ? 1 : -1;
+    return 0;
+  });
+  return rows;
+}
+
+/* ================= RENDER ================= */
+function render(){
+  populateFilterOptions();
+  const rows = getFiltered();
+  renderTable(rows);
+  renderKpis();
+  renderCharts();
+  document.getElementById('countBadge').textContent = `(${rows.length} / ${dossiers.length})`;
+  document.getElementById('emptyState').classList.toggle('hidden', rows.length>0);
+}
+
+function renderTable(rows){
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = rows.map(d=>{
+    const etatColor = ETAT_COLORS[d.etat] || '#94a3b8';
+    return `<tr data-id="${d.id}">
+      <td class="px-3 py-2"><input type="checkbox" class="rowCheck" data-id="${d.id}" ${selectedIds.has(d.id)?'checked':''}></td>
+      <td class="px-3 py-2 font-semibold text-slate-700">${escapeHtml(d.numDossier)}</td>
+      <td class="px-3 py-2 text-slate-600">${escapeHtml(d.numSinistre)}</td>
+      <td class="px-3 py-2"><span class="badge" style="background:${COMPAGNIE_COLORS[d.compagnie]||'#64748b'}22; color:${COMPAGNIE_COLORS[d.compagnie]||'#64748b'};">${escapeHtml(d.compagnie)}</span></td>
+      <td class="px-3 py-2 text-slate-600">${escapeHtml(d.nature)}</td>
+      <td class="px-3 py-2 text-slate-600">${fmtDate(d.dateReception)}</td>
+      <td class="px-3 py-2 text-slate-600">${escapeHtml(d.gestionnaire)}</td>
+      <td class="px-3 py-2"><span class="badge" style="background:${etatColor}22; color:${etatColor};">${escapeHtml(d.etat)}</span></td>
+      <td class="px-3 py-2 text-right text-slate-600">${fmtMoney(d.montantDevis)}</td>
+      <td class="px-3 py-2 text-right text-slate-600">${d.nbHeures ?? '—'}</td>
+      <td class="px-3 py-2 text-slate-600">${fmtDate(d.dateLancementAchat)}</td>
+      <td class="px-3 py-2">
+        <div class="flex items-center justify-center gap-1">
+          <button class="btnEdit btn-ghost !p-1.5 rounded-lg" data-id="${d.id}" title="Modifier"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+          <button class="btnDelete btn-ghost !p-1.5 rounded-lg text-red-600" data-id="${d.id}" title="Supprimer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  safeLucide();
+  updateSortIndicators();
+  updateBulkDeleteVisibility();
+}
+
+function updateSortIndicators(){
+  document.querySelectorAll('th[data-sort]').forEach(th=>{
+    const base = th.textContent.replace(/ ▲| ▼/,'');
+    th.textContent = base;
+    if(th.dataset.sort === sortKey){
+      th.textContent = base + (sortDir==='asc' ? ' ▲' : ' ▼');
+    }
+  });
+}
+
+function renderKpis(){
+  const rows = getFiltered();
+  const total = rows.length;
+  const enCours = rows.filter(d=>d.etat==='En cours').length;
+  const cloture = rows.filter(d=>d.etat==='Clôturé').length;
+  const montantTotal = rows.reduce((s,d)=> s + (Number(d.montantDevis)||0), 0);
+  const heuresTotal = rows.reduce((s,d)=> s + (Number(d.nbHeures)||0), 0);
+  const nbCompagnies = new Set(rows.map(d=>d.compagnie).filter(Boolean)).size;
+
+  const kpis = [
+    {label:'Total dossiers', value: total, icon:'folder-open', color:'var(--navy)'},
+    {label:'En cours', value: enCours, icon:'loader', color:'var(--orange)'},
+    {label:'Clôturés', value: cloture, icon:'check-circle-2', color:'var(--green)'},
+    {label:'Compagnies', value: nbCompagnies, icon:'scale', color:'#8b5cf6'},
+    {label:'Montant devis validé', value: fmtMoney(montantTotal), icon:'coins', color:'var(--red)', small:true},
+    {label:"Heures validées", value: heuresTotal.toLocaleString('fr-FR'), icon:'clock', color:'#0891b2'},
+  ];
+  document.getElementById('kpiRow').innerHTML = kpis.map(k=>`
+    <div class="card p-3.5 flex items-center gap-3">
+      <div class="kpi-icon" style="background:${k.color}1a; color:${k.color};"><i data-lucide="${k.icon}"></i></div>
+      <div class="min-w-0">
+        <p class="text-[11px] font-semibold text-slate-500 truncate">${k.label}</p>
+        <p class="${k.small?'text-base':'text-xl'} font-bold text-slate-800 truncate">${k.value}</p>
+      </div>
+    </div>`).join('');
+  safeLucide();
+}
+
+/* ================= CHARTS ================= */
+let chartCompagnie, chartEtat, chartGestionnaire;
+function renderCharts(){
+  if(typeof Chart === 'undefined') return; // Chart.js indisponible (réseau) — on n'affiche pas les graphiques mais le reste de la page fonctionne
+  const rows = getFiltered();
+
+  const compCounts = {};
+  rows.forEach(d=> compCounts[d.compagnie] = (compCounts[d.compagnie]||0)+1);
+  const compLabels = Object.keys(compCounts);
+  const compData = compLabels.map(l=>compCounts[l]);
+  const compColors = compLabels.map(l=>COMPAGNIE_COLORS[l]||'#64748b');
+
+  const etatCounts = {};
+  rows.forEach(d=> etatCounts[d.etat] = (etatCounts[d.etat]||0)+1);
+  const etatLabels = Object.keys(etatCounts);
+  const etatData = etatLabels.map(l=>etatCounts[l]);
+  const etatColors = etatLabels.map(l=>ETAT_COLORS[l]||'#94a3b8');
+
+  const gestCounts = {};
+  rows.forEach(d=> gestCounts[d.gestionnaire] = (gestCounts[d.gestionnaire]||0)+1);
+  const gestLabels = Object.keys(gestCounts).sort((a,b)=>gestCounts[b]-gestCounts[a]);
+  const gestData = gestLabels.map(l=>gestCounts[l]);
+
+  const ctx1 = document.getElementById('chartCompagnie');
+  const ctx2 = document.getElementById('chartEtat');
+  const ctx3 = document.getElementById('chartGestionnaire');
+
+  if(chartCompagnie) chartCompagnie.destroy();
+  if(chartEtat) chartEtat.destroy();
+  if(chartGestionnaire) chartGestionnaire.destroy();
+
+  chartCompagnie = new Chart(ctx1, {
+    type:'doughnut',
+    data:{ labels:compLabels, datasets:[{ data:compData, backgroundColor:compColors, borderWidth:0 }] },
+    options:{ plugins:{legend:{position:'bottom', labels:{boxWidth:10, font:{size:11}}}}, cutout:'62%' }
+  });
+  chartEtat = new Chart(ctx2, {
+    type:'doughnut',
+    data:{ labels:etatLabels, datasets:[{ data:etatData, backgroundColor:etatColors, borderWidth:0 }] },
+    options:{ plugins:{legend:{position:'bottom', labels:{boxWidth:10, font:{size:11}}}}, cutout:'62%' }
+  });
+  chartGestionnaire = new Chart(ctx3, {
+    type:'bar',
+    data:{ labels:gestLabels, datasets:[{ data:gestData, backgroundColor:'#20496d', borderRadius:5, maxBarThickness:26 }] },
+    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true, ticks:{precision:0}}} }
+  });
+}
+
+/* ================= MODAL: DOSSIER ================= */
+const modalDossier = document.getElementById('modalDossier');
+const formDossier = document.getElementById('formDossier');
+
+function openDossierModal(dossier=null){
+  formDossier.reset();
+  document.getElementById('f_id').value = dossier?.id || '';
+  document.getElementById('modalTitle').textContent = dossier ? 'Modifier le dossier' : 'Nouveau dossier';
+  document.getElementById('f_numDossier').value = dossier?.numDossier || '';
+  document.getElementById('f_numSinistre').value = dossier?.numSinistre || '';
+  document.getElementById('f_compagnie').value = dossier?.compagnie || 'STAR';
+  document.getElementById('f_nature').value = dossier?.nature || 'IDA';
+  document.getElementById('f_dateReception').value = dossier?.dateReception || '';
+  document.getElementById('f_gestionnaire').value = dossier?.gestionnaire || '';
+  document.getElementById('f_etat').value = dossier?.etat || 'En cours';
+  document.getElementById('f_montantDevis').value = dossier?.montantDevis ?? '';
+  document.getElementById('f_nbHeures').value = dossier?.nbHeures ?? '';
+  document.getElementById('f_dateLancementAchat').value = dossier?.dateLancementAchat || '';
+  populateFilterOptions();
+  showModal(modalDossier);
+}
+
+formDossier.addEventListener('submit', e=>{
+  e.preventDefault();
+  const id = document.getElementById('f_id').value;
+  const payload = {
+    numDossier: document.getElementById('f_numDossier').value.trim(),
+    numSinistre: document.getElementById('f_numSinistre').value.trim(),
+    compagnie: document.getElementById('f_compagnie').value,
+    nature: document.getElementById('f_nature').value,
+    dateReception: document.getElementById('f_dateReception').value,
+    gestionnaire: document.getElementById('f_gestionnaire').value.trim(),
+    etat: document.getElementById('f_etat').value,
+    montantDevis: document.getElementById('f_montantDevis').value === '' ? null : Number(document.getElementById('f_montantDevis').value),
+    nbHeures: document.getElementById('f_nbHeures').value === '' ? null : Number(document.getElementById('f_nbHeures').value),
+    dateLancementAchat: document.getElementById('f_dateLancementAchat').value,
+  };
+  if(id){
+    const idx = dossiers.findIndex(d=>d.id===id);
+    if(idx>-1) dossiers[idx] = { ...dossiers[idx], ...payload };
+    toast('Dossier mis à jour');
+  } else {
+    dossiers.unshift({ id: uid(), ...payload });
+    toast('Dossier ajouté');
+  }
+  saveData();
+  hideModal(modalDossier);
+  render();
+});
+
+/* ================= TABLE ACTIONS ================= */
+document.getElementById('tableBody').addEventListener('click', e=>{
+  const editBtn = e.target.closest('.btnEdit');
+  const delBtn = e.target.closest('.btnDelete');
+  if(editBtn){
+    const d = dossiers.find(x=>x.id===editBtn.dataset.id);
+    if(d) openDossierModal(d);
+  } else if(delBtn){
+    const d = dossiers.find(x=>x.id===delBtn.dataset.id);
+    if(d && confirm(`Supprimer le dossier ${d.numDossier} ?`)){
+      dossiers = dossiers.filter(x=>x.id!==d.id);
+      selectedIds.delete(d.id);
+      saveData(); render();
+      toast('Dossier supprimé','navy');
+    }
+  }
+});
+document.getElementById('tableBody').addEventListener('change', e=>{
+  if(e.target.classList.contains('rowCheck')){
+    const id = e.target.dataset.id;
+    if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+    updateBulkDeleteVisibility();
+  }
+});
+document.getElementById('selectAll').addEventListener('change', e=>{
+  const rows = getFiltered();
+  if(e.target.checked) rows.forEach(d=>selectedIds.add(d.id));
+  else rows.forEach(d=>selectedIds.delete(d.id));
+  renderTable(rows);
+});
+function updateBulkDeleteVisibility(){
+  document.getElementById('btnBulkDelete').classList.toggle('hidden', selectedIds.size===0);
+}
+document.getElementById('btnBulkDelete').addEventListener('click', ()=>{
+  if(!confirm(`Supprimer ${selectedIds.size} dossier(s) sélectionné(s) ?`)) return;
+  dossiers = dossiers.filter(d=>!selectedIds.has(d.id));
+  selectedIds.clear();
+  saveData(); render();
+  toast('Dossiers supprimés','navy');
+});
+
+/* ================= SORT ================= */
+document.querySelectorAll('th[data-sort]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.sort;
+    if(sortKey===key) sortDir = sortDir==='asc'?'desc':'asc';
+    else { sortKey = key; sortDir='asc'; }
+    render();
+  });
+});
+
+/* ================= FILTERS ================= */
+['fSearch','fCompagnie','fNature','fGestionnaire','fEtat','fDateFrom'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', render);
+  document.getElementById(id).addEventListener('change', render);
+});
+document.getElementById('btnResetFilters').addEventListener('click', ()=>{
+  ['fSearch','fCompagnie','fNature','fGestionnaire','fEtat','fDateFrom'].forEach(id=> document.getElementById(id).value='');
+  render();
+});
+
+/* ================= MODALS GENERIC ================= */
+function showModal(el){ el.classList.remove('hidden'); el.classList.add('flex'); }
+function hideModal(el){ el.classList.add('hidden'); el.classList.remove('flex'); }
+document.querySelectorAll('.modal-close').forEach(btn=>{
+  btn.addEventListener('click', ()=>{ hideModal(modalDossier); hideModal(modalImport); resetImport(); });
+});
+[modalDossier, document.getElementById('modalImport')].forEach(el=>{
+  el.addEventListener('click', e=>{ if(e.target===el){ hideModal(el); resetImport(); } });
+});
+document.getElementById('btnNewDossier').addEventListener('click', ()=> openDossierModal());
+
+/* ================= IMPORT ================= */
+const modalImport = document.getElementById('modalImport');
+document.getElementById('btnImport').addEventListener('click', ()=>{ resetImport(); showModal(modalImport); });
+
+function resetImport(){
+  pendingImportRows = [];
+  document.getElementById('fileInput').value = '';
+  document.getElementById('importPreview').classList.add('hidden');
+  document.getElementById('btnConfirmImport').disabled = true;
+}
+
+const HEADER_MAP = {
+  'n°dossier':'numDossier', 'numero dossier':'numDossier', 'ndossier':'numDossier', 'référence interne':'numDossier', 'reference interne':'numDossier',
+  'n°sinistre':'numSinistre', 'numero sinistre':'numSinistre', 'nsinistre':'numSinistre', 'nom':'numSinistre',
+  'compagnie':'compagnie', 'client':'compagnie',
+  'nature de garantie':'nature', 'nature garantie':'nature', 'nature':'nature',
+  'date récéption':'dateReception', 'date réception':'dateReception', 'date reception':'dateReception', 'date de réception':'dateReception',
+  'gestionnaire':'gestionnaire', "dernière mise à jour par":'gestionnaire', "derniere mise a jour par":'gestionnaire',
+  'etat du dossier':'etat', 'état du dossier':'etat', 'etat':'etat', 'état':'etat',
+  'montant devis validé':'montantDevis', 'montant devis valide':'montantDevis', 'montant devis':'montantDevis',
+  "nombre d'heure validé":'nbHeures', "nombre d'heures validé":'nbHeures', "nb heures":'nbHeures', "nombre d'heure valide":'nbHeures', "nb heures validé":'nbHeures', "nb heures valide":'nbHeures',
+  "date lancement d'achat":'dateLancementAchat', "date lancement achat":'dateLancementAchat', "date lanc. achat":'dateLancementAchat', "date lanc achat":'dateLancementAchat',
+};
+function normHeader(h){
+  return String(h||'').trim().toLowerCase().replace(/\s+/g,' ');
+}
+function excelDateToISO(v){
+  if(v === null || v === undefined || v==='') return '';
+  if(typeof v === 'number'){
+    const d = XLSX.SSF.parse_date_code(v);
+    if(!d) return '';
+    const mm = String(d.m).padStart(2,'0'), dd = String(d.d).padStart(2,'0');
+    return `${d.y}-${mm}-${dd}`;
+  }
+  const d = new Date(v);
+  if(!isNaN(d)) return d.toISOString().slice(0,10);
+  return String(v);
+}
+
+document.getElementById('fileInput').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  if(typeof XLSX === 'undefined'){
+    toast("Librairie Excel indisponible (pas de connexion internet) — réessayez plus tard","err");
+    e.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const wb = XLSX.read(ev.target.result, {type:'array', cellDates:false});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+      if(raw.length < 2){ toast('Fichier vide','err'); return; }
+      const headers = raw[0].map(normHeader);
+      const colIdx = {};
+      headers.forEach((h,i)=>{ if(HEADER_MAP[h]) colIdx[HEADER_MAP[h]] = i; });
+
+      const rows = [];
+      for(let i=1;i<raw.length;i++){
+        const r = raw[i];
+        if(!r || r.every(c=>c===null||c==='')) continue;
+        const get = key => colIdx[key]!==undefined ? r[colIdx[key]] : null;
+        const numDossier = get('numDossier');
+        if(numDossier===null || numDossier==='') continue;
+        rows.push({
+          numDossier: String(numDossier).trim(),
+          numSinistre: get('numSinistre')!==null ? String(get('numSinistre')).replace(/\.0$/,'').trim() : '',
+          compagnie: normalizeCompagnie((get('compagnie')||'').toString().trim()),
+          nature: normalizeNature((get('nature')||'').toString().trim()),
+          dateReception: excelDateToISO(get('dateReception')),
+          gestionnaire: (get('gestionnaire')||'').toString().trim(),
+          etat: (get('etat')||'En cours').toString().trim(),
+          montantDevis: get('montantDevis')!==null && get('montantDevis')!=='' ? Number(get('montantDevis')) : null,
+          nbHeures: get('nbHeures')!==null && get('nbHeures')!=='' ? Number(get('nbHeures')) : null,
+          dateLancementAchat: excelDateToISO(get('dateLancementAchat')),
+        });
+      }
+      pendingImportRows = rows;
+      document.getElementById('importCount').textContent = rows.length;
+      document.getElementById('importPreview').classList.remove('hidden');
+      document.getElementById('btnConfirmImport').disabled = rows.length===0;
+      if(rows.length===0) toast('Aucune ligne valide détectée — vérifiez les en-têtes','err');
+    }catch(err){
+      console.error(err);
+      toast("Erreur de lecture du fichier","err");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+document.getElementById('btnConfirmImport').addEventListener('click', ()=>{
+  const mode = document.querySelector('input[name="importMode"]:checked').value;
+  const newRows = pendingImportRows.map(r=>({ id: uid(), ...r }));
+  if(mode==='replace'){
+    dossiers = newRows;
+  } else {
+    const existingKeys = new Set(dossiers.map(d=>d.numDossier+'|'+d.numSinistre));
+    let added=0, skipped=0;
+    newRows.forEach(r=>{
+      const key = r.numDossier+'|'+r.numSinistre;
+      if(existingKeys.has(key)){ skipped++; return; }
+      dossiers.unshift(r); existingKeys.add(key); added++;
+    });
+    toast(`${added} dossier(s) importé(s)${skipped? ', '+skipped+' doublon(s) ignoré(s)':''}`);
+  }
+  if(mode==='replace') toast(`${newRows.length} dossier(s) importé(s) (remplacement)`);
+  saveData();
+  hideModal(modalImport);
+  resetImport();
+  render();
+});
+
+/* ================= EXPORT ================= */
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  if(typeof XLSX === 'undefined'){
+    toast("Librairie Excel indisponible (pas de connexion internet) — réessayez plus tard","err");
+    return;
+  }
+  const rows = getFiltered();
+  const data = rows.map(d=>({
+    'N°Dossier': d.numDossier,
+    'N°Sinistre': d.numSinistre,
+    'Compagnie': d.compagnie,
+    'Nature de garantie': d.nature,
+    'Date récéption': d.dateReception,
+    'Gestionnaire': d.gestionnaire,
+    'Etat du dossier': d.etat,
+    'Montant devis validé': d.montantDevis,
+    "nombre d'heure validé": d.nbHeures,
+    "Date lancement d'achat": d.dateLancementAchat,
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:12},{wch:20},{wch:18},{wch:14},{wch:14},{wch:14},{wch:16},{wch:18},{wch:16},{wch:16}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sinistres');
+  const today = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `Suivi_Sinistres_STAR_MAE_${today}.xlsx`);
+  toast('Export Excel généré');
+});
+
+/* ================= MONTH SELECT (cosmetic, filters by reception month) ================= */
+function populateMonthSelect(){
+  const sel = document.getElementById('monthSelect');
+  const months = [...new Set(dossiers.map(d=> (d.dateReception||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  sel.innerHTML = '<option value="">Tous les mois</option>' + months.map(m=>{
+    const [y,mo] = m.split('-');
+    const label = new Date(y,mo-1,1).toLocaleDateString('fr-FR',{month:'long', year:'numeric'});
+    return `<option value="${m}">${label.charAt(0).toUpperCase()+label.slice(1)}</option>`;
+  }).join('');
+}
+document.getElementById('monthSelect').addEventListener('change', e=>{
+  const m = e.target.value;
+  document.getElementById('fDateFrom').value = m ? m+'-01' : '';
+  render();
+});
+
+/* ================= INIT ================= */
+(async function initApp(){
+  await loadData();
+  populateMonthSelect();
+  render();
+})();
+
+} // fin startApp()
+
+function bootWhenReady(){
+  const boot = function(){
+    try{
+      startApp();
+    }catch(err){
+      console.error('Erreur de démarrage', err);
+      const el = document.createElement('div');
+      el.style.cssText = 'background:#fde2e2;color:#a30a10;border-bottom:2px solid #db0c15;padding:10px 16px;font-size:12px;font-family:Segoe UI,Arial,sans-serif;text-align:center;';
+      el.textContent = "Erreur d'affichage : " + (err && err.message ? err.message : err) + ' — rechargez la page ou réessayez avec une connexion internet active.';
+      document.body.insertBefore(el, document.body.firstChild);
+    }
+  };
+  if(window.__ensureLibs){
+    window.__ensureLibs(boot);
+  } else {
+    boot();
+  }
+}
+bootWhenReady();
+</script>
+</body>
+</html>
