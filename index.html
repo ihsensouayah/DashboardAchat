@@ -2281,10 +2281,9 @@
         // Pour déplacer un onglet d'un service à un autre, ou ouvrir un service à un
         // autre rôle, il suffit de modifier cette table.
         // Onglets absents de la table (Registre, Analyse Marge) : accès total uniquement.
-        // Dashboard : volontairement absent du service Achat (réservé à l'accès total,
-        // comme avant) — ajouter 'dashboard' dans les views d'achat pour l'ouvrir aux acheteurs.
+        // Dashboard : inclus dans le service Achat (accessible aux acheteurs).
         const SERVICES = {
-            achat:       { label: 'Service Achat',                 roles: ['acheteur', 'buyer'], views: ['orders', 'buyers', 'analytics', 'accompagnement', 'retours'] },
+            achat:       { label: 'Service Achat',                 roles: ['acheteur', 'buyer'], views: ['dashboard', 'orders', 'buyers', 'analytics', 'accompagnement', 'retours'] },
             reparation:  { label: 'Service Suivi Réparation',      roles: ['reparation'],        views: ['reparation'] },
             technique:   { label: 'Service Technique / Sinistres', roles: ['sinistres'],         views: ['sinistres'] },
             facturation: { label: 'Service Facturation',           roles: ['facturation'],       views: ['controle-marge'] }
