@@ -217,6 +217,26 @@
         .nav-btn.active .nav-btn-icon { animation: navPulse 2.2s ease-in-out infinite; }
         .nav-btn-label { white-space: nowrap; }
 
+        /* Regroupement du menu par service */
+        .nav-group { display: flex; flex-direction: column; }
+        .nav-group + .nav-group { margin-top: 0.6rem; }
+        .nav-group-title {
+            display: flex; align-items: center; justify-content: space-between; width: 100%;
+            padding: 0.4rem 0.75rem; margin-bottom: 0.25rem;
+            font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; text-align: left;
+            color: #ffb205; background: transparent; border: 0; border-radius: 0.5rem; cursor: pointer;
+            transition: background .2s ease, color .2s ease;
+        }
+        .nav-group-title:hover { background: rgba(255,255,255,0.05); color: #ffd15c; }
+        .nav-group-title::after {
+            content: ''; width: 6px; height: 6px; margin-right: 0.15rem; opacity: 0.7;
+            border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+            transform: rotate(45deg) translateY(-2px); transition: transform .25s ease;
+        }
+        .nav-group.collapsed .nav-group-title::after { transform: rotate(-45deg); }
+        .nav-group-items { display: flex; flex-direction: column; gap: 0.375rem; }
+        .nav-group.collapsed .nav-group-items { display: none; }
+
         /* Barre de navigation mobile (icônes en bas, la sidebar étant réservée au desktop) */
         .bottom-nav { background: linear-gradient(90deg, #1c2536, #131a27); border-top: 2px solid #db0c15; }
         .bottom-nav-btn { color: #8b96ab; transition: color .2s ease, transform .2s ease; }
@@ -369,6 +389,22 @@
         </div>
     </div>
 
+    <!-- PAGE : COMPTE EN ATTENTE D'ACTIVATION (aucun rôle valide) -->
+    <div id="pendingAccessPage" class="min-h-screen flex items-center justify-center hidden" style="background:#132433;">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md text-center">
+            <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:#ffb205;">
+                <i data-lucide="lock" class="w-8 h-8 text-white"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Compte en attente d'activation</h1>
+            <p id="pendingAccessEmail" class="text-sm text-gray-500 dark:text-gray-400 mt-2 font-mono"></p>
+            <p class="text-gray-600 dark:text-gray-300 mt-4 text-sm">Votre compte n'a pas encore de droits d'accès. L'administrateur doit vous attribuer votre service avant que vous puissiez utiliser l'application.</p>
+            <div class="flex space-x-3 mt-6">
+                <button type="button" onclick="location.reload()" class="flex-1 py-3 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">Actualiser</button>
+                <button type="button" onclick="logout()" class="flex-1 py-3 text-white rounded-lg font-medium" style="background:#db0c15;">Se déconnecter</button>
+            </div>
+        </div>
+    </div>
+
     <!-- CREATE ACCOUNT PAGE -->
     <div id="createAccountPage" class="min-h-screen flex items-center justify-center hidden" style="background:#132433;">
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md animate-fade-in">
@@ -377,7 +413,7 @@
                     <i data-lucide="user-plus" class="w-8 h-8 text-white"></i>
                 </div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Créer un compte</h1>
-                <p class="text-gray-500 dark:text-gray-400 mt-2">Réservé au manager (IHSEN)</p>
+                <p class="text-gray-500 dark:text-gray-400 mt-2">Votre accès sera activé par l'administrateur</p>
             </div>
             
             <form id="createAccountForm" class="space-y-4" novalidate>
@@ -390,14 +426,13 @@
                     <input type="password" id="createPassword" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500" placeholder="••••••••" minlength="6">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rôle</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service / fonction</label>
                     <select id="createRole" onchange="toggleCreateNameField()" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500">
-                        <option value="pdg">PDG (accès total, tous les dossiers)</option>
-                        <option value="directeur">Directeur (accès total, tous les dossiers)</option>
-                        <option value="responsable">Responsable (accès total, tous les dossiers)</option>
-                        <option value="facturation">Facturation (accès au Contrôle Marge)</option>
-                        <option value="reparation">Suivi Réparation (accès à la partie Réparation uniquement)</option>
-                        <option value="acheteur" selected>Acheteur (accès limité à ses propres dossiers)</option>
+                        <option value="acheteur" selected>Service Achat (acheteur)</option>
+                        <option value="reparation">Service Suivi Réparation</option>
+                        <option value="sinistres">Service Technique / Sinistres (chargé de sinistres)</option>
+                        <option value="facturation">Service Facturation</option>
+                        <option value="manager">Manager / Direction (à valider par l'administrateur)</option>
                     </select>
                 </div>
                 <div id="createBuyerNameWrap">
@@ -405,7 +440,7 @@
                     <select id="createBuyerName" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500">
                         <option value="">Sélectionner votre nom…</option>
                     </select>
-                    <p class="text-xs text-gray-400 mt-1">Détermine les dossiers que vous pourrez modifier.</p>
+                    <p class="text-xs text-gray-400 mt-1">Détermine les dossiers que vous pourrez modifier. Le service demandé est une simple demande : aucun accès n'est ouvert avant validation.</p>
                 </div>
                 <div id="createNameWrap" class="hidden">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom complet</label>
@@ -480,18 +515,48 @@
             <p class="px-3 pb-2 pt-1 text-[11px] font-bold uppercase tracking-widest text-gray-500 flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full sidebar-brand-dot"></span>Navigation
             </p>
-            <button data-view="dashboard" onclick="navigateTo('dashboard')" class="nav-btn active" style="animation-delay:0ms"><span class="nav-btn-icon"><i data-lucide="layout-dashboard" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Dashboard</span></button>
-            <button data-view="orders" onclick="navigateTo('orders')" class="nav-btn" style="animation-delay:40ms"><span class="nav-btn-icon"><i data-lucide="file-text" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Commandes</span></button>
-            <button data-view="reparation" onclick="navigateTo('reparation')" class="nav-btn" style="animation-delay:60ms"><span class="nav-btn-icon"><i data-lucide="wrench" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Réparation</span></button>
-            <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="nav-btn" style="animation-delay:80ms"><span class="nav-btn-icon"><i data-lucide="headphones" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Accompagnement</span></button>
-            <button data-view="buyers" onclick="navigateTo('buyers')" class="nav-btn" style="animation-delay:120ms"><span class="nav-btn-icon"><i data-lucide="users" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Acheteurs</span></button>
-            <button data-view="analytics" onclick="navigateTo('analytics')" class="nav-btn" style="animation-delay:160ms"><span class="nav-btn-icon"><i data-lucide="bar-chart-3" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Analytics</span></button>
-            <button data-view="registre" onclick="navigateTo('registre')" class="nav-btn" style="animation-delay:200ms"><span class="nav-btn-icon"><i data-lucide="book-open" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Registre</span></button>
-            <button data-view="sinistres" id="navSinistres" onclick="navigateTo('sinistres')" class="nav-btn" style="animation-delay:220ms;display:none"><span class="nav-btn-icon"><i data-lucide="shield-alert" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Suivi Sinistres</span></button>
-            <button data-view="retours" id="navRetours" onclick="navigateTo('retours')" class="nav-btn" style="animation-delay:225ms;display:none"><span class="nav-btn-icon"><i data-lucide="rotate-ccw" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Retours Fournisseur</span></button>
-            <button data-view="marge" onclick="navigateTo('marge')" class="nav-btn" style="animation-delay:240ms"><span class="nav-btn-icon"><i data-lucide="percent" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Analyse Marge</span></button>
-            <button data-view="controle-marge" id="navControleMarge" onclick="navigateTo('controle-marge')" class="nav-btn" style="animation-delay:280ms"><span class="nav-btn-icon"><i data-lucide="receipt" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Contrôle Marge</span></button>
-            <button data-view="gestion-comptes" id="navGestionComptes" onclick="navigateTo('gestion-comptes')" class="nav-btn" style="animation-delay:300ms;display:none"><span class="nav-btn-icon"><i data-lucide="shield" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Gestion des comptes</span></button>
+            <div class="nav-group" data-group="technique" style="display:none">
+                <button type="button" class="nav-group-title" onclick="toggleNavGroup(this)" aria-expanded="true">Service Technique / Sinistres</button>
+                <div class="nav-group-items">
+                    <button data-view="sinistres" id="navSinistres" onclick="navigateTo('sinistres')" class="nav-btn" style="animation-delay:0ms;display:none"><span class="nav-btn-icon"><i data-lucide="shield-alert" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Suivi Sinistres</span></button>
+                </div>
+            </div>
+            <div class="nav-group" data-group="achat">
+                <button type="button" class="nav-group-title" onclick="toggleNavGroup(this)" aria-expanded="true">Service Achat</button>
+                <div class="nav-group-items">
+                    <button data-view="dashboard" onclick="navigateTo('dashboard')" class="nav-btn active" style="animation-delay:35ms"><span class="nav-btn-icon"><i data-lucide="layout-dashboard" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Dashboard</span></button>
+                    <button data-view="orders" onclick="navigateTo('orders')" class="nav-btn" style="animation-delay:70ms"><span class="nav-btn-icon"><i data-lucide="file-text" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Commandes</span></button>
+                    <button data-view="analytics" onclick="navigateTo('analytics')" class="nav-btn" style="animation-delay:105ms"><span class="nav-btn-icon"><i data-lucide="bar-chart-3" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Analytics</span></button>
+                    <button data-view="buyers" onclick="navigateTo('buyers')" class="nav-btn" style="animation-delay:140ms"><span class="nav-btn-icon"><i data-lucide="users" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Acheteurs</span></button>
+                    <button data-view="retours" id="navRetours" onclick="navigateTo('retours')" class="nav-btn" style="animation-delay:175ms;display:none"><span class="nav-btn-icon"><i data-lucide="rotate-ccw" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Retours Fournisseur</span></button>
+                    <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="nav-btn" style="animation-delay:210ms"><span class="nav-btn-icon"><i data-lucide="headphones" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Accompagnement</span></button>
+                </div>
+            </div>
+            <div class="nav-group" data-group="reparation">
+                <button type="button" class="nav-group-title" onclick="toggleNavGroup(this)" aria-expanded="true">Service Suivi Réparation</button>
+                <div class="nav-group-items">
+                    <button data-view="reparation" onclick="navigateTo('reparation')" class="nav-btn" style="animation-delay:245ms"><span class="nav-btn-icon"><i data-lucide="wrench" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Réparation</span></button>
+                </div>
+            </div>
+            <div class="nav-group" data-group="facturation">
+                <button type="button" class="nav-group-title" onclick="toggleNavGroup(this)" aria-expanded="true">Service Facturation</button>
+                <div class="nav-group-items">
+                    <button data-view="controle-marge" id="navControleMarge" onclick="navigateTo('controle-marge')" class="nav-btn" style="animation-delay:280ms"><span class="nav-btn-icon"><i data-lucide="receipt" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Contrôle Marge</span></button>
+                </div>
+            </div>
+            <div class="nav-group" data-group="analyse">
+                <button type="button" class="nav-group-title" onclick="toggleNavGroup(this)" aria-expanded="true">Analyse / Tableau de bord</button>
+                <div class="nav-group-items">
+                    <button data-view="registre" onclick="navigateTo('registre')" class="nav-btn" style="animation-delay:315ms"><span class="nav-btn-icon"><i data-lucide="book-open" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Registre</span></button>
+                    <button data-view="marge" onclick="navigateTo('marge')" class="nav-btn" style="animation-delay:350ms"><span class="nav-btn-icon"><i data-lucide="percent" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Analyse Marge</span></button>
+                </div>
+            </div>
+            <div class="nav-group" data-group="admin" style="display:none">
+                <button type="button" class="nav-group-title" onclick="toggleNavGroup(this)" aria-expanded="true">Administration</button>
+                <div class="nav-group-items">
+                    <button data-view="gestion-comptes" id="navGestionComptes" onclick="navigateTo('gestion-comptes')" class="nav-btn" style="animation-delay:385ms;display:none"><span class="nav-btn-icon"><i data-lucide="shield" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Gestion des comptes</span></button>
+                </div>
+            </div>
 
             <!-- Présence en ligne + clics du jour — visible par tous les rôles connectés. -->
             <div id="presenceFooter" class="hidden mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 space-y-2">
@@ -1247,6 +1312,28 @@
                                 </select>
                             </div>
                         </div>
+                        <!-- Participation de l'assuré : total, avance, reste (calculé automatiquement) -->
+                        <div class="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
+                            <h4 class="font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-1">
+                                <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i>Participation de l'assuré
+                            </h4>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Facultatif. Le reste à payer est calculé automatiquement : montant total de la participation − avance versée.</p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Montant total de la participation (DT)</label>
+                                    <input type="number" step="0.001" min="0" id="cmPartTotal" oninput="cmUpdatePartReste()" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Avance versée (DT)</label>
+                                    <input type="number" step="0.001" min="0" id="cmPartAvance" oninput="cmUpdatePartReste()" placeholder="0.000" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Reste à payer (DT) <span class="text-xs font-normal text-gray-400">— calcul automatique</span></label>
+                                    <input type="text" id="cmPartReste" readonly tabindex="-1" placeholder="—" class="w-full px-4 py-2 border rounded-lg font-bold bg-gray-50 dark:bg-gray-900 dark:border-gray-600 text-gray-700 dark:text-gray-200 cursor-default">
+                                </div>
+                            </div>
+                            <p id="cmPartWarn" class="hidden text-xs text-red-600 mt-2"></p>
+                        </div>
                         <p id="cmFormError" class="hidden text-sm text-red-600 mt-3"></p>
                         <div class="mt-5 flex items-center gap-3">
                             <button id="cmSubmitBtn" onclick="cmSubmitDossier()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2">
@@ -1366,6 +1453,7 @@
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Main d'œuvre</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Pièces</th>
                                         <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Marge globale</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Participation</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Facturation</th>
                                         <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                                     </tr>
@@ -1630,17 +1718,17 @@
 
         <!-- Navigation mobile (icônes en bas) -->
         <nav class="bottom-nav md:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch justify-around px-1 py-2">
+            <button data-view="sinistres" id="navSinistresMobile" onclick="navigateTo('sinistres')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="shield-alert" class="w-5 h-5"></i><span class="text-[10px] font-medium">Sinistres</span></button>
             <button data-view="dashboard" onclick="navigateTo('dashboard')" class="bottom-nav-btn active flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="layout-dashboard" class="w-5 h-5"></i><span class="text-[10px] font-medium">Dashboard</span></button>
             <button data-view="orders" onclick="navigateTo('orders')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="file-text" class="w-5 h-5"></i><span class="text-[10px] font-medium">Commandes</span></button>
-            <button data-view="reparation" onclick="navigateTo('reparation')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="wrench" class="w-5 h-5"></i><span class="text-[10px] font-medium">Réparation</span></button>
-            <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="headphones" class="w-5 h-5"></i><span class="text-[10px] font-medium">Accomp.</span></button>
-            <button data-view="buyers" onclick="navigateTo('buyers')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="users" class="w-5 h-5"></i><span class="text-[10px] font-medium">Acheteurs</span></button>
             <button data-view="analytics" onclick="navigateTo('analytics')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="bar-chart-3" class="w-5 h-5"></i><span class="text-[10px] font-medium">Analytics</span></button>
-            <button data-view="registre" onclick="navigateTo('registre')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="book-open" class="w-5 h-5"></i><span class="text-[10px] font-medium">Registre</span></button>
-            <button data-view="sinistres" id="navSinistresMobile" onclick="navigateTo('sinistres')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="shield-alert" class="w-5 h-5"></i><span class="text-[10px] font-medium">Sinistres</span></button>
+            <button data-view="buyers" onclick="navigateTo('buyers')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="users" class="w-5 h-5"></i><span class="text-[10px] font-medium">Acheteurs</span></button>
             <button data-view="retours" id="navRetoursMobile" onclick="navigateTo('retours')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="rotate-ccw" class="w-5 h-5"></i><span class="text-[10px] font-medium">Retours</span></button>
-            <button data-view="marge" onclick="navigateTo('marge')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="percent" class="w-5 h-5"></i><span class="text-[10px] font-medium">Marge</span></button>
+            <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="headphones" class="w-5 h-5"></i><span class="text-[10px] font-medium">Accomp.</span></button>
+            <button data-view="reparation" onclick="navigateTo('reparation')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="wrench" class="w-5 h-5"></i><span class="text-[10px] font-medium">Réparation</span></button>
             <button data-view="controle-marge" id="navControleMargeMobile" onclick="navigateTo('controle-marge')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="receipt" class="w-5 h-5"></i><span class="text-[10px] font-medium">Contrôle</span></button>
+            <button data-view="registre" onclick="navigateTo('registre')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="book-open" class="w-5 h-5"></i><span class="text-[10px] font-medium">Registre</span></button>
+            <button data-view="marge" onclick="navigateTo('marge')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="percent" class="w-5 h-5"></i><span class="text-[10px] font-medium">Marge</span></button>
             <button data-view="gestion-comptes" id="navGestionComptesMobile" onclick="navigateTo('gestion-comptes')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="shield" class="w-5 h-5"></i><span class="text-[10px] font-medium">Comptes</span></button>
         </nav>
     </div>
@@ -1971,6 +2059,9 @@
                     Participation de l'assurée
                 </h4>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Seuls les postes applicables à la garantie choisie ci-dessus s'affichent. Saisissez directement le montant de chacun.</p>
+                <!-- Rappel de la participation enregistrée dans Contrôle Marge (lecture seule) -->
+                <div id="bsPartRecap" class="mb-3"></div>
+                <p id="bsPartHint" class="hidden text-xs font-medium mb-3"></p>
                 <div id="bsParticipationFields" class="space-y-2"></div>
 
                 <div class="flex items-center gap-3 mt-4 pt-4 border-t dark:border-gray-700">
@@ -2089,6 +2180,18 @@
             document.getElementById('loginPage').classList.remove('hidden');
         }
 
+        function showPendingAccessPage() {
+            ['loginPage', 'createAccountPage', 'mainApp'].forEach(function(id) {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            const page = document.getElementById('pendingAccessPage');
+            const mail = document.getElementById('pendingAccessEmail');
+            if (mail && currentUser) mail.textContent = currentUser.email || '';
+            if (page) page.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
         function showMainApp() {
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('mainApp').classList.remove('hidden');
@@ -2104,15 +2207,18 @@
                         if (doc.exists) {
                             currentUserProfile = doc.data();
                         } else {
-                            console.warn('⚠️ Profil introuvable pour', user.email, '- accès restreint par défaut.');
-                            currentUserProfile = { name: user.email, role: 'acheteur' };
+                            console.warn('⚠️ Profil introuvable pour', user.email, '- aucun accès tant qu\'un administrateur n\'a pas attribué un service.');
+                            currentUserProfile = { name: user.email, role: 'en_attente' };
                         }
                     })
                     .catch(err => {
                         console.error('❌ Erreur chargement profil utilisateur:', err);
-                        currentUserProfile = { name: user.email, role: 'acheteur' };
+                        currentUserProfile = { name: user.email, role: 'en_attente' };
                     })
                     .finally(() => {
+                        // Compte sans rôle valide : écran d'attente, aucune donnée chargée.
+                        // (Le super-admin passe toujours, pour ne jamais se verrouiller dehors.)
+                        if (!hasKnownRole() && !isSuperAdmin()) { showPendingAccessPage(); return; }
                         showMainApp();
                         renderUserBadge();
                         loadData();
@@ -2124,6 +2230,8 @@
                 console.log('️ Utilisateur déconnecté, affichage du login...');
                 currentUser = null;
                 currentUserProfile = null;
+                const pendingPage = document.getElementById('pendingAccessPage');
+                if (pendingPage) pendingPage.classList.add('hidden');
                 welcomeOverlayShown = false;
                 stopPresenceHeartbeat();
                 const overlay = document.getElementById('welcomeOverlay');
@@ -2167,15 +2275,30 @@
         function canAccessControleMarge() {
             return !!(currentUserProfile && (isFullAccessUser() || currentUserProfile.role === 'facturation'));
         }
-        // Onglets accessibles par rôle. Les rôles à accès total (directeur/responsable/
-        // manager/pdg) ne sont pas listés ici : getAllowedTabs() renvoie null pour eux, ce
-        // qui signifie "tout est autorisé" plutôt que d'avoir à lister tous les onglets.
-        const ROLE_TAB_ACCESS = {
-            acheteur: ['orders', 'reparation', 'accompagnement', 'buyers', 'analytics'],
-            buyer: ['orders', 'reparation', 'accompagnement', 'buyers', 'analytics'],
-            facturation: ['controle-marge'],
-            reparation: ['reparation']
+        // ---------- Accès par SERVICE ----------
+        // Chaque service est réservé au(x) rôle(s) listé(s) ; les rôles à accès total
+        // (FULL_ACCESS_ROLES : PDG, manager, directeur, responsable) accèdent à tout.
+        // Pour déplacer un onglet d'un service à un autre, ou ouvrir un service à un
+        // autre rôle, il suffit de modifier cette table.
+        // Onglets absents de la table (Registre, Analyse Marge) : accès total uniquement.
+        // Dashboard : volontairement absent du service Achat (réservé à l'accès total,
+        // comme avant) — ajouter 'dashboard' dans les views d'achat pour l'ouvrir aux acheteurs.
+        const SERVICES = {
+            achat:       { label: 'Service Achat',                 roles: ['acheteur', 'buyer'], views: ['orders', 'buyers', 'analytics', 'accompagnement', 'retours'] },
+            reparation:  { label: 'Service Suivi Réparation',      roles: ['reparation'],        views: ['reparation'] },
+            technique:   { label: 'Service Technique / Sinistres', roles: ['sinistres'],         views: ['sinistres'] },
+            facturation: { label: 'Service Facturation',           roles: ['facturation'],       views: ['controle-marge'] }
         };
+        // Rôles reconnus. Un compte sans rôle valide (ex. "en_attente", création
+        // d'un compte, profil introuvable) n'a accès à RIEN tant qu'un administrateur
+        // ne lui a pas attribué son service dans "Gestion des comptes".
+        const KNOWN_ROLES = ['pdg', 'directeur', 'responsable', 'manager', 'acheteur', 'buyer', 'reparation', 'sinistres', 'facturation'];
+        function hasKnownRole() {
+            return !!(currentUserProfile && KNOWN_ROLES.indexOf(currentUserProfile.role) !== -1);
+        }
+        // true : les onglets non autorisés disparaissent (et les services vides aussi).
+        // false : ils restent visibles mais grisés.
+        const HIDE_UNAUTHORIZED_NAV = true;
         // Écran "Gestion des comptes" : réservé exclusivement à ce compte précis, quel
         // que soit son rôle (même un autre PDG/Directeur ne le verrait pas) — demandé
         // explicitement par l'utilisateur, qui veut être seul à pouvoir changer les
@@ -2204,6 +2327,8 @@
         function canAccessSinistres() {
             if (isSuperAdmin()) return true;
             if (isFullAccessUser()) return true;
+            if (currentUserProfile && currentUserProfile.role === 'sinistres') return true; // rôle "Chargé de sinistres"
+            // Les emails ci-dessus restent des exceptions individuelles (ancien système).
             return !!(currentUser && currentUser.email && SINISTRES_ALLOWED_EMAILS.indexOf(currentUser.email.toLowerCase()) !== -1);
         }
 
@@ -2217,7 +2342,8 @@
         ];
         function canAccessRetours() {
             if (isSuperAdmin()) return true;
-            if (currentUserProfile && (currentUserProfile.role === 'pdg' || currentUserProfile.role === 'acheteur')) return true;
+            if (isFullAccessUser()) return true; // PDG / managers / directeur / responsable
+            if (currentUserProfile && (currentUserProfile.role === 'acheteur' || currentUserProfile.role === 'buyer')) return true;
             return !!(currentUser && currentUser.email && RETOURS_ALLOWED_EMAILS.indexOf(currentUser.email.toLowerCase()) !== -1);
         }
 
@@ -2265,10 +2391,10 @@
                 return;
             }
 
-            const roleOptions = ['pdg', 'directeur', 'responsable', 'manager', 'facturation', 'reparation', 'acheteur'];
+            const roleOptions = ['pdg', 'directeur', 'responsable', 'manager', 'acheteur', 'reparation', 'sinistres', 'facturation', 'en_attente'];
             const canEdit = isSuperAdmin(); // un lecteur autorisé (ex. Achref) consulte sans pouvoir modifier
             tbody.innerHTML = usersList.map(u => {
-                const currentRole = u.role || 'acheteur';
+                const currentRole = u.role || 'en_attente';
                 const safeName = (u.name || '').replace(/'/g, "\\'");
                 const warnBadges = [];
                 if (u.__unrecognizedBuyerName) warnBadges.push('<span title="Ce nom ne correspond à aucun acheteur de la liste officielle — cette personne ne peut modifier AUCUN dossier tant que ce n\'est pas corrigé (voir le crayon)." class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold"><i data-lucide="alert-triangle" class="w-2.5 h-2.5"></i>Nom non reconnu</span>');
@@ -2288,7 +2414,7 @@
                             <p class="text-[10px] text-gray-400 dark:text-gray-500 font-mono">${u.id}</p>
                         </td>
                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">${u.email || '-'}</td>
-                        <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold">${ROLE_LABELS[currentRole] || currentRole}</span></td>
+                        <td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold">${ROLE_LABELS[currentRole] || currentRole}</span>${currentRole === 'en_attente' && u.requestedRole ? `<p class="text-[11px] text-gray-400 mt-1">Demande : ${ROLE_LABELS[u.requestedRole] || u.requestedRole}</p>` : ''}</td>
                         <td class="px-6 py-4">
                             ${canEdit ? `
                             <select onchange="updateUserRole('${u.id}', this.value)" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm focus:ring-2 focus:ring-red-500">
@@ -2311,6 +2437,7 @@
 
         async function updateUserRole(uid, newRole) {
             if (!isSuperAdmin()) return; // double sécurité, en plus des règles Firestore
+            if (KNOWN_ROLES.indexOf(newRole) === -1 && newRole !== 'en_attente') return;
             try {
                 await db.collection('users').doc(uid).update({
                     role: newRole,
@@ -2396,7 +2523,12 @@
         function getAllowedTabs() {
             if (!currentUserProfile) return null; // profil pas encore chargé : ne rien restreindre
             if (isFullAccessUser()) return null;
-            return ROLE_TAB_ACCESS[currentUserProfile.role] || [];
+            const role = currentUserProfile.role;
+            const tabs = [];
+            Object.keys(SERVICES).forEach(function(k) {
+                if (SERVICES[k].roles.indexOf(role) !== -1) SERVICES[k].views.forEach(function(v) { tabs.push(v); });
+            });
+            return tabs; // rôle inconnu / en attente => liste vide => aucun accès
         }
         function canAccessView(view) {
             if (view === 'gestion-comptes') return canViewUsersManagement();
@@ -2416,6 +2548,12 @@
                 if (view === 'sinistres') return; // gérée séparément, accès par liste d'emails
                 if (view === 'retours') return; // gérée séparément, accès par rôle + liste d'emails
                 const ok = allowed === null || allowed.indexOf(view) !== -1;
+                if (HIDE_UNAUTHORIZED_NAV) {
+                    btn.style.display = ok ? '' : 'none';
+                    btn.classList.remove('nav-disabled');
+                    btn.disabled = false;
+                    return;
+                }
                 btn.classList.toggle('nav-disabled', !ok);
                 btn.disabled = !ok;
                 btn.title = ok ? '' : "Accès non autorisé pour votre rôle";
@@ -2438,7 +2576,24 @@
             const navRetMobile = document.getElementById('navRetoursMobile');
             if (navRet) navRet.style.display = showRetours ? '' : 'none';
             if (navRetMobile) navRetMobile.style.display = showRetours ? '' : 'none';
+            updateNavGroups();
         }
+        // Regroupement du menu par service : un groupe dont tous les onglets sont masqués
+        // (ex. "Service Technique" pour un compte sans accès aux sinistres) disparaît
+        // entièrement, pour ne pas laisser un titre orphelin dans la sidebar.
+        function updateNavGroups() {
+            document.querySelectorAll('.nav-group').forEach(function(g) {
+                const anyVisible = Array.prototype.some.call(g.querySelectorAll('.nav-btn'), function(b) { return b.style.display !== 'none'; });
+                g.style.display = anyVisible ? '' : 'none';
+            });
+        }
+        function toggleNavGroup(titleBtn) {
+            const g = titleBtn.closest('.nav-group');
+            if (!g) return;
+            const collapsed = g.classList.toggle('collapsed');
+            titleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        }
+
         // Indicateur visuel de synchronisation temps réel (preuve que Firestore pousse
         // bien les mises à jour sans avoir besoin de rafraîchir la page).
         function markSynced() {
@@ -2456,7 +2611,7 @@
 
         // Étiquettes d'affichage par rôle, partagées entre le badge utilisateur, l'écran
         // de bienvenue, et le compteur de présence en ligne.
-        const ROLE_LABELS = { pdg: 'PDG', directeur: 'Directeur', responsable: 'Responsable', manager: 'Manager', facturation: 'Facturation', reparation: 'Suivi Réparation', acheteur: 'Acheteur', buyer: 'Acheteur' };
+        const ROLE_LABELS = { en_attente: 'En attente d\'activation', sinistres: 'Chargé de sinistres', pdg: 'PDG', directeur: 'Directeur', responsable: 'Responsable', manager: 'Manager', facturation: 'Facturation', reparation: 'Suivi Réparation', acheteur: 'Acheteur', buyer: 'Acheteur' };
 
         function renderUserBadge() {
             if (!currentUserProfile) return;
@@ -2580,12 +2735,14 @@
             
             auth.createUserWithEmailAndPassword(email, password)
                 .then(cred => {
+                    // Le rôle demandé n'est qu'une DEMANDE : le compte démarre sans accès
+                    // (role "en_attente") jusqu'à validation dans "Gestion des comptes".
                     return db.collection('users').doc(cred.user.uid).set({
-                        name, email, role, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        name, email, role: 'en_attente', requestedRole: role, createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 })
                 .then(() => {
-                    showToast('Compte créé avec succès', 'success');
+                    showToast('Compte créé — en attente d\'activation par l\'administrateur', 'success');
                     showLogin();
                 })
                 .catch(error => {
@@ -3069,6 +3226,13 @@
             document.querySelectorAll('.nav-btn, .bottom-nav-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.view === view);
             });
+            const activeNav = document.querySelector('.nav-btn.active');
+            const activeGroup = activeNav && activeNav.closest('.nav-group');
+            if (activeGroup && activeGroup.classList.contains('collapsed')) {
+                activeGroup.classList.remove('collapsed');
+                const t = activeGroup.querySelector('.nav-group-title');
+                if (t) t.setAttribute('aria-expanded', 'true');
+            }
 
             const titleInfo = PAGE_TITLES[view];
             const titleEl = document.getElementById('headerPageTitle');
@@ -5309,6 +5473,58 @@
         }
 
         function cmFmt(n) { return (n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 3 }); }
+        // ---------- Participation de l'assuré ----------
+        // Reste à payer = Montant total de la participation − Avance versée.
+        // Calcul arrondi au millime (3 décimales) pour éviter les écarts de virgule flottante.
+        function cmRound3(n) { return Math.round(n * 1000) / 1000; }
+        function cmFmt3(n) { return (n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }); }
+        function cmPartCompute(total, avance) { return cmRound3((total || 0) - (avance || 0)); }
+        // Valeurs de participation d'un dossier, ou null s'il n'y en a aucune de saisie
+        // (dossiers anciens ou importés d'Excel).
+        function cmPartValues(r) {
+            const hasT = typeof r.participationTotal === 'number' && !isNaN(r.participationTotal);
+            const hasA = typeof r.participationAvance === 'number' && !isNaN(r.participationAvance);
+            if (!hasT && !hasA) return null;
+            const total = hasT ? r.participationTotal : 0;
+            const avance = hasA ? r.participationAvance : 0;
+            return { total: total, avance: avance, reste: cmPartCompute(total, avance) };
+        }
+        function cmResteBadge(reste) {
+            if (reste < 0) return '<span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700">Avance > total (' + cmFmt3(reste) + ')</span>';
+            if (reste === 0) return '<span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">Soldé</span>';
+            return '<span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">Reste ' + cmFmt3(reste) + ' DT</span>';
+        }
+        function cmParticipationCell(r) {
+            const v = cmPartValues(r);
+            if (!v) return '<span class="text-gray-300 dark:text-gray-600 text-xs">—</span>';
+            return '<div class="text-xs text-gray-500 dark:text-gray-400">Total <span class="font-semibold text-gray-700 dark:text-gray-200">' + cmFmt3(v.total) + '</span></div>' +
+                '<div class="text-xs text-gray-500 dark:text-gray-400">Avance <span class="font-semibold text-gray-700 dark:text-gray-200">' + cmFmt3(v.avance) + '</span></div>' +
+                '<div class="mt-1">' + cmResteBadge(v.reste) + '</div>';
+        }
+        // Mise à jour en direct du champ "Reste à payer" dans le formulaire.
+        function cmUpdatePartReste() {
+            const tRaw = document.getElementById('cmPartTotal').value;
+            const aRaw = document.getElementById('cmPartAvance').value;
+            const out = document.getElementById('cmPartReste');
+            const warn = document.getElementById('cmPartWarn');
+            out.classList.remove('text-red-600', 'text-green-600', 'text-amber-600');
+            warn.classList.add('hidden');
+            if (tRaw === '' && aRaw === '') { out.value = ''; return; }
+            const total = tRaw === '' ? 0 : parseFloat(tRaw);
+            const avance = aRaw === '' ? 0 : parseFloat(aRaw);
+            if (isNaN(total) || isNaN(avance)) { out.value = ''; return; }
+            const reste = cmPartCompute(total, avance);
+            out.value = cmFmt3(reste);
+            if (reste < 0) {
+                out.classList.add('text-red-600');
+                warn.textContent = tRaw === '' ? 'Renseignez le montant total de la participation.' : "L'avance versée dépasse le montant total de la participation.";
+                warn.classList.remove('hidden');
+            } else if (reste === 0 && total > 0) {
+                out.classList.add('text-green-600');
+            } else {
+                out.classList.add('text-amber-600');
+            }
+        }
         function cmBadgeClass(pct) { return pct >= 30 ? 'good' : (pct >= 15 ? 'warn' : 'bad'); }
 
         function cmAttachFirestoreListeners() {
@@ -5526,6 +5742,8 @@
                         '<div class="text-base">' + cmMarginBadge(r.margeGlobale) + '</div>' +
                         ristourneDisplay +
                     '</td>' +
+                    // Participation de l'assuré : total / avance / reste
+                    '<td class="px-4 py-3 text-right">' + cmParticipationCell(r) + '</td>' +
                     // Facturation
                     '<td class="px-4 py-3">' + dateFactDisplay + '</td>' +
                     // Actions
@@ -5536,7 +5754,7 @@
                             '<i data-lucide="file-output" class="w-4 h-4"></i></button>' +
                     '</td>' +
                     '</tr>';
-            }).join('') || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Aucun dossier ne correspond à ces filtres</td></tr>';
+            }).join('') || '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">Aucun dossier ne correspond à ces filtres</td></tr>';
             setTimeout(function() { if (window.lucide) lucide.createIcons(); }, 50);
         }
 
@@ -5557,6 +5775,9 @@
             document.getElementById('cmMoGarage').value = r.moGarage;
             document.getElementById('cmPiecesVendues').value = r.piecesVendues;
             document.getElementById('cmPiecesAchetees').value = r.piecesAchetees;
+            document.getElementById('cmPartTotal').value = (typeof r.participationTotal === 'number') ? r.participationTotal : '';
+            document.getElementById('cmPartAvance').value = (typeof r.participationAvance === 'number') ? r.participationAvance : '';
+            cmUpdatePartReste();
             document.getElementById('cmRistourneOui').value = r.ristourneOui ? 'oui' : 'non';
             document.getElementById('cmRistournePct').disabled = !r.ristourneOui;
             if (r.ristourneOui) document.getElementById('cmRistournePct').value = String(r.ristournePct);
@@ -5611,17 +5832,66 @@
             const keys = ['timbre'].concat(BS_GARANTIE_RULES[g] || []);
             const defaults = { timbre: '1.000' };
             const container = document.getElementById('bsParticipationFields');
+            const staleHint = document.getElementById('bsPartHint');
+            if (staleHint) staleHint.classList.add('hidden');
             container.innerHTML = keys.map(function(key) {
                 const val = defaults[key] || '';
                 return '' +
                     '<div class="flex items-center gap-3">' +
                         '<span class="w-48 text-sm font-medium text-gray-700 dark:text-gray-300">' + BS_PART_LABELS[key] + '</span>' +
                         '<div class="relative flex-1">' +
-                            '<input type="number" step="0.001" min="0" id="bsAmt_' + key + '" value="' + val + '" placeholder="Montant en DT" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">' +
+                            '<input type="number" step="0.001" min="0" id="bsAmt_' + key + '" value="' + val + '" placeholder="Montant en DT" oninput="bsCheckPartConsistency()" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-orange-500">' +
                             '<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">DT</span>' +
                         '</div>' +
                     '</div>';
             }).join('');
+        }
+
+        // Rappel (lecture seule) de la participation saisie dans Contrôle Marge pour ce dossier.
+        function bsRenderPartRecap(r) {
+            const box = document.getElementById('bsPartRecap');
+            const hint = document.getElementById('bsPartHint');
+            if (hint) { hint.classList.add('hidden'); hint.textContent = ''; }
+            if (!box) return;
+            const v = r ? cmPartValues(r) : null;
+            if (!v) {
+                box.innerHTML = '<p class="text-xs text-gray-500 dark:text-gray-400 italic">Aucune participation saisie pour ce dossier dans Contrôle Marge : rien ne sera ajouté au PDF. Modifiez le dossier pour la renseigner.</p>';
+                return;
+            }
+            const card = function(label, val, cls) {
+                return '<div class="rounded-lg border p-3 ' + cls + '"><p class="text-[11px] uppercase tracking-wide font-semibold opacity-80">' + label + '</p>' +
+                    '<p class="text-lg font-bold mt-0.5">' + cmFmt3(val) + ' <span class="text-xs font-medium">DT</span></p></div>';
+            };
+            box.innerHTML = '<p class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Participation enregistrée dans Contrôle Marge (sera imprimée sur le bon)</p>' +
+                '<div class="grid grid-cols-3 gap-2">' +
+                    card('Total', v.total, 'border-blue-200 bg-blue-50 text-blue-900') +
+                    card('Avance versée', v.avance, 'border-green-200 bg-green-50 text-green-900') +
+                    card('Reste à payer', v.reste, v.reste < 0 ? 'border-red-200 bg-red-50 text-red-800' : (v.reste === 0 ? 'border-green-200 bg-green-50 text-green-900' : 'border-amber-200 bg-amber-50 text-amber-900')) +
+                '</div>';
+        }
+        // Informatif, non bloquant : compare le total des postes saisis ci-dessous
+        // avec le montant total de participation enregistré pour le dossier.
+        function bsCheckPartConsistency() {
+            const hint = document.getElementById('bsPartHint');
+            if (!hint) return;
+            const id = document.getElementById('bsDossierId').value;
+            const r = cmLedger.find(function(x) { return x.id === id; });
+            const v = r ? cmPartValues(r) : null;
+            hint.classList.remove('text-green-700', 'text-amber-700');
+            if (!v) { hint.classList.add('hidden'); return; }
+            const keys = ['timbre'].concat(BS_GARANTIE_RULES[document.getElementById('bsGarantie').value] || []);
+            let sum = 0;
+            keys.forEach(function(k) { const i = document.getElementById('bsAmt_' + k); if (i && i.value !== '') sum += parseFloat(i.value) || 0; });
+            sum = cmRound3(sum);
+            const ecart = cmRound3(sum - v.total);
+            hint.classList.remove('hidden');
+            if (ecart === 0) {
+                hint.classList.add('text-green-700');
+                hint.textContent = '✔ Le total des postes saisis (' + cmFmt3(sum) + ' DT) correspond à la participation enregistrée.';
+            } else {
+                hint.classList.add('text-amber-700');
+                hint.textContent = '⚠ Le total des postes saisis (' + cmFmt3(sum) + ' DT) diffère de la participation enregistrée (' + cmFmt3(v.total) + ' DT) : écart de ' + cmFmt3(ecart) + ' DT.';
+            }
         }
 
         function bsOpenModal(dossierId) {
@@ -5644,6 +5914,7 @@
 
             bsPopulateExperts(r.expert || null);
             bsApplyGarantieRules();
+            bsRenderPartRecap(r);
 
             document.getElementById('bsModal').classList.remove('hidden');
             document.getElementById('modalBackdrop').classList.remove('hidden');
@@ -5802,6 +6073,15 @@
             rightBody.push([{ content: 'Total facture', styles: { fontStyle: 'bold' } }, fmtAmt(totalFacture)]);
             rightBody.push([{ content: 'Engagement assuré', styles: { fontStyle: 'bold' } }, fmtAmt(engagementAssure)]);
             rightBody.push([{ content: 'Engagement AUTOP Tunisie', styles: { fontStyle: 'bold' } }, fmtAmt(engagementAutop)]);
+            // Participation enregistrée dans Contrôle Marge (total, avance, reste à payer)
+            const recPart = cmLedger.find(function(x) { return x.id === document.getElementById('bsDossierId').value; });
+            const partV = recPart ? cmPartValues(recPart) : null;
+            if (partV) {
+                rightBody.push([{ content: 'Suivi de la participation', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: lightRed } }]);
+                rightBody.push([{ content: 'Participation totale', styles: { fontStyle: 'bold' } }, fmtAmt(partV.total)]);
+                rightBody.push([{ content: 'Avance versée', styles: { fontStyle: 'bold' } }, fmtAmt(partV.avance)]);
+                rightBody.push([{ content: 'Reste à payer', styles: { fontStyle: 'bold', textColor: red } }, { content: fmtAmt(partV.reste), styles: { fontStyle: 'bold', textColor: red } }]);
+            }
 
             doc.autoTable({
                 startY: y,
@@ -5876,6 +6156,29 @@
                 return;
             }
 
+            // Participation de l'assuré (facultative) : reste à payer = total − avance
+            const partTotalRaw = document.getElementById('cmPartTotal').value;
+            const partAvanceRaw = document.getElementById('cmPartAvance').value;
+            const partTotalIn = partTotalRaw === '' ? null : parseFloat(partTotalRaw);
+            const partAvanceIn = partAvanceRaw === '' ? null : parseFloat(partAvanceRaw);
+            const partInvalid = function(v) { return v !== null && (isNaN(v) || v < 0); };
+            if (partInvalid(partTotalIn) || partInvalid(partAvanceIn)) {
+                errEl.textContent = 'Le montant de la participation et l\'avance doivent être des montants positifs.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            if (partAvanceIn !== null && partAvanceIn > (partTotalIn || 0)) {
+                errEl.textContent = partTotalIn === null
+                    ? 'Renseignez le montant total de la participation avant de saisir une avance.'
+                    : 'L\'avance versée ne peut pas dépasser le montant total de la participation.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            const hasPart = partTotalIn !== null || partAvanceIn !== null;
+            const participationTotal = hasPart ? (partTotalIn || 0) : null;
+            const participationAvance = hasPart ? (partAvanceIn || 0) : null;
+            const participationReste = hasPart ? cmPartCompute(participationTotal, participationAvance) : null;
+
             const margePieces = piecesAchetees > 0 ? (piecesVendues - piecesAchetees) / piecesAchetees * 100 : 0;
             const margeMo = moGarage > 0 ? (moAutop - moGarage) / moGarage * 100 : 0;
             const totalAutop = moAutop + piecesVendues;
@@ -5890,7 +6193,8 @@
                 dossier: dossier, garantie: garantie, marque: marque, garage: garage, expert: expert || null,
                 moAutop: moAutop, moGarage: moGarage, piecesVendues: piecesVendues, piecesAchetees: piecesAchetees,
                 ristourneOui: ristourneOui, ristournePct: ristourneOui ? ristournePct : null, ristourneMontant: ristourneMontant,
-                margePieces: margePieces, margeMo: margeMo, margeGlobale: margeGlobale
+                margePieces: margePieces, margeMo: margeMo, margeGlobale: margeGlobale,
+                participationTotal: participationTotal, participationAvance: participationAvance, participationReste: participationReste
             };
 
             try {
@@ -6416,6 +6720,9 @@
             document.getElementById('cmMoGarage').value = '';
             document.getElementById('cmPiecesVendues').value = '';
             document.getElementById('cmPiecesAchetees').value = '';
+            document.getElementById('cmPartTotal').value = '';
+            document.getElementById('cmPartAvance').value = '';
+            cmUpdatePartReste();
             document.getElementById('cmRistourneOui').value = 'non';
             document.getElementById('cmRistournePct').disabled = true;
             document.getElementById('cmDossier').focus();
