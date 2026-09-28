@@ -544,6 +544,13 @@
                     <button data-view="controle-marge" id="navControleMarge" onclick="navigateTo('controle-marge')" class="nav-btn" style="animation-delay:280ms"><span class="nav-btn-icon"><i data-lucide="receipt" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Contrôle Marge</span></button>
                 </div>
             </div>
+            <div class="nav-group" data-group="logistique" style="display:none">
+                <button type="button" class="nav-group-title" onclick="toggleNavGroup(this)" aria-expanded="true">Service Logistique et Magasin</button>
+                <div class="nav-group-items">
+                    <button data-view="reception-bc" onclick="navigateTo('reception-bc')" class="nav-btn" style="animation-delay:290ms;display:none"><span class="nav-btn-icon"><i data-lucide="truck" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Réception BC</span></button>
+                    <button data-view="magasin-pdr" onclick="navigateTo('magasin-pdr')" class="nav-btn" style="animation-delay:300ms;display:none"><span class="nav-btn-icon"><i data-lucide="package" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Magasin PDR</span></button>
+                </div>
+            </div>
             <div class="nav-group" data-group="analyse">
                 <button type="button" class="nav-group-title" onclick="toggleNavGroup(this)" aria-expanded="true">Analyse / Tableau de bord</button>
                 <div class="nav-group-items">
@@ -1515,6 +1522,20 @@
                 </div>
             </div>
 
+            <!-- RÉCEPTION BONS DE COMMANDE VIEW (service logistique et magasin) -->
+            <div id="view-reception-bc" class="view-section">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden" style="min-height: calc(100vh - 180px);">
+                    <iframe id="receptionBcFrame" title="Réception Bons de Commande" style="width:100%; height:calc(100vh - 180px); min-height:700px; border:0; display:block;"></iframe>
+                </div>
+            </div>
+
+            <!-- MAGASIN PDR RÉCUPÉRÉES VIEW (service logistique et magasin) -->
+            <div id="view-magasin-pdr" class="view-section">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden" style="min-height: calc(100vh - 180px);">
+                    <iframe id="magasinPdrFrame" title="Magasin PDR récupérées" style="width:100%; height:calc(100vh - 180px); min-height:700px; border:0; display:block;"></iframe>
+                </div>
+            </div>
+
             <!-- ACCOMPAGNEMENT ASSURÉ VIEW -->
             <div id="view-accompagnement" class="view-section">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
@@ -1727,6 +1748,8 @@
             <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="headphones" class="w-5 h-5"></i><span class="text-[10px] font-medium">Accomp.</span></button>
             <button data-view="reparation" onclick="navigateTo('reparation')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="wrench" class="w-5 h-5"></i><span class="text-[10px] font-medium">Réparation</span></button>
             <button data-view="controle-marge" id="navControleMargeMobile" onclick="navigateTo('controle-marge')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="receipt" class="w-5 h-5"></i><span class="text-[10px] font-medium">Contrôle</span></button>
+            <button data-view="reception-bc" onclick="navigateTo('reception-bc')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="truck" class="w-5 h-5"></i><span class="text-[10px] font-medium">Réception</span></button>
+            <button data-view="magasin-pdr" onclick="navigateTo('magasin-pdr')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="package" class="w-5 h-5"></i><span class="text-[10px] font-medium">Magasin</span></button>
             <button data-view="registre" onclick="navigateTo('registre')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="book-open" class="w-5 h-5"></i><span class="text-[10px] font-medium">Registre</span></button>
             <button data-view="marge" onclick="navigateTo('marge')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="percent" class="w-5 h-5"></i><span class="text-[10px] font-medium">Marge</span></button>
             <button data-view="gestion-comptes" id="navGestionComptesMobile" onclick="navigateTo('gestion-comptes')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="shield" class="w-5 h-5"></i><span class="text-[10px] font-medium">Comptes</span></button>
@@ -2339,6 +2362,22 @@
             'ihsen.souayah@autop.tn',
             'sami.handous@autop.tn', // à vérifier/corriger si ce n'est pas la bonne adresse
         ];
+        // ---------- Service Logistique et Magasin (Réception BC + Magasin PDR) ----------
+        // Visible uniquement par : PDG, responsables, managers, et l'acheteuse Raja
+        // (+ super admin). Pour ajouter quelqu'un : son email dans LOGISTIQUE_ALLOWED_EMAILS
+        // ou son prénom dans LOGISTIQUE_ALLOWED_NAMES.
+        const LOGISTIQUE_ROLES = ['pdg', 'responsable', 'manager'];
+        const LOGISTIQUE_ALLOWED_NAMES = ['raja'];
+        const LOGISTIQUE_ALLOWED_EMAILS = [
+            // 'raja.xxx@autop.tn', // optionnel : email exact de Raja
+        ];
+        function canAccessLogistique() {
+            if (isSuperAdmin()) return true;
+            if (currentUserProfile && LOGISTIQUE_ROLES.indexOf(currentUserProfile.role) !== -1) return true;
+            if (currentUser && currentUser.email && LOGISTIQUE_ALLOWED_EMAILS.indexOf(currentUser.email.toLowerCase()) !== -1) return true;
+            const words = ((currentUserProfile && currentUserProfile.name) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^a-z]+/);
+            return LOGISTIQUE_ALLOWED_NAMES.some(function(n) { return words.indexOf(n) !== -1; });
+        }
         function canAccessRetours() {
             if (isSuperAdmin()) return true;
             if (isFullAccessUser()) return true; // PDG / managers / directeur / responsable
@@ -2533,6 +2572,7 @@
             if (view === 'gestion-comptes') return canViewUsersManagement();
             if (view === 'sinistres') return canAccessSinistres();
             if (view === 'retours') return canAccessRetours();
+            if (view === 'reception-bc' || view === 'magasin-pdr') return canAccessLogistique();
             const allowed = getAllowedTabs();
             return allowed === null || allowed.indexOf(view) !== -1;
         }
@@ -2546,6 +2586,7 @@
                 if (view === 'gestion-comptes') return; // gérée séparément, à part du système de rôles
                 if (view === 'sinistres') return; // gérée séparément, accès par liste d'emails
                 if (view === 'retours') return; // gérée séparément, accès par rôle + liste d'emails
+                if (view === 'reception-bc' || view === 'magasin-pdr') return; // gérée séparément (canAccessLogistique)
                 const ok = allowed === null || allowed.indexOf(view) !== -1;
                 if (HIDE_UNAUTHORIZED_NAV) {
                     btn.style.display = ok ? '' : 'none';
@@ -2575,6 +2616,8 @@
             const navRetMobile = document.getElementById('navRetoursMobile');
             if (navRet) navRet.style.display = showRetours ? '' : 'none';
             if (navRetMobile) navRetMobile.style.display = showRetours ? '' : 'none';
+            const showLog = canAccessLogistique();
+            document.querySelectorAll('[data-view="reception-bc"], [data-view="magasin-pdr"]').forEach(function(b) { b.style.display = showLog ? '' : 'none'; });
             updateNavGroups();
         }
         // Regroupement du menu par service : un groupe dont tous les onglets sont masqués
@@ -3180,8 +3223,20 @@
             marge: { label: 'Analyse Marge', icon: 'percent' },
             registre: { label: 'Registre Fournisseurs', icon: 'book-open' },
             sinistres: { label: 'Suivi Sinistres STAR & MAE', icon: 'shield-alert' },
-            retours: { label: 'Suivi Retours Fournisseur', icon: 'rotate-ccw' }
+            retours: { label: 'Suivi Retours Fournisseur', icon: 'rotate-ccw' },
+            'reception-bc': { label: 'Réception Bons de Commande', icon: 'truck' },
+            'magasin-pdr': { label: 'Magasin PDR récupérées', icon: 'package' }
         };
+
+        // ---- Service Logistique et Magasin (embeds, même origine => localStorage OK) ----
+        const _lazyFrames = {};
+        function loadLazyFrame(id, src) {
+            if (_lazyFrames[id]) return;
+            const frame = document.getElementById(id);
+            if (!frame) return;
+            frame.src = src;
+            _lazyFrames[id] = true;
+        }
         // ---- Registre Fournisseurs (embed) ----
         let _registreLoaded = false;
         function loadRegistreFrame() {
@@ -3288,6 +3343,14 @@
 
             if (view === 'retours') {
                 loadRetoursFrame();
+            }
+
+            if (view === 'reception-bc') {
+                loadLazyFrame('receptionBcFrame', 'reception-bc.html');
+            }
+
+            if (view === 'magasin-pdr') {
+                loadLazyFrame('magasinPdrFrame', 'magasin-pdr.html');
             }
 
             if (view === 'controle-marge') {
