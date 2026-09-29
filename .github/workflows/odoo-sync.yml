@@ -1,0 +1,31 @@
+name: Synchro Odoo -> Dashboards
+
+on:
+  schedule:
+    # Toutes les 30 min, lun-sam, 7h-19h heure de Tunis (UTC+1)
+    - cron: "*/30 6-18 * * 1-6"
+  workflow_dispatch: {}
+
+concurrency:
+  group: odoo-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r odoo-agent/requirements.txt
+      - name: Synchroniser
+        working-directory: odoo-agent
+        env:
+          ODOO_URL: ${{ secrets.ODOO_URL }}
+          ODOO_DB: ${{ secrets.ODOO_DB }}
+          ODOO_USER: ${{ secrets.ODOO_USER }}
+          ODOO_API_KEY: ${{ secrets.ODOO_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: python odoo_sync.py
