@@ -2146,6 +2146,10 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+        // Cache local (IndexedDB) : à la reconnexion ou au rechargement, Firestore ne renvoie
+        // (et ne facture) que les documents modifiés depuis, au lieu de toutes les collections.
+        db.enablePersistence({ synchronizeTabs: true })
+            .catch(err => console.warn('Cache Firestore local indisponible :', err.code));
         
         // Test de connexion Firestore
         console.log('🔥 Firebase initialisé avec le projet:', firebaseConfig.projectId);
@@ -2814,7 +2818,7 @@
         let __pauseTimer = null;
         let __wasControleMargeActiveBeforePause = false;
         let __wasUsersManagementActiveBeforePause = false;
-        const REALTIME_PAUSE_DELAY_MS = 3 * 60 * 1000; // 3 minutes d'inactivité avant de couper
+        const REALTIME_PAUSE_DELAY_MS = 30 * 60 * 1000; // 30 min d'onglet caché avant de couper (une reprise plus tôt relirait tout)
 
         function __trackUnsubscribe(fn) {
             if (typeof fn === 'function') __realtimeUnsubscribes.push(fn);
@@ -2855,13 +2859,13 @@
             startOdooAutoSync();
             if (currentUser && currentUserProfile) {
                 writePresenceHeartbeat();
-                __presenceInterval = setInterval(writePresenceHeartbeat, 20000);
+                __presenceInterval = setInterval(writePresenceHeartbeat, 60000);
                 __trackUnsubscribe(db.collection('presence').onSnapshot(snapshot => {
                     __presenceDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     renderPresenceFooter();
                 }, error => console.error('❌ Erreur chargement présence:', error)));
             }
-            __dailyClicksInterval = setInterval(flushPendingClicks, 10000);
+            __dailyClicksInterval = setInterval(flushPendingClicks, 120000);
             __trackUnsubscribe(db.collection('dailyStats').doc(todayStatsId()).onSnapshot(snapshot => {
                 const el = document.getElementById('dailyClicksCount');
                 if (el) el.textContent = (snapshot.data() && snapshot.data().clicks || 0).toLocaleString('fr-FR');
@@ -2894,7 +2898,7 @@
         // comme le reste de l'app (pas de vraie présence temps réel côté serveur).
         let __presenceInterval = null;
         let __presenceDocs = [];
-        const PRESENCE_STALE_MS = 60000;
+        const PRESENCE_STALE_MS = 150000; // > 2 battements de 60 s
 
         function writePresenceHeartbeat() {
             if (!currentUser || !currentUserProfile) return;
@@ -2908,7 +2912,7 @@
         function startPresenceHeartbeat() {
             writePresenceHeartbeat();
             if (__presenceInterval) clearInterval(__presenceInterval);
-            __presenceInterval = setInterval(writePresenceHeartbeat, 20000);
+            __presenceInterval = setInterval(writePresenceHeartbeat, 60000);
 
             // Écoute en direct de tous les battements récents, pour afficher la liste
             // des personnes en ligne en temps réel.
@@ -2996,7 +3000,7 @@
                 if (document.visibilityState === 'hidden') flushPendingClicks();
             });
             if (__dailyClicksInterval) clearInterval(__dailyClicksInterval);
-            __dailyClicksInterval = setInterval(flushPendingClicks, 10000);
+            __dailyClicksInterval = setInterval(flushPendingClicks, 120000);
 
             __trackUnsubscribe(db.collection('dailyStats').doc(todayStatsId()).onSnapshot(snapshot => {
                 const el = document.getElementById('dailyClicksCount');
@@ -3132,7 +3136,13 @@
             // (elle relit tous les dossiers) — pas à chaque reprise après une pause.
             if (!__migrateDataRanOnce) {
                 __migrateDataRanOnce = true;
-                migrateData().catch(err => console.error('Erreur migration:', err));
+                let lastMig = '';
+                try { lastMig = localStorage.getItem('autop_last_migration') || ''; } catch (e) {}
+                const todayKey = new Date().toISOString().slice(0, 10);
+                if (isSuperAdmin() && lastMig !== todayKey) {
+                    try { localStorage.setItem('autop_last_migration', todayKey); } catch (e) {}
+                    migrateData().catch(err => console.error('Erreur migration:', err));
+                }
             }
 
             // Synchronise aussi les données Analyse Marge dès l'ouverture de l'app (pas
