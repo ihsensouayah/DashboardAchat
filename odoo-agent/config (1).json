@@ -1,0 +1,145 @@
+{
+  "feeds": {
+    "dossiers": {
+      "enabled": true,
+      "_note": "État des dossiers (page Dashboard) : même filtre que la tuile du Dashboard Manager Odoo.",
+      "model": "project.project",
+      "domain": [],
+      "columns": [
+        {
+          "header": "Référence interne",
+          "source": "Référence interne"
+        },
+        {
+          "header": "Client",
+          "source": "Client"
+        },
+        {
+          "header": "Véhicule",
+          "source": "Véhicule"
+        },
+        {
+          "header": "Tâche courante",
+          "source": "Tâche courante"
+        },
+        {
+          "header": "Dernière mise à jour par",
+          "source": "Dernière mise à jour par"
+        },
+        {
+          "header": "Date Validation Expert",
+          "source": "Date Validation Expert"
+        }
+      ],
+      "domain_from_tile": "En attente Achat et commande Pièces chez Garages Multi-marques"
+    },
+    "reception_bc": {
+      "enabled": true,
+      "model": "purchase.order",
+      "domain": [],
+      "days_back": 60,
+      "date_field": "date_order",
+      "order": "date_order desc",
+      "columns": [
+        {
+          "header": "Référence commande",
+          "source": "name"
+        },
+        {
+          "header": "Date de la commande",
+          "source": "date_order"
+        },
+        {
+          "header": "Fournisseur",
+          "source": "partner_id"
+        },
+        {
+          "header": "Responsable achats",
+          "source": "user_id"
+        },
+        {
+          "header": "Document d'origine",
+          "source": "origin"
+        },
+        {
+          "header": "Total",
+          "source": "amount_total"
+        },
+        {
+          "header": "Statut réception",
+          "compute": "po_receipt_status"
+        },
+        {
+          "header": "État",
+          "source": "state",
+          "raw": true
+        }
+      ]
+    },
+    "reparation": {
+      "enabled": false,
+      "model": "project.project",
+      "domain": [],
+      "columns": [
+        {
+          "header": "Référence interne",
+          "source": "Référence interne"
+        },
+        {
+          "header": "Client",
+          "source": "Client"
+        },
+        {
+          "header": "Adhérent",
+          "source": "Adhérent"
+        },
+        {
+          "header": "Véhicule",
+          "source": "Véhicule"
+        },
+        {
+          "header": "Tâche courante",
+          "source": "Tâche courante"
+        }
+      ],
+      "_note": "Activer seulement après un --dry-run : le filtre 'domain' doit correspondre à celui de l'export Excel habituel (sinon des dossiers anciens seraient créés)."
+    },
+    "facturation": {
+      "enabled": false,
+      "_note": "Odoo 13 : le champ s'appelle 'type' (et non 'move_type'). Modèle et champs à confirmer avec --discover.",
+      "model": "account.move",
+      "domain": [
+        [
+          "type",
+          "=",
+          "out_invoice"
+        ],
+        [
+          "state",
+          "=",
+          "posted"
+        ]
+      ],
+      "days_back": 90,
+      "date_field": "invoice_date",
+      "columns": [
+        {
+          "header": "Dossier Sinistre",
+          "source": "Dossier Sinistre"
+        },
+        {
+          "header": "Date de facturation",
+          "source": "invoice_date"
+        },
+        {
+          "header": "Montant HT",
+          "source": "amount_untaxed"
+        },
+        {
+          "header": "Garage",
+          "source": "Garage"
+        }
+      ]
+    }
+  }
+}
