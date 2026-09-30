@@ -309,6 +309,64 @@ def publish(db, fs, feed_name, rows, force=False):
     print(f"  ✓ {feed_name} : {len(rows)} lignes publiées ({len(chunks)} bloc(s))")
 
 
+# ------------------------------------------------- copies compactes (quota)
+# Le dashboard lit ces copies (quelques documents) au lieu de relire des milliers de
+# documents à chaque ouverture, puis n'écoute que les changements (champ _syncAt).
+BUNDLE_COLLECTIONS = ["orders", "repairDossiers", "controleMarge", "margeData"]
+BUNDLE_EVERY_HOURS = 6
+BUNDLE_CHUNK_BYTES = 700_000
+
+
+def _enc(v):
+    if isinstance(v, datetime):
+        ts = v.timestamp()
+        sec = int(ts // 1)
+        return {"__ts": [sec, int(round((ts - sec) * 1e9))]}
+    if isinstance(v, dict):
+        return {k: _enc(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_enc(x) for x in v]
+    if hasattr(v, "latitude") and hasattr(v, "longitude"):
+        return {"latitude": v.latitude, "longitude": v.longitude}
+    if hasattr(v, "path") and hasattr(v, "id") and not isinstance(v, str):
+        return v.path
+    if isinstance(v, bytes):
+        return None
+    return v
+
+
+def build_bundles(db, force=False):
+    for name in BUNDLE_COLLECTIONS:
+        meta_ref = db.collection("_bundles").document(name)
+        meta = meta_ref.get()
+        old = meta.to_dict() if meta.exists else {}
+        built = old.get("builtAt")
+        if not force and built and (datetime.now(timezone.utc) - built).total_seconds() < BUNDLE_EVERY_HOURS * 3600:
+            print(f"  = copie {name} : récente, pas de reconstruction")
+            continue
+        built_at = datetime.now(timezone.utc) - timedelta(minutes=2)  # marge : tout ce qui change pendant la lecture sera aussi dans les « changements »
+        docs = [{"id": d.id, "d": _enc(d.to_dict())} for d in db.collection(name).stream()]
+        chunks, cur, size = [], [], 2
+        for e in docs:
+            s = len(json.dumps(e, ensure_ascii=False, default=str).encode()) + 1
+            if cur and size + s > BUNDLE_CHUNK_BYTES:
+                chunks.append(cur); cur, size = [], 2
+            cur.append(e); size += s
+        chunks.append(cur)
+        batch = db.batch()
+        for i, ch in enumerate(chunks):
+            batch.set(meta_ref.collection("chunks").document(str(i)), {"json": json.dumps(ch, ensure_ascii=False, default=str)})
+        for i in range(len(chunks), int(old.get("chunks", 0) or 0)):
+            batch.delete(meta_ref.collection("chunks").document(str(i)))
+        batch.commit()
+        meta_ref.set({"builtAt": built_at, "chunks": len(chunks), "count": len(docs)})
+        # Traces de suppression antérieures à la copie : devenues inutiles
+        n_del = 0
+        for d in db.collection("_deletions_" + name).where("at", "<", built_at).stream():
+            d.reference.delete(); n_del += 1
+        print(f"  ✓ copie {name} : {len(docs)} documents en {len(chunks)} bloc(s)" + (f", {n_del} trace(s) nettoyée(s)" if n_del else ""))
+
+
 # ------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser()
@@ -316,7 +374,22 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--discover", metavar="MODEL")
+    ap.add_argument("--bundles-only", action="store_true", help="reconstruit seulement les copies compactes")
+    ap.add_argument("--force-bundles", action="store_true")
     a = ap.parse_args()
+
+    errors = 0
+    db = fs = None
+    if not a.dry_run and not a.discover:
+        db, fs = firestore_client()
+        # Copies compactes d'abord : elles ne dépendent pas d'Odoo
+        try:
+            build_bundles(db, force=a.force_bundles)
+        except Exception as e:
+            errors += 1
+            print(f"  ✗ copies compactes : {e}")
+        if a.bundles_only:
+            sys.exit(1 if errors else 0)
 
     odoo = Odoo()
     print(f"✅ Connecté à Odoo {odoo.url} (base {odoo.db}, uid {odoo.uid})")
@@ -329,17 +402,11 @@ def main():
 
     cfg = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
     feeds = {k: v for k, v in cfg["feeds"].items() if v.get("enabled", True) and (not a.feed or k in a.feed)}
-    db = fs = None
-    if not a.dry_run:
-        db, fs = firestore_client()
-
-    errors = 0
     for name, feed in feeds.items():
         try:
             rows = read_rows(odoo, feed)
             print(f"  • {name} : {len(rows)} ligne(s) lue(s) dans Odoo")
             if a.dry_run:
-                print(f"  • {name} : {len(rows)} lignes")
                 for r in rows[:5]:
                     print("     ", json.dumps(r, ensure_ascii=False, default=str))
             else:
