@@ -3140,6 +3140,105 @@
             }
         }
 
+        // ==================== CHARGEMENT ÉCONOME (plan Firebase gratuit) ====================
+        // Les grosses collections ne sont plus relues en entier à chaque ouverture :
+        //  1) l'agent GitHub (odoo-agent) prépare 2 fois par jour une COPIE COMPACTE de chaque
+        //     collection dans _bundles/{collection} (quelques documents au lieu de milliers) ;
+        //  2) le dashboard lit cette copie, puis n'écoute en direct QUE les documents modifiés
+        //     depuis (champ _syncAt), et les suppressions (collection _deletions_{collection}).
+        // Pour que rien ne soit manqué, CHAQUE écriture du dashboard sur ces collections reçoit
+        // automatiquement _syncAt (et chaque suppression laisse une trace) : voir le bloc ci-dessous.
+        const SMART_COLLECTIONS = ['orders', 'repairDossiers', 'controleMarge', 'margeData'];
+        (function installSyncStamps() {
+            const FS = firebase.firestore;
+            const stamp = () => FS.FieldValue.serverTimestamp();
+            const tracked = ref => ref && ref.parent && SMART_COLLECTIONS.indexOf(ref.parent.id) !== -1 && !ref.parent.parent;
+            const tomb = ref => db.collection('_deletions_' + ref.parent.id).doc(ref.id);
+            const withStamp = data => Object.assign({}, data, { _syncAt: stamp() });
+            const withStampArgs = args => (typeof args[0] === 'object' && args[0] !== null && !(args[0] instanceof FS.FieldPath))
+                ? [withStamp(args[0])].concat(Array.prototype.slice.call(args, 1))
+                : Array.prototype.slice.call(args).concat(['_syncAt', stamp()]);
+            function patch(proto, hasRefArg) {
+                if (!proto || proto.__syncPatched) return;
+                proto.__syncPatched = true;
+                const oSet = proto.set, oUpd = proto.update, oDel = proto.delete;
+                if (hasRefArg) {
+                    proto.set = function(ref, data, opts) { return tracked(ref) ? oSet.call(this, ref, withStamp(data), opts) : oSet.apply(this, arguments); };
+                    proto.update = function(ref) { const rest = Array.prototype.slice.call(arguments, 1); return tracked(ref) ? oUpd.apply(this, [ref].concat(withStampArgs(rest))) : oUpd.apply(this, arguments); };
+                    proto.delete = function(ref) { if (tracked(ref)) oSet.call(this, tomb(ref), { at: stamp() }); return oDel.apply(this, arguments); };
+                } else {
+                    proto.set = function(data, opts) { return tracked(this) ? oSet.call(this, withStamp(data), opts) : oSet.apply(this, arguments); };
+                    proto.update = function() { return tracked(this) ? oUpd.apply(this, withStampArgs(arguments)) : oUpd.apply(this, arguments); };
+                    proto.delete = function() { const r = oDel.apply(this, arguments); if (tracked(this)) tomb(this).set({ at: stamp() }).catch(() => {}); return r; };
+                }
+            }
+            // Prototypes récupérés sur de vrais objets (indépendant des noms internes du SDK).
+            let CR = null;
+            try {
+                const probeCol = db.collection('_probe');
+                patch(Object.getPrototypeOf(probeCol.doc('x')), false);
+                patch(Object.getPrototypeOf(db.batch()), true);
+                CR = Object.getPrototypeOf(probeCol);
+            } catch (e) { console.error('Horodatage _syncAt non installé :', e); }
+            // add() : horodaté aussi.
+            if (CR && !CR.__syncPatched) {
+                CR.__syncPatched = true;
+                const oAdd = CR.add;
+                CR.add = function(data) { return SMART_COLLECTIONS.indexOf(this.id) !== -1 && !this.parent ? oAdd.call(this, withStamp(data)) : oAdd.apply(this, arguments); };
+            }
+        })();
+
+        function __decodeBundleValue(v) {
+            if (Array.isArray(v)) return v.map(__decodeBundleValue);
+            if (v && typeof v === 'object') {
+                if (Array.isArray(v.__ts) && Object.keys(v).length === 1) return new firebase.firestore.Timestamp(v.__ts[0], v.__ts[1]);
+                const o = {}; for (const k in v) o[k] = __decodeBundleValue(v[k]); return o;
+            }
+            return v;
+        }
+        const __BUNDLE_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+        // Même interface qu'onSnapshot : le callback reçoit { size, empty, docs:[{id, data()}] }.
+        function smartListen(name, onData, onError) {
+            let stopped = false; const unsubs = [];
+            const stop = () => { stopped = true; unsubs.forEach(u => { try { u(); } catch (e) {} }); };
+            const full = () => { if (!stopped) unsubs.push(db.collection(name).onSnapshot(onData, onError)); };
+            db.collection('_bundles').doc(name).get().then(async metaSnap => {
+                if (stopped) return;
+                const meta = metaSnap.exists ? metaSnap.data() : null;
+                const builtAt = meta && meta.builtAt;
+                if (!meta || !builtAt || !meta.chunks || (Date.now() - builtAt.toMillis()) > __BUNDLE_MAX_AGE_MS) { full(); return; }
+                const chunkSnaps = await Promise.all(Array.from({ length: meta.chunks }, (_, i) => db.collection('_bundles').doc(name).collection('chunks').doc(String(i)).get()));
+                if (stopped) return;
+                const base = new Map();
+                for (const cs of chunkSnaps) {
+                    if (!cs.exists) { full(); return; }       // copie incomplète : on retombe sur le chargement complet
+                    const cd = cs.data();
+                    (cd.json ? JSON.parse(cd.json) : (cd.docs || [])).forEach(e => base.set(e.id, __decodeBundleValue(e.d)));
+                }
+                let deltas = new Map(), dels = new Map(), gotDelta = false, gotDel = false;
+                const emit = () => {
+                    if (!gotDelta || !gotDel || stopped) return;
+                    const merged = new Map(base);
+                    deltas.forEach((d, id) => merged.set(id, d));
+                    dels.forEach((at, id) => {
+                        const d = deltas.get(id);
+                        const recreated = d && d._syncAt && d._syncAt.toMillis && d._syncAt.toMillis() > at;
+                        if (!recreated) merged.delete(id);
+                    });
+                    const docs = []; merged.forEach((d, id) => docs.push({ id, data: () => d }));
+                    onData({ size: docs.length, empty: docs.length === 0, docs, forEach: fn => docs.forEach(fn) });
+                };
+                unsubs.push(db.collection(name).where('_syncAt', '>', builtAt).onSnapshot(s => {
+                    deltas = new Map(); s.docs.forEach(doc => deltas.set(doc.id, doc.data())); gotDelta = true; emit();
+                }, onError));
+                unsubs.push(db.collection('_deletions_' + name).where('at', '>', builtAt).onSnapshot(s => {
+                    dels = new Map(); s.docs.forEach(doc => { const at = doc.data().at; dels.set(doc.id, at && at.toMillis ? at.toMillis() : Date.now()); }); gotDel = true; emit();
+                }, onError));
+                console.log('⚡ ' + name + ' : copie compacte (' + base.size + ' docs, ' + meta.chunks + ' lecture(s)) + changements depuis ' + builtAt.toDate().toLocaleString('fr-FR'));
+            }).catch(err => { console.warn('Copie compacte indisponible pour ' + name + ', chargement complet :', err.message); full(); });
+            return stop;
+        }
+
         // Chargement des données
         let __migrateDataRanOnce = false;
         function loadData() {
@@ -3164,7 +3263,7 @@
             // Dashboard puisse s'appuyer dessus (comptage cumulé, voir renderBrandStats).
             margeAttachFirestoreListener();
             
-            __trackUnsubscribe(db.collection('orders').onSnapshot(snapshot => {
+            __trackUnsubscribe(smartListen('orders', snapshot => {
                 console.log('📦 Commandes chargées:', snapshot.size);
                 orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 __ordersLoaded = true;
@@ -3192,7 +3291,7 @@
                 console.error('❌ Erreur chargement uploadHistory:', error);
             }));
 
-            __trackUnsubscribe(db.collection('repairDossiers').onSnapshot(snapshot => {
+            __trackUnsubscribe(smartListen('repairDossiers', snapshot => {
                 repairDossiers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderReparationView();
             }, error => {
@@ -5667,7 +5766,7 @@
             // (partagée avec Réparation), donc cmGaragesAttached est déjà vrai ici.
             if (!cmControleMargeAttached) {
                 cmControleMargeAttached = true;
-                __trackUnsubscribe(db.collection('controleMarge').onSnapshot(function(snapshot) {
+                __trackUnsubscribe(smartListen('controleMarge', function(snapshot) {
                     cmLedger = snapshot.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
                     cmRenderLedger();
                 }, function(err) { console.error('Erreur synchronisation Contrôle Marge:', err); }));
@@ -8285,7 +8384,7 @@
         function margeAttachFirestoreListener() {
             if (margeFirestoreListenerAttached) return;
             margeFirestoreListenerAttached = true;
-            __trackUnsubscribe(db.collection('margeData').onSnapshot(function(snapshot) {
+            __trackUnsubscribe(smartListen('margeData', function(snapshot) {
                 if (snapshot.empty) {
                     if (window.MARGE_EMBEDDED_DATA && window.MARGE_EMBEDDED_DATA.length) {
                         document.getElementById('margeMigrationBanner').classList.remove('hidden');
