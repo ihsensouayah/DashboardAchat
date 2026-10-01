@@ -1,10 +1,7 @@
 name: Synchro Odoo -> Dashboards
 
 on:
-  schedule:
-          # Toutes les 30 min, lun-sam, de 8h15 à 18h45 heure de Tunis (UTC+1)
-       - cron: "15,45 7-17 * * 1-6"
-  workflow_dispatch: {}
+   workflow_dispatch: {}
 
 concurrency:
   group: odoo-sync
