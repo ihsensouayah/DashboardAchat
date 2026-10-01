@@ -2842,6 +2842,7 @@
         function pauseAllRealtimeListeners() {
             if (!__realtimeListenersActive) return;
             __realtimeListenersActive = false;
+            __ordersLoaded = false; // la liste en mémoire n'est plus tenue à jour pendant la pause
 
             __wasControleMargeActiveBeforePause = cmControleMargeAttached;
             __wasUsersManagementActiveBeforePause = !!__usersManagementUnsubscribe;
@@ -2874,14 +2875,14 @@
             startOdooAutoSync();
             if (currentUser && currentUserProfile) {
                 writePresenceHeartbeat();
-                __presenceInterval = setInterval(writePresenceHeartbeat, 60000);
-                __trackUnsubscribe(db.collection('presence').onSnapshot(snapshot => {
+                __presenceInterval = setInterval(writePresenceHeartbeat, 300000);
+                if (isSuperAdmin()) __trackUnsubscribe(db.collection('presence').onSnapshot(snapshot => {
                     __presenceDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     renderPresenceFooter();
                 }, error => console.error('❌ Erreur chargement présence:', error)));
             }
-            __dailyClicksInterval = setInterval(flushPendingClicks, 120000);
-            __trackUnsubscribe(db.collection('dailyStats').doc(todayStatsId()).onSnapshot(snapshot => {
+            __dailyClicksInterval = setInterval(flushPendingClicks, 600000);
+            if (isSuperAdmin()) __trackUnsubscribe(db.collection('dailyStats').doc(todayStatsId()).onSnapshot(snapshot => {
                 const el = document.getElementById('dailyClicksCount');
                 if (el) el.textContent = (snapshot.data() && snapshot.data().clicks || 0).toLocaleString('fr-FR');
             }, error => console.error('❌ Erreur chargement clics du jour:', error)));
@@ -2913,7 +2914,7 @@
         // comme le reste de l'app (pas de vraie présence temps réel côté serveur).
         let __presenceInterval = null;
         let __presenceDocs = [];
-        const PRESENCE_STALE_MS = 150000; // > 2 battements de 60 s
+        const PRESENCE_STALE_MS = 660000; // > 2 battements de 5 min (quota Firebase)
 
         function writePresenceHeartbeat() {
             if (!currentUser || !currentUserProfile) return;
@@ -2927,11 +2928,11 @@
         function startPresenceHeartbeat() {
             writePresenceHeartbeat();
             if (__presenceInterval) clearInterval(__presenceInterval);
-            __presenceInterval = setInterval(writePresenceHeartbeat, 60000);
+            __presenceInterval = setInterval(writePresenceHeartbeat, 300000);
 
             // Écoute en direct de tous les battements récents, pour afficher la liste
             // des personnes en ligne en temps réel.
-            __trackUnsubscribe(db.collection('presence').onSnapshot(snapshot => {
+            if (isSuperAdmin()) __trackUnsubscribe(db.collection('presence').onSnapshot(snapshot => {
                 __presenceDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderPresenceFooter();
             }, error => console.error('❌ Erreur chargement présence:', error)));
@@ -2953,7 +2954,9 @@
             const list = document.getElementById('presenceList');
             if (!footer || !list) return;
 
-            // Visible par tous les rôles connectés.
+            // Visible seulement par les super-admins : l'écoute de la présence par TOUS les postes
+            // coûtait N x N lectures à chaque battement (principale cause du quota dépassé).
+            if (!isSuperAdmin()) { footer.classList.add('hidden'); return; }
             footer.classList.remove('hidden');
 
             const now = Date.now();
@@ -3015,9 +3018,9 @@
                 if (document.visibilityState === 'hidden') flushPendingClicks();
             });
             if (__dailyClicksInterval) clearInterval(__dailyClicksInterval);
-            __dailyClicksInterval = setInterval(flushPendingClicks, 120000);
+            __dailyClicksInterval = setInterval(flushPendingClicks, 600000);
 
-            __trackUnsubscribe(db.collection('dailyStats').doc(todayStatsId()).onSnapshot(snapshot => {
+            if (isSuperAdmin()) __trackUnsubscribe(db.collection('dailyStats').doc(todayStatsId()).onSnapshot(snapshot => {
                 const el = document.getElementById('dailyClicksCount');
                 if (el) el.textContent = (snapshot.data() && snapshot.data().clicks || 0).toLocaleString('fr-FR');
             }, error => console.error('❌ Erreur chargement clics du jour:', error)));
@@ -5040,6 +5043,7 @@
                             ref = 'REF-' + client.replace(/\s+/g, '').slice(0, 10).toUpperCase() + '-' + vdate.slice(0, 10);
                         }
 
+                        if (isNew && newOrders.some(o => normalizeReference(o.reference) === normalizeReference(ref))) isNew = false;
                         if (isNew) {
                             newOrders.push({
                                 reference: ref,
@@ -5062,6 +5066,19 @@
                     }
 
                     console.log('📦 Nouvelles commandes à ajouter:', newOrders.length, '— déjà existants (ignorés, suivi préservé):', skippedExisting);
+
+                    // Anti-doublon : avant d'ajouter, on vérifie sur le serveur que chaque « nouvelle »
+                    // référence n'existe pas déjà (la liste en mémoire peut être en retard sur un autre
+                    // poste). Coût : 1 lecture par nouveau dossier seulement.
+                    if (newOrders.length > 0) {
+                        const checked = await Promise.all(newOrders.map(o =>
+                            db.collection('orders').where('reference', '==', o.reference).limit(1).get()
+                                .then(q => q.empty).catch(() => true)));
+                        const before = newOrders.length;
+                        for (let i = newOrders.length - 1; i >= 0; i--) if (!checked[i]) newOrders.splice(i, 1);
+                        skippedExisting += before - newOrders.length;
+                        if (before !== newOrders.length) console.log('🛡️ Anti-doublon : ' + (before - newOrders.length) + ' dossier(s) déjà présent(s) sur le serveur, non ajouté(s)');
+                    }
 
                     // Garde-fou synchro automatique : un nombre anormal de "nouveaux" dossiers
                     // signifie en général un mauvais filtre côté agent — on n'écrit rien.
