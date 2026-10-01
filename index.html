@@ -545,7 +545,7 @@
                     <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="nav-btn" style="animation-delay:210ms"><span class="nav-btn-icon"><i data-lucide="headphones" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Accompagnement</span></button>
                 </div>
             </div>
-            <div class="nav-group" data-group="reparation">
+            <div class="nav-group" data-group="reparation" style="display:none">
                 <button type="button" class="nav-group-title" onclick="toggleNavGroup(this)" aria-expanded="true">Service Suivi Réparation</button>
                 <div class="nav-group-items">
                     <button data-view="reparation" onclick="navigateTo('reparation')" class="nav-btn" style="animation-delay:245ms"><span class="nav-btn-icon"><i data-lucide="wrench" class="w-4.5 h-4.5"></i></span><span class="nav-btn-label">Réparation</span></button>
@@ -1760,7 +1760,7 @@
             <button data-view="buyers" onclick="navigateTo('buyers')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="users" class="w-5 h-5"></i><span class="text-[10px] font-medium">Acheteurs</span></button>
             <button data-view="retours" id="navRetoursMobile" onclick="navigateTo('retours')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="rotate-ccw" class="w-5 h-5"></i><span class="text-[10px] font-medium">Retours</span></button>
             <button data-view="accompagnement" onclick="navigateTo('accompagnement')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="headphones" class="w-5 h-5"></i><span class="text-[10px] font-medium">Accomp.</span></button>
-            <button data-view="reparation" onclick="navigateTo('reparation')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="wrench" class="w-5 h-5"></i><span class="text-[10px] font-medium">Réparation</span></button>
+            <button data-view="reparation" style="display:none" onclick="navigateTo('reparation')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="wrench" class="w-5 h-5"></i><span class="text-[10px] font-medium">Réparation</span></button>
             <button data-view="controle-marge" id="navControleMargeMobile" onclick="navigateTo('controle-marge')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1"><i data-lucide="receipt" class="w-5 h-5"></i><span class="text-[10px] font-medium">Contrôle</span></button>
             <button data-view="reception-bc" onclick="navigateTo('reception-bc')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="truck" class="w-5 h-5"></i><span class="text-[10px] font-medium">Réception</span></button>
             <button data-view="magasin-pdr" onclick="navigateTo('magasin-pdr')" class="bottom-nav-btn flex flex-col items-center gap-0.5 px-2 py-1" style="display:none"><i data-lucide="package" class="w-5 h-5"></i><span class="text-[10px] font-medium">Magasin</span></button>
@@ -2604,6 +2604,7 @@
             const allowed = getAllowedTabs();
             document.querySelectorAll('.nav-btn, .bottom-nav-btn').forEach(function(btn) {
                 const view = btn.dataset.view;
+                if (view === 'reparation' && !REPARATION_ACTIVE) { btn.style.display = 'none'; return; } // module désactivé
                 if (view === 'gestion-comptes') return; // gérée séparément, à part du système de rôles
                 if (view === 'sinistres') return; // gérée séparément, accès par liste d'emails
                 if (view === 'retours') return; // gérée séparément, accès par rôle + liste d'emails
@@ -3295,7 +3296,7 @@
                 console.error('❌ Erreur chargement uploadHistory:', error);
             }));
 
-            __trackUnsubscribe(smartListen('repairDossiers', snapshot => {
+            if (REPARATION_ACTIVE) __trackUnsubscribe(smartListen('repairDossiers', snapshot => {
                 repairDossiers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderReparationView();
             }, error => {
@@ -3333,7 +3334,7 @@
             // mois puisqu'aucune entrée n'existe encore pour le nouveau mois — pas
             // besoin d'action de remise à zéro manuelle. Modifiable via le crayon sur la
             // carte KPI "CA réalisé / Objectif".
-            __trackUnsubscribe(db.collection('settings').doc('reparation').onSnapshot(snapshot => {
+            if (REPARATION_ACTIVE) __trackUnsubscribe(db.collection('settings').doc('reparation').onSnapshot(snapshot => {
                 const data = snapshot.data() || {};
                 const parMois = data.objectifsParMois || {};
                 repObjectifCA = typeof parMois[currentMonthKey()] === 'number' ? parMois[currentMonthKey()] : 0;
@@ -3419,7 +3420,11 @@
             _retoursLoaded = true;
         }
 
+        // Module « Service Suivi Réparation » désactivé (01/10/2026) : masqué, plus aucune lecture
+        // Firebase. Les données restent intactes ; repasser à true pour le réactiver.
+        var REPARATION_ACTIVE = false;
         function navigateTo(view) {
+            if (view === 'reparation' && !REPARATION_ACTIVE) view = 'dashboard';
             if (!canAccessView(view)) {
                 showToast("Accès non autorisé pour votre rôle", 'error');
                 const allowed = getAllowedTabs();
