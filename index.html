@@ -731,6 +731,10 @@
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                             <span>Nettoyer</span>
                         </button>
+                        <button id="btnDoublons" onclick="cleanupDossierDuplicates()" style="display:none" class="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap" title="Supprimer les dossiers en double (seulement les copies sans suivi)">
+                            <i data-lucide="copy-x" class="w-4 h-4"></i>
+                            <span>Doublons</span>
+                        </button>
                         <button onclick="cleanAutreBrands()" class="px-5 py-2.5 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-medium rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap" title="Corriger uniquement les marques 'Autre'">
                             <i data-lucide="car" class="w-4 h-4"></i>
                             <span>Marques</span>
@@ -2640,6 +2644,7 @@
             if (navRetMobile) navRetMobile.style.display = showRetours ? '' : 'none';
             const showLog = canAccessLogistique();
             document.querySelectorAll('[data-view="reception-bc"], [data-view="magasin-pdr"]').forEach(function(b) { b.style.display = showLog ? '' : 'none'; });
+            const btnDbl = document.getElementById('btnDoublons'); if (btnDbl) btnDbl.style.display = isSuperAdmin() ? '' : 'none';
             updateNavGroups();
         }
         // Regroupement du menu par service : un groupe dont tous les onglets sont masqués
@@ -2866,7 +2871,8 @@
             console.log('⏸️ Connexions temps réel mises en pause (onglet inactif depuis ' + (REALTIME_PAUSE_DELAY_MS / 60000) + ' min) — économie de quota Firebase.');
         }
 
-        function resumeAllRealtimeListeners() {
+        function resumeAllRealtimeListeners(force) {
+            if (__economyMode && !force) return; // mode économie : reprise seulement via « Actualiser »
             if (__realtimeListenersActive) return;
             __realtimeListenersActive = true;
             console.log('▶️ Reprise des connexions temps réel (onglet redevenu actif).');
@@ -3025,6 +3031,48 @@
                 const el = document.getElementById('dailyClicksCount');
                 if (el) el.textContent = (snapshot.data() && snapshot.data().clicks || 0).toLocaleString('fr-FR');
             }, error => console.error('❌ Erreur chargement clics du jour:', error)));
+        }
+
+        // ==================== DOUBLONS DE DOSSIERS (super-admins) ====================
+        // Regroupe les dossiers par référence. Dans chaque groupe on GARDE la fiche qui porte le
+        // plus de suivi saisi à la main (à égalité : la plus ancienne). On ne supprime QUE les
+        // copies jamais touchées (aucun suivi saisi) ; une copie qui porte du suivi n'est jamais
+        // supprimée, elle est seulement signalée. Utilise la liste déjà en mémoire (0 lecture).
+        const __DOSSIER_WORK_FIELDS = ['buyerComment', 'accompagnementStatus', 'accompagnateurNote', 'firstContactDate',
+            'secondContactDate', 'proposedRdvDate', 'reclamation', 'finishedDate', 'estimatedEndDate',
+            'montantDevisValide', 'heuresAllouees', 'repairStatus', 'repairStartDate', 'repairEndDate', 'noCertainDate'];
+        function __dossierWorkScore(o) {
+            let n = (o.partsStatus && o.partsStatus !== 'en_cours') ? 2 : 0;
+            __DOSSIER_WORK_FIELDS.forEach(k => { const v = o[k]; if (v !== undefined && v !== null && v !== '' && v !== false && v !== 0) n++; });
+            return n;
+        }
+        function __createdMs(o) { const c = o.createdAt; return c && c.toMillis ? c.toMillis() : (c && c.seconds ? c.seconds * 1000 : Number.MAX_SAFE_INTEGER); }
+        async function cleanupDossierDuplicates() {
+            if (!isSuperAdmin()) { showToast('Réservé aux super-admins', 'error'); return; }
+            if (!__ordersLoaded) { showToast('Liste des dossiers pas encore chargée, réessayez dans quelques secondes', 'warning'); return; }
+            const groups = new Map();
+            orders.forEach(o => { if (!o.reference) return; const k = normalizeReference(o.reference); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(o); });
+            const toDelete = [], toReview = [];
+            groups.forEach(list => {
+                if (list.length < 2) return;
+                list.sort((a, b) => (__dossierWorkScore(b) - __dossierWorkScore(a)) || (__createdMs(a) - __createdMs(b)));
+                list.slice(1).forEach(o => { (__dossierWorkScore(o) === 0 ? toDelete : toReview).push(o); });
+            });
+            if (!toDelete.length && !toReview.length) { showToast('Aucun dossier en double', 'success'); return; }
+            const refs = arr => Array.from(new Set(arr.map(o => o.reference))).join(', ');
+            let msg = toDelete.length + ' copie(s) en double SANS aucun suivi seront supprimées (la fiche d\'origine est gardée) :\n' + (refs(toDelete) || '—');
+            if (toReview.length) msg += '\n\n' + toReview.length + ' copie(s) en double portent du suivi et NE seront PAS supprimées (à vérifier à la main) :\n' + refs(toReview);
+            if (!toDelete.length) { alert(msg); return; }
+            if (!confirm(msg + '\n\nConfirmer la suppression ?')) return;
+            try {
+                for (let i = 0; i < toDelete.length; i += 400) {
+                    const batch = db.batch();
+                    toDelete.slice(i, i + 400).forEach(o => batch.delete(db.collection('orders').doc(o.id)));
+                    await batch.commit();
+                }
+                showToast(toDelete.length + ' doublon(s) supprimé(s)' + (toReview.length ? ' — ' + toReview.length + ' à vérifier à la main' : ''), 'success');
+                addNotification(toDelete.length + ' doublon(s) de dossiers supprimé(s)', 'success');
+            } catch (e) { console.error(e); showToast('Suppression impossible : ' + e.message, 'error'); }
         }
 
         // Migration des données - Mettre à jour les anciens statuts et nettoyer les données
@@ -3191,6 +3239,105 @@
                 const oAdd = CR.add;
                 CR.add = function(data) { return SMART_COLLECTIONS.indexOf(this.id) !== -1 && !this.parent ? oAdd.call(this, withStamp(data)) : oAdd.apply(this, arguments); };
             }
+        })();
+
+        // ==================== PLAFOND DE LECTURES PAR POSTE (quota Firebase gratuit) ====================
+        // Formule : plafond par poste = 40 000 lectures / nombre de postes (marge de 10 000 sous
+        // la limite gratuite de 50 000/jour). Chaque poste compte ses propres lectures Firebase ;
+        // au-delà du plafond, il passe en « mode économie » : plus de mise à jour en direct,
+        // les données restent affichées et un bouton « Actualiser » les recharge à la demande.
+        // Le compteur repart à zéro chaque jour à la remise à zéro du quota Google (~9h Tunis).
+        var READ_BUDGET_PER_POSTE = 2500;
+        var __economyMode = false;
+        const __readDayKey = () => new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10);
+        let __reads = 0;
+        try { const r = JSON.parse(localStorage.getItem('autop_reads_jour') || 'null'); if (r && r.day === __readDayKey()) __reads = r.n || 0; } catch (e) {}
+        function __countReads(n) {
+            if (!n || typeof n !== 'number') return;
+            const day = __readDayKey();
+            try { const r = JSON.parse(localStorage.getItem('autop_reads_jour') || 'null'); if (!r || r.day !== day) { __reads = 0; if (__economyMode) leaveEconomyMode(); } } catch (e) {}
+            __reads += n;
+            try { localStorage.setItem('autop_reads_jour', JSON.stringify({ day: day, n: __reads })); } catch (e) {}
+            if (!__economyMode && __reads > READ_BUDGET_PER_POSTE) { try { enterEconomyMode(); } catch (e) { console.error(e); } }
+        }
+        window.autopReadsToday = () => __reads;
+        function __economyBar() {
+            let el = document.getElementById('economyBar');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'economyBar';
+                el.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:10px;padding:10px 14px;font:13px system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.12);display:flex;gap:10px;align-items:center;max-width:calc(100vw - 32px)';
+                el.innerHTML = '<span>⚡ Mode économie : les mises à jour en direct sont suspendues sur ce poste jusqu\'à demain (plafond Firebase).</span><button id="economyRefresh" style="background:#ea580c;color:#fff;border:0;border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap">Actualiser</button>';
+                document.body.appendChild(el);
+                el.querySelector('button').onclick = economyRefresh;
+            }
+            return el;
+        }
+        function enterEconomyMode() {
+            __economyMode = true;
+            console.warn('⚡ Mode économie : ' + __reads + ' lectures aujourd\'hui sur ce poste (plafond ' + READ_BUDGET_PER_POSTE + ').');
+            try { pauseAllRealtimeListeners(); } catch (e) {}
+            __economyBar().style.display = 'flex';
+        }
+        function leaveEconomyMode() {
+            __economyMode = false;
+            const el = document.getElementById('economyBar'); if (el) el.style.display = 'none';
+            try { resumeAllRealtimeListeners(true); } catch (e) {}
+        }
+        function economyRefresh() {
+            const btn = document.getElementById('economyRefresh');
+            if (btn) { btn.disabled = true; btn.textContent = 'Chargement…'; }
+            try { resumeAllRealtimeListeners(true); } catch (e) {}
+            setTimeout(() => {
+                if (__economyMode) { try { pauseAllRealtimeListeners(); } catch (e) {} }
+                if (btn) { btn.disabled = false; btn.textContent = 'Actualiser'; }
+            }, 45000);
+        }
+        (function installReadMeter() {
+            const wrapCb = (args, counter) => {
+                const a = Array.prototype.slice.call(args);
+                if (a[0] && typeof a[0] === 'object' && typeof a[0].next === 'function') {
+                    const obs = a[0], nx = obs.next.bind(obs);
+                    a[0] = Object.assign({}, obs, { next: s => { counter(s); return nx(s); } });
+                    return a;
+                }
+                const i = a.findIndex(x => typeof x === 'function');
+                if (i !== -1) { const f = a[i]; a[i] = function(s) { counter(s); return f.apply(this, arguments); }; }
+                return a;
+            };
+            try {
+                const probeCol = db.collection('_probe');
+                const docProto = Object.getPrototypeOf(probeCol.doc('x'));
+                const protos = [Object.getPrototypeOf(probeCol), Object.getPrototypeOf(probeCol.where('a', '==', 1))];
+                // Requêtes / collections
+                protos.forEach(proto => {
+                    if (!proto || proto.__readMeter) return;
+                    if (Object.prototype.hasOwnProperty.call(proto, 'onSnapshot')) {
+                        const o = proto.onSnapshot;
+                        proto.onSnapshot = function() {
+                            let first = true;
+                            return o.apply(this, wrapCb(arguments, s => {
+                                if (!s || !s.metadata || s.metadata.fromCache) return;
+                                __countReads(first ? Math.max(1, s.size) : s.docChanges().length);
+                                first = false;
+                            }));
+                        };
+                    }
+                    if (Object.prototype.hasOwnProperty.call(proto, 'get')) {
+                        const g = proto.get;
+                        proto.get = function() { return g.apply(this, arguments).then(s => { if (s && s.metadata && !s.metadata.fromCache) __countReads(Math.max(1, s.size)); return s; }); };
+                    }
+                    proto.__readMeter = true;
+                });
+                // Documents
+                if (docProto && !docProto.__readMeter) {
+                    const o = docProto.onSnapshot, g = docProto.get;
+                    docProto.onSnapshot = function() { return o.apply(this, wrapCb(arguments, s => { if (s && s.metadata && !s.metadata.fromCache) __countReads(1); })); };
+                    docProto.get = function() { return g.apply(this, arguments).then(s => { if (s && s.metadata && !s.metadata.fromCache) __countReads(1); return s; }); };
+                    docProto.__readMeter = true;
+                }
+            } catch (e) { console.error('Compteur de lectures non installé :', e); }
+            if (__reads > READ_BUDGET_PER_POSTE) setTimeout(enterEconomyMode, 0);
         })();
 
         function __decodeBundleValue(v) {
