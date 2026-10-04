@@ -10451,6 +10451,41 @@
             }
         }
 
+
+        // ==================== MISE À JOUR AUTOMATIQUE DES POSTES ====================
+        // Un onglet resté ouvert garde l'ancienne version du Dashboard (et ses anciens réglages
+        // de consommation Firebase) tant qu'on ne recharge pas. Toutes les 10 min, le poste
+        // regarde si une nouvelle version a été publiée sur GitHub (en-tête du fichier, aucune
+        // lecture Firebase). Si oui : rechargement automatique dès que l'onglet est en arrière-plan,
+        // sinon un bandeau propose de recharger.
+        (function autoUpdateCheck() {
+            if (!/^https?:/.test(location.protocol)) return;
+            let firstStamp = null, pending = false;
+            const stampOf = r => r.headers.get('etag') || r.headers.get('last-modified') || '';
+            function showBar() {
+                if (document.getElementById('updateBar')) return;
+                const el = document.createElement('div');
+                el.id = 'updateBar';
+                el.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;background:#16233A;color:#F6F5F1;border-radius:10px;padding:10px 14px;font:13px system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;gap:10px;align-items:center;max-width:calc(100vw - 32px)';
+                el.innerHTML = '<span>Une nouvelle version du Dashboard est disponible.</span><button style="background:#E8873D;color:#16233A;border:0;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:600">Recharger</button>';
+                el.querySelector('button').onclick = () => location.reload();
+                document.body.appendChild(el);
+            }
+            async function check() {
+                try {
+                    const r = await fetch(location.pathname + '?v=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+                    const st = stampOf(r); if (!st) return;
+                    if (firstStamp === null) { firstStamp = st; return; }
+                    if (st !== firstStamp && !pending) {
+                        pending = true;
+                        if (document.visibilityState === 'hidden') location.reload(); else showBar();
+                    }
+                } catch (e) {}
+            }
+            document.addEventListener('visibilitychange', () => { if (pending && document.visibilityState === 'hidden') location.reload(); });
+            check();
+            setInterval(check, 10 * 60 * 1000);
+        })();
     </script>
 </body>
 </html>
