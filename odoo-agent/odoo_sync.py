@@ -313,7 +313,7 @@ def publish(db, fs, feed_name, rows, force=False):
 # Le dashboard lit ces copies (quelques documents) au lieu de relire des milliers de
 # documents à chaque ouverture, puis n'écoute que les changements (champ _syncAt).
 BUNDLE_COLLECTIONS = ["orders", "repairDossiers", "controleMarge", "margeData"]
-BUNDLE_EVERY_HOURS = 20
+BUNDLE_EVERY_HOURS = 6
 BUNDLE_CHUNK_BYTES = 700_000
 
 
