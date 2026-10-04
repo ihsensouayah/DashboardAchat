@@ -1,7 +1,7 @@
 name: Synchro Odoo -> Dashboards
 
 on:
-   workflow_dispatch: {}
+  workflow_dispatch: {}
 
 concurrency:
   group: odoo-sync
@@ -25,4 +25,5 @@ jobs:
           ODOO_USER: ${{ secrets.ODOO_USER }}
           ODOO_API_KEY: ${{ secrets.ODOO_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_RECEPTION_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_RECEPTION_SERVICE_ACCOUNT }}
         run: python odoo_sync.py
