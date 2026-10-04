@@ -28,6 +28,7 @@ import ast
 import hashlib
 import json
 import os
+import re
 import sys
 import unicodedata
 import uuid
@@ -309,6 +310,83 @@ def publish(db, fs, feed_name, rows, force=False):
     print(f"  ✓ {feed_name} : {len(rows)} lignes publiées ({len(chunks)} bloc(s))")
 
 
+# ------------------------------------------- Réception BC : écriture directe
+# Écrit les bons de commande Odoo directement dans la base dédiée à Réception BC
+# (projet Firebase autop-reception, collection receptionBC, 1 document par BC).
+# Règles (ajout seulement) :
+#   - un BC absent est AJOUTÉ avec le statut de réception calculé dans Odoo ;
+#   - un BC déjà suivi n'est mis à jour QUE s'il n'a jamais été modifié à la main
+#     (manual absent) et que son statut est « non » ou « partiel » : il passe alors au
+#     statut plus avancé indiqué par Odoo (partiel / recu). Rien d'autre n'est touché
+#     (contrôle magasin, commentaire, corbeille, choix manuels).
+RECEPTION_EXCLUDED = ["mehdi hajjaji", "saifallah chaouachi", "amine ben omrane"]
+RECEPTION_RANK = {"non": 0, "partiel": 1, "recu": 2}
+
+
+def reception_client():
+    raw = os.environ.get("FIREBASE_RECEPTION_SERVICE_ACCOUNT", "").strip()
+    if not raw:
+        return None
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+    try:
+        app = firebase_admin.get_app("reception")
+    except ValueError:
+        app = firebase_admin.initialize_app(credentials.Certificate(json.loads(raw)), name="reception")
+    return firestore.client(app)
+
+
+def _rbc_status(row):
+    if str(row.get("État", "")).strip() == "cancel":
+        return "ferme"
+    return {"pending": "non", "partial": "partiel", "full": "recu"}.get(str(row.get("Statut réception", "")).strip())
+
+
+def reception_direct(rows):
+    rdb = reception_client()
+    if rdb is None:
+        print("  · reception_bc direct : clé FIREBASE_RECEPTION_SERVICE_ACCOUNT absente, étape ignorée")
+        return
+    today = datetime.now(TZ).strftime("%Y-%m-%d")
+    coll = rdb.collection("receptionBC")
+    existing = {d.id: (d.to_dict() or {}) for d in coll.select(["status", "manual", "deleted"]).stream()}
+    batch, ops, added, updated = rdb.batch(), 0, 0, 0
+    for r in rows:
+        ref = str(r.get("Référence commande", "")).strip()
+        m = re.match(r"(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})", str(r.get("Date de la commande", "")))
+        if not ref.upper().startswith("PO/") or not m:
+            continue
+        resp = str(r.get("Responsable achats", "") or "")
+        if any(n in norm(resp) for n in RECEPTION_EXCLUDED):
+            continue
+        doc_id = re.sub(r"[^A-Za-z0-9_-]", "-", ref)
+        st = _rbc_status(r)
+        cur = existing.get(doc_id)
+        if cur is None:
+            total = r.get("Total")
+            batch.set(coll.document(doc_id), {
+                "day": f"{m[1]}-{m[2]}-{m[3]}", "deleted": False, "ref": ref, "time": f"{m[4]}:{m[5]}",
+                "fournisseur": str(r.get("Fournisseur", "") or ""), "responsable": resp,
+                "origine": str(r.get("Document d'origine", "") or ""),
+                "total": round(float(total), 3) if isinstance(total, (int, float)) else None,
+                "status": st or "non", "recu": today if st and st != "non" else None,
+                "note": "", "manual": None, "mag": None, "magDate": None,
+            })
+            added += 1
+        elif (not cur.get("deleted") and not cur.get("manual") and st in ("partiel", "recu")
+              and RECEPTION_RANK.get(cur.get("status") or "non", 9) < RECEPTION_RANK[st]):
+            batch.update(coll.document(doc_id), {"status": st, "recu": today})
+            updated += 1
+        else:
+            continue
+        ops += 1
+        if ops >= 400:
+            batch.commit(); batch, ops = rdb.batch(), 0
+    if ops:
+        batch.commit()
+    print(f"  ✓ reception_bc direct (autop-reception) : {added} BC ajouté(s), {updated} statut(s) mis à jour depuis Odoo")
+
+
 # ------------------------------------------------- copies compactes (quota)
 # Le dashboard lit ces copies (quelques documents) au lieu de relire des milliers de
 # documents à chaque ouverture, puis n'écoute que les changements (champ _syncAt).
@@ -411,6 +489,8 @@ def main():
                     print("     ", json.dumps(r, ensure_ascii=False, default=str))
             else:
                 publish(db, fs, name, rows, a.force)
+                if name == "reception_bc":
+                    reception_direct(rows)
         except Exception as e:  # un flux en erreur n'empêche pas les autres
             errors += 1
             print(f"  ✗ {name} : {e}")
