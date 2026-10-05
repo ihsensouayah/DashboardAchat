@@ -488,9 +488,15 @@ def main():
                 for r in rows[:5]:
                     print("     ", json.dumps(r, ensure_ascii=False, default=str))
             else:
-                publish(db, fs, name, rows, a.force)
+                # Réception BC a sa propre base (autop-reception) : on l'alimente D'ABORD,
+                # pour qu'elle reste à jour même si la base principale a atteint son quota.
                 if name == "reception_bc":
-                    reception_direct(rows)
+                    try:
+                        reception_direct(rows)
+                    except Exception as e:
+                        errors += 1
+                        print(f"  ✗ reception_bc direct (autop-reception) : {e}")
+                publish(db, fs, name, rows, a.force)
         except Exception as e:  # un flux en erreur n'empêche pas les autres
             errors += 1
             print(f"  ✗ {name} : {e}")
