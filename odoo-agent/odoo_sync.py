@@ -336,6 +336,16 @@ def reception_client():
     return firestore.client(app)
 
 
+# Un PO Odoo n'est un vrai bon de commande qu'une fois confirmé ("purchase" / "done").
+# Les demandes de prix (devis) "draft", "sent", "to approve" ne doivent pas apparaître dans Réception BC.
+RBC_CONFIRMED = ("purchase", "done")
+RBC_DEVIS = ("draft", "sent", "to approve")
+
+
+def _rbc_state(row):
+    return str(row.get("État", "")).strip()
+
+
 def _rbc_status(row):
     if str(row.get("État", "")).strip() == "cancel":
         return "ferme"
@@ -355,10 +365,10 @@ def reception_direct(rows):
                   for r in rows if str(r.get("Référence commande", "")).strip().upper().startswith("PO/")})
     existing = {}
     for i in range(0, len(ids), 300):
-        for d in rdb.get_all([coll.document(x) for x in ids[i:i + 300]], field_paths=["status", "manual", "deleted"]):
+        for d in rdb.get_all([coll.document(x) for x in ids[i:i + 300]], field_paths=["status", "manual", "deleted", "mag", "autoDevis"]):
             if d.exists:
                 existing[d.id] = d.to_dict() or {}
-    batch, ops, added, updated = rdb.batch(), 0, 0, 0
+    batch, ops, added, updated, trashed, restored = rdb.batch(), 0, 0, 0, 0, 0
     for r in rows:
         ref = str(r.get("Référence commande", "")).strip()
         m = re.match(r"(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})", str(r.get("Date de la commande", "")))
@@ -370,6 +380,26 @@ def reception_direct(rows):
         doc_id = re.sub(r"[^A-Za-z0-9_-]", "-", ref)
         st = _rbc_status(r)
         cur = existing.get(doc_id)
+        state = _rbc_state(r)
+        if state in RBC_DEVIS:
+            # Devis déjà importé par erreur, jamais touché à la main : mis à la corbeille (récupérable)
+            # (une seule fois : si quelqu'un le restaure à la main, l'agent n'y touche plus)
+            if (cur is not None and not cur.get("deleted") and not cur.get("manual") and "autoDevis" not in cur
+                    and (cur.get("status") or "non") == "non" and not cur.get("mag")):
+                batch.update(coll.document(doc_id), {"deleted": True, "autoDevis": True})
+                trashed += 1
+                ops += 1
+                if ops >= 400:
+                    batch.commit(); batch, ops = rdb.batch(), 0
+            continue
+        if cur is None and state not in RBC_CONFIRMED:
+            continue
+        if cur is not None and cur.get("deleted") and cur.get("autoDevis") and state in RBC_CONFIRMED:
+            # Devis mis à la corbeille par l'agent puis confirmé dans Odoo : il redevient un vrai BC
+            batch.update(coll.document(doc_id), {"deleted": False, "autoDevis": False})
+            cur = {**cur, "deleted": False}
+            restored += 1
+            ops += 1
         if cur is None:
             total = r.get("Total")
             batch.set(coll.document(doc_id), {
@@ -392,7 +422,9 @@ def reception_direct(rows):
             batch.commit(); batch, ops = rdb.batch(), 0
     if ops:
         batch.commit()
-    print(f"  ✓ reception_bc direct (autop-reception) : {added} BC ajouté(s), {updated} statut(s) mis à jour depuis Odoo")
+    print(f"  ✓ reception_bc direct (autop-reception) : {added} BC ajouté(s), {updated} statut(s) mis à jour depuis Odoo"
+          + (f", {trashed} devis mis à la corbeille" if trashed else "")
+          + (f", {restored} devis devenu(s) BC restauré(s)" if restored else ""))
 
 
 # ------------------------------------------------- copies compactes (quota)
@@ -514,6 +546,7 @@ def main():
                     except Exception as e:
                         errors += 1
                         print(f"  ✗ reception_bc direct (autop-reception) : {e}")
+                    rows = [r for r in rows if _rbc_state(r) not in RBC_DEVIS]
                 publish(db, fs, name, rows, a.force)
         except Exception as e:  # un flux en erreur n'empêche pas les autres
             errors += 1
