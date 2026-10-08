@@ -349,7 +349,15 @@ def reception_direct(rows):
         return
     today = datetime.now(TZ).strftime("%Y-%m-%d")
     coll = rdb.collection("receptionBC")
-    existing = {d.id: (d.to_dict() or {}) for d in coll.select(["status", "manual", "deleted"]).stream()}
+    # On ne lit QUE les BC présents dans l'export Odoo (quelques centaines), pas toute la collection :
+    # chaque passage coûte ~1 lecture par BC exporté, quel que soit l'historique stocké.
+    ids = sorted({re.sub(r"[^A-Za-z0-9_-]", "-", str(r.get("Référence commande", "")).strip())
+                  for r in rows if str(r.get("Référence commande", "")).strip().upper().startswith("PO/")})
+    existing = {}
+    for i in range(0, len(ids), 300):
+        for d in rdb.get_all([coll.document(x) for x in ids[i:i + 300]], field_paths=["status", "manual", "deleted"]):
+            if d.exists:
+                existing[d.id] = d.to_dict() or {}
     batch, ops, added, updated = rdb.batch(), 0, 0, 0
     for r in rows:
         ref = str(r.get("Référence commande", "")).strip()
@@ -454,7 +462,17 @@ def main():
     ap.add_argument("--discover", metavar="MODEL")
     ap.add_argument("--bundles-only", action="store_true", help="reconstruit seulement les copies compactes")
     ap.add_argument("--force-bundles", action="store_true")
+    ap.add_argument("--reception-only", action="store_true",
+                    help="met à jour seulement Réception BC (base autop-reception), sans toucher la base principale")
     a = ap.parse_args()
+    if a.reception_only:
+        odoo = Odoo()
+        print(f"✅ Connecté à Odoo {odoo.url} (base {odoo.db}, uid {odoo.uid}) — mode Réception BC seule")
+        cfg = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
+        rows = read_rows(odoo, cfg["feeds"]["reception_bc"])
+        print(f"  • reception_bc : {len(rows)} ligne(s) lue(s) dans Odoo")
+        reception_direct(rows)
+        return
 
     errors = 0
     db = fs = None
