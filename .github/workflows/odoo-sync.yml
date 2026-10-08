@@ -2,7 +2,9 @@ name: Synchro Odoo -> Dashboards
 
 on:
   workflow_dispatch: {}
-
+  schedule:
+    - cron: "30 7 * * 1-6"
+    - cron: "0 14 * * 1-6"
 concurrency:
   group: odoo-sync
   cancel-in-progress: false
