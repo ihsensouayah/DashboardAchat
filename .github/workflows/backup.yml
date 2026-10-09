@@ -1,1 +1,44 @@
+name: Sauvegarde hebdomadaire (chiffrée)
 
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 8 * * 0"
+concurrency:
+  group: odoo-sync
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r odoo-agent/requirements.txt
+      - name: Exporter les deux bases
+        working-directory: odoo-agent
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_RECEPTION_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_RECEPTION_SERVICE_ACCOUNT }}
+          BACKUP_DIR: ${{ runner.temp }}/backup
+        run: python backup.py
+      - name: Chiffrer avec le mot de passe
+        if: always()
+        env:
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          test -n "$BACKUP_PASSWORD" || { echo "Secret BACKUP_PASSWORD manquant"; exit 1; }
+          cd "${{ runner.temp }}"
+          7z a -t7z -mhe=on -p"$BACKUP_PASSWORD" "sauvegarde-$(date +%Y-%m-%d).7z" backup/ > /dev/null
+          rm -rf backup
+          ls -la *.7z
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sauvegarde-autop
+          path: ${{ runner.temp }}/*.7z
+          retention-days: 90
+          if-no-files-found: error
