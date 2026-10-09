@@ -53,7 +53,8 @@ def dump(db, base_name):
 
 def main():
     errors = 0
-    for name, get in (("autop-reception", reception_client), ("autopachat", lambda: firestore_client()[0])):
+    # La base principale d'abord : sa connexion doit être la connexion « par défaut » de Firebase
+    for name, get in (("autopachat", lambda: firestore_client()[0]), ("autop-reception", reception_client)):
         try:
             db = get()
             if db is None:
