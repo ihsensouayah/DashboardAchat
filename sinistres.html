@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@0.363.0/dist/umd/lucide.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
   // Filet de secours : si un CDN a échoué (réseau d'entreprise, coupure momentanée...),
@@ -385,11 +386,17 @@ const firebaseConfig = {
 };
 if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+// Même site que le dashboard : on reprend la session de l'utilisateur connecté, pour que les
+// règles Firebase sachent qui lit et écrit (accès réservé aux comptes acceptés).
+const authReady = new Promise(function(res){ const off = firebase.auth().onAuthStateChanged(function(u){ off(); res(u); }); });
+// Si la lecture échoue, on bloque l'enregistrement : sinon une liste vide écraserait les vraies données.
+let __loadFailed = false;
 const sinistresDocRef = db.collection('appModulesData').doc(STORAGE_KEY);
 
 let __memoryStore = {};
 
 async function loadFromFirestore(key){
+  await authReady;
   try{
     const snap = await sinistresDocRef.get();
     if(snap.exists){
@@ -398,11 +405,15 @@ async function loadFromFirestore(key){
     }
   }catch(e){
     console.error('Firestore load error', e);
+    __loadFailed = true;
+    throw e;
   }
   return null;
 }
 
 async function saveToFirestore(key, value){
+  if(__loadFailed) throw new Error("Chargement impossible : enregistrement bloqué pour protéger les données. Rechargez la page.");
+  await authReady;
   __memoryStore[key] = value;
   await sinistresDocRef.set({
     value: value,
@@ -411,7 +422,9 @@ async function saveToFirestore(key, value){
 }
 
 async function loadData(){
-  const raw = await loadFromFirestore(STORAGE_KEY);
+  let raw = null;
+  try{ raw = await loadFromFirestore(STORAGE_KEY); }
+  catch(e){ dossiers = []; toast("Chargement impossible — rechargez la page (connexion ou droits d'accès)", 'err'); return; }
   if(raw){
     try{ dossiers = JSON.parse(raw); }catch(e){ dossiers = []; }
   } else {
