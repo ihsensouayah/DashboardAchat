@@ -365,7 +365,7 @@ def reception_direct(rows):
                   for r in rows if str(r.get("Référence commande", "")).strip().upper().startswith("PO/")})
     existing = {}
     for i in range(0, len(ids), 300):
-        for d in rdb.get_all([coll.document(x) for x in ids[i:i + 300]], field_paths=["status", "manual", "deleted", "mag", "autoDevis"]):
+        for d in rdb.get_all([coll.document(x) for x in ids[i:i + 300]], field_paths=["status", "manual", "deleted", "mag", "autoDevis", "recu"]):
             if d.exists:
                 existing[d.id] = d.to_dict() or {}
     batch, ops, added, updated, trashed, restored = rdb.batch(), 0, 0, 0, 0, 0
@@ -411,9 +411,11 @@ def reception_direct(rows):
                 "note": "", "manual": None, "mag": None, "magDate": None,
             })
             added += 1
-        elif (not cur.get("deleted") and not cur.get("manual") and st in ("partiel", "recu")
+        elif (not cur.get("deleted") and st in ("partiel", "recu")
               and RECEPTION_RANK.get(cur.get("status") or "non", 9) < RECEPTION_RANK[st]):
-            batch.update(coll.document(doc_id), {"status": st, "recu": today})
+            # Odoo fait foi pour AVANCER le statut (réception validée = « Fait »), même si le BC
+            # a été modifié à la main ; il ne le fait jamais reculer.
+            batch.update(coll.document(doc_id), {"status": st, "recu": cur.get("recu") or today})
             updated += 1
         else:
             continue
