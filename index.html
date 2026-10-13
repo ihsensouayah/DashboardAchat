@@ -3507,7 +3507,7 @@
                 console.error('❌ Erreur chargement buyers:', error);
             }));
 
-            __trackUnsubscribe(db.collection('uploadHistory').orderBy('date', 'desc').onSnapshot(snapshot => {
+            __trackUnsubscribe(db.collection('uploadHistory').orderBy('date', 'desc').limit(30).onSnapshot(snapshot => {
                 uploadHistory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderUploadHistory();
             }, error => {
