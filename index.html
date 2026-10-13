@@ -2288,6 +2288,7 @@
                 if (pendingPage) pendingPage.classList.add('hidden');
                 welcomeOverlayShown = false;
                 stopPresenceHeartbeat();
+                if (typeof __stopStaticListeners === 'function') __stopStaticListeners();
                 const overlay = document.getElementById('welcomeOverlay');
                 if (overlay) { overlay.classList.remove('show'); overlay.style.display = ''; }
                 const mainApp = document.getElementById('mainApp');
@@ -2852,6 +2853,20 @@
         function __trackUnsubscribe(fn) {
             if (typeof fn === 'function') __realtimeUnsubscribes.push(fn);
         }
+        // Listes qui changent rarement (Analyse Marge, garages) : on NE les coupe PAS pendant
+        // la pause d'onglet. Un écouteur ouvert ne coûte que les documents modifiés, alors
+        // qu'une reprise relit TOUTE la liste (ex. 2 000 lignes de marge à chaque retour).
+        let __staticUnsubscribes = [];
+        let __garagesListening = false;
+        function __keepAlive(fn) {
+            if (typeof fn === 'function') __staticUnsubscribes.push(fn);
+        }
+        function __stopStaticListeners() {
+            __staticUnsubscribes.forEach(u => { try { u(); } catch (e) {} });
+            __staticUnsubscribes = [];
+            __garagesListening = false;
+            margeFirestoreListenerAttached = false;
+        }
 
         function pauseAllRealtimeListeners() {
             if (!__realtimeListenersActive) return;
@@ -2867,7 +2882,7 @@
             // Réinitialise les gardes-fous pour permettre un réel ré-abonnement à la reprise
             // (sans ça, ces fonctions penseraient être déjà connectées et ne feraient rien).
             cmControleMargeAttached = false;
-            margeFirestoreListenerAttached = false;
+            // margeFirestoreListenerAttached reste vrai : l'écoute Analyse Marge continue (voir __keepAlive)
             __usersManagementUnsubscribe = null;
 
             // Le battement de présence continue d'écrire toutes les 20s : on l'arrête aussi
@@ -3522,7 +3537,7 @@
             }));
 
             // Liste des garages, partagée entre Contrôle Marge et Réparation.
-            __trackUnsubscribe(db.collection('garages').orderBy('name').onSnapshot(snapshot => {
+            if (!__garagesListening) { __garagesListening = true; __keepAlive(db.collection('garages').orderBy('name').onSnapshot(snapshot => {
                 cmGarages = snapshot.docs.map(doc => doc.data().name);
                 cmGaragesAttached = true;
                 cmRenderGarageOptions();
@@ -3545,7 +3560,7 @@
                 renderReparationView();
             }, error => {
                 console.error('❌ Erreur chargement garages:', error);
-            }));
+            })); }
 
             // Objectif de chiffre d'affaires MENSUEL (module Réparation) : un objectif
             // par mois (clé "AAAA-MM"), donc automatiquement remis à 0 au changement de
@@ -5196,9 +5211,11 @@
                     // ce qui écraserait visuellement le suivi accompagnement déjà saisi dessus.
                     // Les commandes sont déjà en mémoire (écoute temps réel) : on les réutilise au lieu de
                     // relire toute la collection à chaque import / synchro Odoo (≈ 1 lecture par dossier).
-                    const existingSnapshot = __ordersLoaded
-                        ? { forEach: fn => orders.forEach(o => fn({ id: o.id, data: () => o })) }
-                        : await db.collection('orders').get();
+                    // Liste pas encore chargée (ouverture, reprise après pause) : on l'attend jusqu'à
+                    // 60 s au lieu de relire toute la collection (≈ 1 400 lectures à chaque synchro).
+                    for (let w = 0; !__ordersLoaded && w < 120; w++) await new Promise(r => setTimeout(r, 500));
+                    if (!__ordersLoaded) throw new Error('liste des dossiers pas encore chargée — synchro laissée à un autre poste');
+                    const existingSnapshot = { forEach: fn => orders.forEach(o => fn({ id: o.id, data: () => o })) };
                     const existingByRef = new Map();
                     const existingByFallback = new Map();
                     existingSnapshot.forEach(doc => {
@@ -8625,7 +8642,7 @@
         function margeAttachFirestoreListener() {
             if (margeFirestoreListenerAttached) return;
             margeFirestoreListenerAttached = true;
-            __trackUnsubscribe(smartListen('margeData', function(snapshot) {
+            __keepAlive(smartListen('margeData', function(snapshot) {
                 if (snapshot.empty) {
                     if (window.MARGE_EMBEDDED_DATA && window.MARGE_EMBEDDED_DATA.length) {
                         document.getElementById('margeMigrationBanner').classList.remove('hidden');
