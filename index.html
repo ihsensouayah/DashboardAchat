@@ -1128,6 +1128,12 @@
                             Activer la synchronisation
                         </button>
                     </div>
+                    <div id="margeInvalidBanner" class="hidden p-4 border-b bg-red-50 dark:bg-red-900/20 flex flex-wrap items-center justify-between gap-3">
+                        <p class="text-sm text-red-800 dark:text-red-300" id="margeInvalidText"></p>
+                        <button onclick="margeDeleteInvalidRows()" id="margeInvalidBtn" class="hidden px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-all">
+                            Supprimer ces lignes
+                        </button>
+                    </div>
                     <div class="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 flex flex-wrap items-center justify-between gap-3">
                         <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center space-x-2">
                             <i data-lucide="filter" class="w-5 h-5 text-blue-600"></i><span>Filtres</span>
@@ -8241,6 +8247,8 @@
             const marqueRaw = (row[4] !== null && row[4] !== undefined) ? String(row[4]).trim().toUpperCase() : null;
 
             if (!dateStr && !assuranceRaw && !marqueRaw) return null; // ligne vide
+            // Date présente mais illisible (ex. colonnes décalées : « STAR » à la place de la date) : ligne refusée
+            if (dateVal !== null && dateVal !== undefined && dateVal !== '' && !margeIsValidMois(moisStr)) return null;
             if (MARGE_EXCLUDED_ASSURANCES.indexOf(margeNormKey(assuranceRaw)) !== -1) return null; // valeur erronée en colonne assurance
 
             return {
@@ -8677,6 +8685,35 @@
             if (r.dossier) return margeSanitizeId((r.mois || '') + '_' + (r.assurance || '') + '_' + r.dossier);
             return margeSanitizeId(['C', r.date, r.assurance_brute, r.garantie, r.modele_brut, r.pieces_vente_ht, r.pdt_vente_ht, r.pieces_achat_ht, r.pdt_achat_ht].join('_'));
         }
+        let margeInvalidIds = [];
+        function margeIsValidMois(m) { return typeof m === 'string' && /^20\d{2}-(0[1-9]|1[0-2])$/.test(m); }
+        function margeRenderInvalidBanner() {
+            const box = document.getElementById('margeInvalidBanner');
+            if (!box) return;
+            const n = margeInvalidIds.length;
+            box.classList.toggle('hidden', n === 0);
+            const txt = document.getElementById('margeInvalidText');
+            if (txt) txt.textContent = n + ' ligne(s) importée(s) sans mois valide (fichier mal formaté ou colonnes décalées) — elles sont exclues des graphiques.';
+            const btn = document.getElementById('margeInvalidBtn');
+            if (btn) btn.classList.toggle('hidden', !(n > 0 && isSuperAdmin()));
+        }
+        async function margeDeleteInvalidRows() {
+            if (!isSuperAdmin()) return;
+            const ids = margeInvalidIds.slice();
+            if (!ids.length) return;
+            if (!confirm('Supprimer définitivement ' + ids.length + ' ligne(s) sans mois valide ?\nLes données des vrais mois (2026-01, 2026-02…) ne sont pas touchées.')) return;
+            try {
+                for (let i = 0; i < ids.length; i += 400) {
+                    const batch = db.batch();
+                    ids.slice(i, i + 400).forEach(function(id) { batch.delete(db.collection('margeData').doc(id)); });
+                    await batch.commit();
+                }
+                showToast(ids.length + ' ligne(s) invalide(s) supprimée(s)', 'success');
+            } catch (err) {
+                console.error('Suppression lignes invalides (Analyse Marge):', err);
+                showToast('Échec de la suppression : ' + err.message, 'error');
+            }
+        }
         function margeAttachFirestoreListener() {
             if (margeFirestoreListenerAttached) return;
             margeFirestoreListenerAttached = true;
@@ -8687,7 +8724,16 @@
                     }
                 } else {
                     document.getElementById('margeMigrationBanner').classList.add('hidden');
-                    margeAllData = margeApplyGarantieNormalization(snapshot.docs.map(function(d) { return d.data(); }));
+                    // Lignes dont le « mois » n'est pas une vraie date (fichier mal formaté, colonnes
+                    // décalées) : écartées des calculs et signalées, sans rien effacer automatiquement.
+                    const valid = [], invalidIds = [];
+                    snapshot.docs.forEach(function(d) {
+                        const r = d.data();
+                        if (r.mois === null || r.mois === undefined || r.mois === '' || margeIsValidMois(r.mois)) valid.push(r); else invalidIds.push(d.id);
+                    });
+                    margeInvalidIds = invalidIds;
+                    margeRenderInvalidBanner();
+                    margeAllData = margeApplyGarantieNormalization(valid);
                     markSynced();
                 }
                 // Ne recalcule le module Analyse Marge complet (graphiques, etc.) que si
@@ -8792,6 +8838,11 @@
                         // Écrit directement dans Firestore : tout le monde voit l'import en direct,
                         // sans avoir besoin de retélécharger un nouveau fichier HTML.
                         const moisImportes = Array.from(new Set(parsed.map(r => r.mois).filter(Boolean)));
+                        const okImport = confirm('Fichier « ' + file.name + ' »\n\n' + parsed.length + ' ligne(s) valide(s)' +
+                            (invalides ? ', ' + invalides + ' ligne(s) refusée(s) (date illisible ou ligne vide)' : '') +
+                            '\nMois détecté(s) : ' + (moisImportes.join(', ') || 'aucun') +
+                            '\n\nLes données déjà enregistrées pour ces mois seront REMPLACÉES. Continuer ?');
+                        if (!okImport) { showToast('Import annulé'); return; }
 
                         (async () => {
                             try {
