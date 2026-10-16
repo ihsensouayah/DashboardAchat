@@ -1,0 +1,66 @@
+name: Restaurer Analyse Marge (depuis une sauvegarde)
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_run_id:
+        description: "Numéro du lancement de sauvegarde (le nombre à la fin de son adresse)"
+        required: true
+      appliquer:
+        description: "Cocher pour restaurer vraiment (sinon : simulation)"
+        type: boolean
+        default: false
+concurrency:
+  group: odoo-sync
+  cancel-in-progress: false
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r odoo-agent/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: sauvegarde-autop
+          path: ${{ runner.temp }}/archive
+          run-id: ${{ inputs.backup_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Déchiffrer la sauvegarde
+        env:
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          cd "${{ runner.temp }}/archive"
+          7z x -p"$BACKUP_PASSWORD" -o"${{ runner.temp }}/backup" *.7z > /dev/null
+          echo "Sauvegarde déchiffrée."
+      - name: Restaurer margeData
+        working-directory: odoo-agent
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: >
+          python restore_marge.py
+          --backup-dir "${{ runner.temp }}/backup"
+          --safety-dir "${{ runner.temp }}/securite"
+          ${{ inputs.appliquer && '--apply' || '' }}
+      - name: Chiffrer la copie de sécurité
+        if: always()
+        env:
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          cd "${{ runner.temp }}"
+          rm -rf backup
+          if [ -d securite ]; then 7z a -t7z -mhe=on -p"$BACKUP_PASSWORD" "avant-restauration-$(date +%Y-%m-%d-%H%M).7z" securite/ > /dev/null; rm -rf securite; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: copie-avant-restauration
+          path: ${{ runner.temp }}/avant-restauration-*.7z
+          retention-days: 90
+          if-no-files-found: ignore
