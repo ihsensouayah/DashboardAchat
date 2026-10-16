@@ -8129,7 +8129,17 @@
         function normalizeAssuranceName(raw) {
             const key = margeNormKey(raw);
             if (!key) return null;
-            return MARGE_ASSURANCE_MAP[key] || key;
+            if (MARGE_ASSURANCE_MAP[key]) return MARGE_ASSURANCE_MAP[key];
+            // Variantes non listées (fautes de frappe) : rattachées à l'une des compagnies connues
+            const k = key.replace(/[^A-Z]/g, '');
+            if (/BARAKA|BARKA/.test(k)) return 'AMANA TAKAFUL';
+            if (/AMANA|AMENA/.test(k)) return 'AMANA TAKAFUL';
+            if (/T+A?K+A?F/.test(k) && /^AT/.test(k)) return 'ATTAKAFULIA';
+            if (/PEC$|PEDC$|HPEC|HORSPEC/.test(k) || /^PASSAGER$/.test(k)) return 'HORS PEC';
+            if (/^ASTR/.test(k)) return 'ASTREE';
+            if (/^(STAR|STRA)/.test(k)) return 'STAR';
+            if (/^MAE/.test(k)) return 'MAE';
+            return key;
         }
 
         // Table de correspondance marque/modèle -> marque canonique, identique à achref.html
@@ -8211,6 +8221,9 @@
                 if (!r) return;
                 r.garantie = normalizeGarantieName(r.garantie);
                 if (r.marque) r.marque = normalizeMarqueName(r.marque);
+                // Compagnie recalculée depuis la saisie d'origine : les lignes déjà enregistrées profitent aussi des fusions
+                const assuSrc = r.assurance_brute || r.assurance;
+                if (assuSrc) r.assurance = normalizeAssuranceName(assuSrc) || r.assurance;
             });
             return rows;
         }
