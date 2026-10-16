@@ -5107,7 +5107,10 @@
             
             try {
             if (eid) { 
-                await db.collection('orders').doc(eid).update(orderData);
+                // Si Firebase ne confirme pas en 15 s (quota du jour atteint, connexion coupée), on le dit
+                // au lieu de laisser la fenêtre bloquée sans message. La modification reste en attente sur ce poste.
+                await Promise.race([db.collection('orders').doc(eid).update(orderData),
+                    new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('pas de confirmation de Firebase après 15 s'), { code: 'timeout' })), 15000))]);
                 showToast('Modifié avec succès', 'success'); 
             } else { 
                 orderData.week = getCurrentWeekName();
@@ -5122,6 +5125,7 @@
                 console.error('Enregistrement du dossier impossible :', err);
                 const quota = err && (err.code === 'resource-exhausted' || /quota/i.test(err.message || ''));
                 const droits = err && err.code === 'permission-denied';
+                if (err && err.code === 'timeout') { showToast("Modification NON confirmée par Firebase (quota d'écritures du jour atteint ou connexion coupée). Elle sera envoyée automatiquement plus tard si cet onglet reste ouvert.", 'error'); return; }
                 showToast(quota ? 'Enregistrement impossible : quota Firebase du jour atteint. Réessayez demain matin.'
                     : droits ? 'Enregistrement refusé : droits insuffisants (ou quota Firebase atteint).'
                     : 'Enregistrement impossible : ' + (err && err.message ? err.message : err), 'error');
@@ -8904,27 +8908,37 @@
 
                         (async () => {
                             try {
-                                let supprimees = 0;
-                                if (moisImportes.length) {
-                                    const existing = await db.collection('margeData').where('mois', 'in', moisImportes.slice(0, 10)).get();
-                                    const toDelete = existing.docs;
-                                    for (let i = 0; i < toDelete.length; i += 200) {
-                                        const batch = db.batch();
-                                        toDelete.slice(i, i + 200).forEach(doc => batch.delete(doc.ref));
-                                        await batch.commit();
-                                    }
-                                    supprimees = toDelete.length;
+                                // Import « différentiel » : on n'écrit QUE ce qui change. Réimporter le même
+                                // fichier ne coûte presque rien ; avant, chaque import réécrivait tout
+                                // (≈ 3 écritures par ligne) et épuisait le quota Firebase de la journée.
+                                const existingById = new Map();
+                                for (let m = 0; m < moisImportes.length; m += 10) {
+                                    const snap = await db.collection('margeData').where('mois', 'in', moisImportes.slice(m, m + 10)).get();
+                                    snap.docs.forEach(d => existingById.set(d.id, d.data()));
                                 }
-                                for (let i = 0; i < parsed.length; i += 400) {
+                                const wanted = new Map();
+                                parsed.forEach(r => wanted.set(margeRowId(r), r));
+                                const same = (oldR, newR) => Object.keys(newR).every(k => JSON.stringify(oldR[k] === undefined ? null : oldR[k]) === JSON.stringify(newR[k] === undefined ? null : newR[k]));
+                                const toWrite = [], toDelete = [];
+                                wanted.forEach((r, id) => { const old = existingById.get(id); if (!old || !same(old, r)) toWrite.push([id, r]); });
+                                existingById.forEach((d, id) => { if (!wanted.has(id)) toDelete.push(id); });
+                                for (let i = 0; i < toDelete.length; i += 200) {
                                     const batch = db.batch();
-                                    parsed.slice(i, i + 400).forEach(r => batch.set(db.collection('margeData').doc(margeRowId(r)), r));
+                                    toDelete.slice(i, i + 200).forEach(id => batch.delete(db.collection('margeData').doc(id)));
                                     await batch.commit();
                                 }
+                                for (let i = 0; i < toWrite.length; i += 400) {
+                                    const batch = db.batch();
+                                    toWrite.slice(i, i + 400).forEach(([id, r]) => batch.set(db.collection('margeData').doc(id), r));
+                                    await batch.commit();
+                                }
+                                const supprimees = toDelete.length;
 
                                 let msg = parsed.length + ' ligne(s) importée(s) pour ' +
                                     (moisImportes.length > 1 ? 'les mois ' + moisImportes.join(', ') : 'le mois ' + (moisImportes[0] || '—')) +
                                     ' (' + file.name + ')';
-                                if (supprimees) msg += ' — ' + supprimees + ' ancienne(s) ligne(s) de ces mois remplacée(s)';
+                                msg += ' — ' + toWrite.length + ' ligne(s) nouvelle(s) ou modifiée(s) enregistrée(s), ' + (wanted.size - toWrite.length) + ' inchangée(s)';
+                                if (supprimees) msg += ', ' + supprimees + ' ancienne(s) ligne(s) retirée(s)';
                                 if (invalides) msg += ' — ' + invalides + ' ligne(s) invalide(s) ignorée(s)';
                                 showToast(msg);
                                 // margeRefresh() se déclenche automatiquement via l'écoute Firestore
