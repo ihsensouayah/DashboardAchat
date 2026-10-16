@@ -295,8 +295,7 @@
         .dark ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b82f6, #8b5cf6); }
         ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #2563eb, #7c3aed); }
         
-        select { position: relative; z-index: 60; }
-        select:focus { z-index: 70; }
+        /* (z-index retiré : il faisait passer les listes de la page PAR-DESSUS les fenêtres de modification) */
         
         .stat-card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .stat-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
@@ -5106,6 +5105,7 @@
                 orderData.noCertainDate = true;
             }
             
+            try {
             if (eid) { 
                 await db.collection('orders').doc(eid).update(orderData);
                 showToast('Modifié avec succès', 'success'); 
@@ -5117,6 +5117,15 @@
                 showToast('Ajouté avec succès', 'success'); 
             }
             closeModal(); 
+            } catch (err) {
+                // Avant : l'erreur était silencieuse (rien ne se passait). Maintenant elle est affichée.
+                console.error('Enregistrement du dossier impossible :', err);
+                const quota = err && (err.code === 'resource-exhausted' || /quota/i.test(err.message || ''));
+                const droits = err && err.code === 'permission-denied';
+                showToast(quota ? 'Enregistrement impossible : quota Firebase du jour atteint. Réessayez demain matin.'
+                    : droits ? 'Enregistrement refusé : droits insuffisants (ou quota Firebase atteint).'
+                    : 'Enregistrement impossible : ' + (err && err.message ? err.message : err), 'error');
+            }
         });
 
         function populateBuyerSelect() {
