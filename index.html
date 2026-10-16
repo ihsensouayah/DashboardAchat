@@ -831,7 +831,7 @@
                         <div class="lg:col-span-2">
                             <div id="repTunisiaMapContainer" class="w-full rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700" style="height: 440px;"></div>
                             <div id="repMapFallback" class="hidden text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-                                <i data-lucide="map-off" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                                <i data-lucide="map-pin" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
                                 Carte indisponible (pas de connexion au fond de carte). Réessaie plus tard.
                             </div>
                         </div>
@@ -1632,7 +1632,7 @@
                                 <p class="text-xs opacity-75 mt-2">Dossiers</p>
                             </div>
                             <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-                                <i data-lucide="phone-check" class="w-7 h-7"></i>
+                                <i data-lucide="phone" class="w-7 h-7"></i>
                             </div>
                         </div>
                     </div>
@@ -3538,10 +3538,10 @@
                 }
             }
 
-            // Synchronise aussi les données Analyse Marge dès l'ouverture de l'app (pas
-            // seulement à la visite de l'onglet), pour que la Répartition par Marque du
-            // Dashboard puisse s'appuyer dessus (comptage cumulé, voir renderBrandStats).
-            margeAttachFirestoreListener();
+            // Données Analyse Marge (~2 500 lignes) chargées dès l'ouverture SEULEMENT pour les
+            // super-admins et le PDG (carte « Marques » du Dashboard). Pour les autres, elles ne
+            // sont lues qu'à l'ouverture de l'Analyse Marge : c'était 87 % des lectures Firebase.
+            if (isSuperAdmin() || (currentUserProfile && currentUserProfile.role === 'pdg')) margeAttachFirestoreListener();
             
             __trackUnsubscribe(smartListen('orders', snapshot => {
                 console.log('📦 Commandes chargées:', snapshot.size);
@@ -5961,7 +5961,10 @@
             const sel = document.getElementById('cmMarque');
             if (sel.dataset.built) return;
             sel.dataset.built = '1';
-            const marques = margeUniqueSorted((margeAllData || []).map(function(r) { return r.marque; })).filter(Boolean);
+            // Analyse Marge pas chargée sur ce poste : liste des marques connues à la place
+            const marques = (margeAllData && margeAllData.length)
+                ? margeUniqueSorted(margeAllData.map(function(r) { return r.marque; })).filter(Boolean)
+                : MARGE_KNOWN_BRANDS.filter(function(b) { return b !== 'VOLKSWAGEN'; }).slice().sort();
             marques.forEach(function(m) {
                 const opt = document.createElement('option');
                 opt.value = m; opt.textContent = m;
@@ -8746,6 +8749,33 @@
             if (r.dossier) return margeSanitizeId((r.mois || '') + '_' + (r.assurance || '') + '_' + r.dossier);
             return margeSanitizeId(['C', r.date, r.assurance_brute, r.garantie, r.modele_brut, r.pieces_vente_ht, r.pdt_vente_ht, r.pieces_achat_ht, r.pdt_achat_ht].join('_'));
         }
+        // Refait la « copie compacte » de l'Analyse Marge juste après un import : les postes
+        // lisent alors 2 ou 3 documents au lieu des ~2 500 lignes (même format que l'agent).
+        async function margeRebuildBundle() {
+            const enc = v => {
+                if (v instanceof firebase.firestore.Timestamp) return { __ts: [v.seconds, v.nanoseconds] };
+                if (Array.isArray(v)) return v.map(enc);
+                if (v && typeof v === 'object') { const o = {}; for (const k in v) o[k] = enc(v[k]); return o; }
+                return v;
+            };
+            const snap = await db.collection('margeData').get();
+            const chunks = []; let cur = [], size = 2;
+            snap.docs.forEach(d => {
+                const e = { id: d.id, d: enc(d.data()) };
+                const n = JSON.stringify(e).length + 1;
+                if (cur.length && size + n > 700000) { chunks.push(cur); cur = []; size = 2; }
+                cur.push(e); size += n;
+            });
+            chunks.push(cur);
+            const metaRef = db.collection('_bundles').doc('margeData');
+            const old = await metaRef.get();
+            const oldCount = (old.exists && old.data().chunks) || 0;
+            for (let i = 0; i < chunks.length; i++) await metaRef.collection('chunks').doc(String(i)).set({ json: JSON.stringify(chunks[i]) });
+            for (let i = chunks.length; i < oldCount; i++) await metaRef.collection('chunks').doc(String(i)).delete();
+            // builtAt = heure du SERVEUR, posée après les blocs : tout ce qui a été écrit avant y est déjà
+            await metaRef.set({ builtAt: firebase.firestore.FieldValue.serverTimestamp(), chunks: chunks.length, count: snap.size });
+            return snap.size;
+        }
         let margeInvalidIds = [];
         function margeIsValidMois(m) { return typeof m === 'string' && /^20\d{2}-(0[1-9]|1[0-2])$/.test(m); }
         function margeRenderInvalidBanner() {
@@ -8941,6 +8971,10 @@
                                 if (supprimees) msg += ', ' + supprimees + ' ancienne(s) ligne(s) retirée(s)';
                                 if (invalides) msg += ' — ' + invalides + ' ligne(s) invalide(s) ignorée(s)';
                                 showToast(msg);
+                                if (toWrite.length || supprimees) {
+                                    try { await margeRebuildBundle(); }
+                                    catch (e) { console.warn('Copie compacte Analyse Marge non refaite (l\'agent la refera) :', e); }
+                                }
                                 // margeRefresh() se déclenche automatiquement via l'écoute Firestore
                             } catch (err) {
                                 console.error('Erreur écriture Firestore (Analyse Marge):', err);
