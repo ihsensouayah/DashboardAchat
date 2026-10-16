@@ -3126,9 +3126,9 @@
             if (!toDelete.length) { alert(msg); return; }
             if (!confirm(msg + '\n\nConfirmer la suppression ?')) return;
             try {
-                for (let i = 0; i < toDelete.length; i += 400) {
+                for (let i = 0; i < toDelete.length; i += 200) {
                     const batch = db.batch();
-                    toDelete.slice(i, i + 400).forEach(o => batch.delete(db.collection('orders').doc(o.id)));
+                    toDelete.slice(i, i + 200).forEach(o => batch.delete(db.collection('orders').doc(o.id)));
                     await batch.commit();
                 }
                 showToast(toDelete.length + ' doublon(s) supprimé(s)' + (toReview.length ? ' — ' + toReview.length + ' à vérifier à la main' : ''), 'success');
@@ -7017,9 +7017,9 @@
                     return { type: 'update', id: u.id, data: data };
                 }).concat(newRecords.map(function(n) { return { type: 'add', data: n }; }))
                   .concat(uniqueGhosts.map(function(id) { return { type: 'delete', id: id }; }));
-                for (let i = 0; i < allOps.length; i += 400) {
+                for (let i = 0; i < allOps.length; i += 200) {
                     const batch = db.batch();
-                    allOps.slice(i, i + 400).forEach(function(op) {
+                    allOps.slice(i, i + 200).forEach(function(op) {
                         const ref = db.collection('controleMarge').doc(op.id);
                         if (op.type === 'update') batch.update(ref, op.data);
                         else if (op.type === 'delete') batch.delete(ref);
@@ -7096,9 +7096,9 @@
             try {
                 const ops = toUpdate.map(function(u) { return { type: 'update', id: u.id, data: { dateFacturation: u.dateFacturation, dateFacturationMs: u.dateFacturationMs } }; })
                     .concat(toDelete.map(function(id) { return { type: 'delete', id: id }; }));
-                for (let i = 0; i < ops.length; i += 400) {
+                for (let i = 0; i < ops.length; i += 200) {
                     const batch = db.batch();
-                    ops.slice(i, i + 400).forEach(function(op) {
+                    ops.slice(i, i + 200).forEach(function(op) {
                         const ref = db.collection('controleMarge').doc(op.id);
                         if (op.type === 'update') batch.update(ref, op.data);
                         else batch.delete(ref);
@@ -8733,9 +8733,9 @@
             if (!ids.length) return;
             if (!confirm('Supprimer définitivement ' + ids.length + ' ligne(s) sans mois valide ?\nLes données des vrais mois (2026-01, 2026-02…) ne sont pas touchées.')) return;
             try {
-                for (let i = 0; i < ids.length; i += 400) {
+                for (let i = 0; i < ids.length; i += 200) {
                     const batch = db.batch();
-                    ids.slice(i, i + 400).forEach(function(id) { batch.delete(db.collection('margeData').doc(id)); });
+                    ids.slice(i, i + 200).forEach(function(id) { batch.delete(db.collection('margeData').doc(id)); });
                     await batch.commit();
                 }
                 showToast(ids.length + ' ligne(s) invalide(s) supprimée(s)', 'success');
@@ -8881,9 +8881,9 @@
                                 if (moisImportes.length) {
                                     const existing = await db.collection('margeData').where('mois', 'in', moisImportes.slice(0, 10)).get();
                                     const toDelete = existing.docs;
-                                    for (let i = 0; i < toDelete.length; i += 400) {
+                                    for (let i = 0; i < toDelete.length; i += 200) {
                                         const batch = db.batch();
-                                        toDelete.slice(i, i + 400).forEach(doc => batch.delete(doc.ref));
+                                        toDelete.slice(i, i + 200).forEach(doc => batch.delete(doc.ref));
                                         await batch.commit();
                                     }
                                     supprimees = toDelete.length;
