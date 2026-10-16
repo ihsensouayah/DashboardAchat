@@ -8136,6 +8136,8 @@
         // (marques abrégées : VW, pas VOLKSWAGEN). Le fichier Excel mélange marque seule
         // ("KIA"), marque+modèle ("KIA/PICANTO") et parfois le modèle seul ("PICANTO").
         const MARGE_MODEL_TO_BRAND = {
+            // Fautes de frappe / modèles vus dans l'état de marge d'octobre 2026
+            '106':'PEUGEOT','HYUNDA':'HYUNDAI','REBNAULT':'RENAULT','FORS':'FORD','SSAGYONG':'SSANGYONG','KUV':'MAHINDRA','AMAROK':'VW','DBAIC':'BAIC',
             'GOLF':'VW','GOLG':'VW','POLO':'VW','PASSAT':'VW','TIGUAN':'VW','CADDY':'VW','CADY':'VW','TOURAN':'VW','JETTA':'VW','T-CROSS':'VW','VOLKSWAGEN':'VW',
             'CLIO':'RENAULT','SYMBOL':'RENAULT','KWID':'RENAULT','RLT':'RENAULT','RNLT':'RENAULT','MEGANE':'RENAULT','KADJAR':'RENAULT','CAPTUR':'RENAULT','RENEAUT':'RENAULT',
             'PARTNER':'PEUGEOT','FEUGEOT':'PEUGEOT','LANDTREK':'PEUGEOT','3008':'PEUGEOT','301':'PEUGEOT','2008':'PEUGEOT','208':'PEUGEOT','207':'PEUGEOT','206':'PEUGEOT','308':'PEUGEOT','508':'PEUGEOT',
@@ -8158,7 +8160,7 @@
             'TIGGO':'CHERY'
         };
         const MARGE_MULTIWORD_MODELS = ['LAND ROVER', 'RANGE ROVER', 'GREAT WALL'];
-        const MARGE_KNOWN_BRANDS = ['VW','PEUGEOT','RENAULT','CITROEN','HYUNDAI','KIA','TOYOTA','FIAT','FORD','SKODA','AUDI','CHERY','MERCEDES','BMW','DACIA','SUZUKI','NISSAN','OPEL','MITSUBISHI','HONDA','MAZDA','ISUZU','JEEP','HAVAL','GEELY','MG','MAHINDRA','SEAT','PORSCHE','CHEVROLET','GAC','BYD','DFSK','DFK','DFM','SSANGYONG','IVECO','MINI','GREAT WALL','JAC','VOLKSWAGEN','LAND ROVER','RANGE ROVER','DONGFENG','FORTHING','TATA','LANCIA','VOLVO'];
+        const MARGE_KNOWN_BRANDS = ['VW','PEUGEOT','RENAULT','CITROEN','HYUNDAI','KIA','TOYOTA','FIAT','FORD','SKODA','AUDI','CHERY','MERCEDES','BMW','DACIA','SUZUKI','NISSAN','OPEL','MITSUBISHI','HONDA','MAZDA','ISUZU','JEEP','HAVAL','GEELY','MG','MAHINDRA','SEAT','PORSCHE','CHEVROLET','GAC','BYD','DFSK','DFK','DFM','SSANGYONG','IVECO','MINI','GREAT WALL','JAC','VOLKSWAGEN','LAND ROVER','RANGE ROVER','DONGFENG','FORTHING','TATA','LANCIA','VOLVO','BAIC','FOTON'];
         const MARGE_KNOWN_BRANDS_BY_LEN = MARGE_KNOWN_BRANDS.slice().sort(function(a, b) { return b.replace(/\s/g, '').length - a.replace(/\s/g, '').length; });
         const MARGE_MODEL_TO_BRAND_KEYS_BY_LEN = Object.keys(MARGE_MODEL_TO_BRAND).sort(function(a, b) { return b.length - a.length; });
 
@@ -8167,7 +8169,7 @@
             const key = String(raw).trim().toUpperCase();
             if (!key) return null;
             for (let i = 0; i < MARGE_MULTIWORD_MODELS.length; i++) {
-                if (key.indexOf(MARGE_MULTIWORD_MODELS[i]) === 0) return MARGE_MULTIWORD_MODELS[i];
+                if (key.indexOf(MARGE_MULTIWORD_MODELS[i]) === 0) return MARGE_MULTIWORD_MODELS[i] === 'RANGE ROVER' ? 'LAND ROVER' : MARGE_MULTIWORD_MODELS[i];
             }
             const first = key.split(/[\s\/]+/)[0];
             const firstClean = first.replace(/\d+$/, '');
@@ -8214,7 +8216,34 @@
         }
         margeAllData = margeApplyGarantieNormalization(margeAllData);
 
-        function margeNormalizeRowArr(row) {
+        // Position des colonnes : ancien modèle « verif.xlsx » (13 colonnes) par défaut. Si la ligne
+        // d'en-têtes est reconnue (nouveau modèle avec IMMAT et FOURNISSEUR, 14 colonnes), on lit
+        // chaque valeur par le NOM de sa colonne : un décalage de colonnes ne fausse plus rien.
+        const MARGE_DEFAULT_COLS = { date: 0, assurance: 1, garantie: 2, dossier: 3, marque: 4,
+            venteGlobal: 7, ventePiece: 8, achatGlobal: 9, achatPiece: 10, margePiece: 11, margeTotale: 12 };
+        function margeDetectColumns(headerRow) {
+            const norm = v => String(v == null ? '' : v).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase().replace(/[°º.]/g, ' ').replace(/\s+/g, ' ').trim();
+            const h = (headerRow || []).map(norm);
+            const find = names => { for (const n of names) { const i = h.indexOf(n); if (i !== -1) return i; } return -1; };
+            const c = {
+                date: find(['date']),
+                assurance: find(['assurance']),
+                garantie: find(['garantie']),
+                dossier: find(['n dossier', 'dossier', 'numero dossier']),
+                marque: find(['marque']),
+                venteGlobal: find(['total vente global', 'total facturer']),
+                ventePiece: find(['total vente piece']),
+                achatGlobal: find(['total achat global', 'total charge']),
+                achatPiece: find(['total achat', 'total achat piece']),
+                margePiece: find(['marge pieces en %']),
+                margeTotale: find(['marge totale en %'])
+            };
+            // En-têtes reconnus seulement si TOUTES les colonnes utiles sont trouvées ; sinon ancien modèle
+            return Object.values(c).every(i => i >= 0) ? c : MARGE_DEFAULT_COLS;
+        }
+        function margeNormalizeRowArr(row, cols) {
+            const c = cols || MARGE_DEFAULT_COLS;
             // Format réel du fichier "verif.xlsx" (13 colonnes) :
 
             // [0 date, 1 ASSURANCE, 2 GARANTIE, 3 N° DOSSIER, 4 MARQUE, 5 adhérant, 6 C/feur,
@@ -8223,7 +8252,7 @@
             if (!row || row.length < 13) return null;
             const num = v => (v === null || v === undefined || v === '') ? null : Number(v);
 
-            const dateVal = row[0];
+            const dateVal = row[c.date];
             let dateStr = null, moisStr = null;
             if (dateVal instanceof Date) {
                 dateStr = dateVal.toISOString().slice(0, 10);
@@ -8241,10 +8270,11 @@
                 }
             }
 
-            const assuranceRaw = (row[1] !== null && row[1] !== undefined) ? String(row[1]).trim() : '';
-            const garantieRaw = (row[2] !== null && row[2] !== undefined) ? String(row[2]).trim().toUpperCase() : '';
-            const dossierRaw = (row[3] !== null && row[3] !== undefined) ? String(row[3]).trim() : null;
-            const marqueRaw = (row[4] !== null && row[4] !== undefined) ? String(row[4]).trim().toUpperCase() : null;
+            const cell = i => (row[i] !== null && row[i] !== undefined) ? row[i] : null;
+            const assuranceRaw = cell(c.assurance) !== null ? String(cell(c.assurance)).trim() : '';
+            const garantieRaw = cell(c.garantie) !== null ? String(cell(c.garantie)).trim().toUpperCase() : '';
+            const dossierRaw = cell(c.dossier) !== null ? String(cell(c.dossier)).trim() : null;
+            const marqueRaw = cell(c.marque) !== null ? String(cell(c.marque)).trim().toUpperCase() : null;
 
             if (!dateStr && !assuranceRaw && !marqueRaw) return null; // ligne vide
             // Date présente mais illisible (ex. colonnes décalées : « STAR » à la place de la date) : ligne refusée
@@ -8256,9 +8286,9 @@
                 assurance: normalizeAssuranceName(assuranceRaw), assurance_brute: assuranceRaw,
                 garantie: normalizeGarantieName(garantieRaw),
                 modele_brut: marqueRaw, marque: marqueRaw ? normalizeMarqueName(marqueRaw) : 'NON SPECIFIEE',
-                pieces_vente_ht: num(row[8]), pdt_vente_ht: num(row[7]),
-                pieces_achat_ht: num(row[10]), pdt_achat_ht: num(row[9]),
-                marge_pieces_pct: num(row[11]), marge_totale_pct: num(row[12]),
+                pieces_vente_ht: num(row[c.ventePiece]), pdt_vente_ht: num(row[c.venteGlobal]),
+                pieces_achat_ht: num(row[c.achatPiece]), pdt_achat_ht: num(row[c.achatGlobal]),
+                marge_pieces_pct: num(row[c.margePiece]), marge_totale_pct: num(row[c.margeTotale]),
                 dossier: dossierRaw
             };
         }
@@ -8820,8 +8850,9 @@
 
                         let invalides = 0;
                         const parsed = [];
+                        const cols = margeDetectColumns(rowsArr[0]);
                         rowsArr.slice(1).forEach(row => {
-                            const nr = margeNormalizeRowArr(row);
+                            const nr = margeNormalizeRowArr(row, cols);
                             if (!nr) { invalides++; return; }
                             parsed.push(nr);
                         });
