@@ -707,7 +707,6 @@
                         </div>
                         <select id="filterBuyer" onchange="renderOrdersTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all min-w-[180px]">
                             <option value="">Tous les acheteurs</option>
-                            ${OFFICIAL_BUYERS.map(b => `<option value="${b.id}">${b.name}</option>`).join('')}
                         </select>
                         <select id="filterStatus" onchange="renderOrdersTable()" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
                             <option value="">Tous les statuts</option>
@@ -2235,6 +2234,12 @@
             { id: 'buyer9', name: 'Houssem eddine ben rouha', initials: 'HB', role: 'Chargé d\'achat' },
             { id: 'buyer10', name: 'Nour houda', initials: 'NH', role: 'Chargé d\'achat' }
         ];
+        // Liste « Tous les acheteurs » (Gestion des Commandes) : remplie ici, le HTML ne peut pas le faire seul
+        (function fillBuyerFilter() {
+            const sel = document.getElementById('filterBuyer');
+            if (!sel || sel.options.length > 1) return;
+            OFFICIAL_BUYERS.forEach(function(b) { const o = document.createElement('option'); o.value = b.id; o.textContent = b.name; sel.appendChild(o); });
+        })();
 
         // Fonctions d'authentification
         function showCreateAccount() {
