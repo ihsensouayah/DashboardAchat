@@ -2966,11 +2966,24 @@
             if (__wasUsersManagementActiveBeforePause) loadUsersManagement();
         }
 
+        // Onglet caché plus de 2 h (PC laissé ouvert le soir, en veille…) : on coupe complètement
+        // Firebase. Sinon, à chaque réveil du PC, les écoutes encore ouvertes relisent leurs listes
+        // (ex. 2 500 lignes de marge) alors que personne ne regarde. Au retour : rechargement propre.
+        let __hiddenAt = 0, __networkCut = false, __longHideTimer = null;
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
+                __hiddenAt = Date.now();
                 if (__pauseTimer) clearTimeout(__pauseTimer);
                 __pauseTimer = setTimeout(pauseAllRealtimeListeners, REALTIME_PAUSE_DELAY_MS);
+                if (__longHideTimer) clearTimeout(__longHideTimer);
+                __longHideTimer = setTimeout(() => {
+                    if (document.visibilityState !== 'hidden') return;
+                    __networkCut = true;
+                    try { db.disableNetwork().catch(() => {}); } catch (e) {}
+                }, 2 * 3600 * 1000);
             } else {
+                if (__longHideTimer) { clearTimeout(__longHideTimer); __longHideTimer = null; }
+                if (__networkCut || (__hiddenAt && Date.now() - __hiddenAt > 2 * 3600 * 1000)) { location.reload(); return; }
                 if (__pauseTimer) { clearTimeout(__pauseTimer); __pauseTimer = null; }
                 resumeAllRealtimeListeners();
             }
@@ -10736,7 +10749,12 @@
         // sinon un bandeau propose de recharger.
         (function autoUpdateCheck() {
             if (!/^https?:/.test(location.protocol)) return;
-            let firstStamp = null, pending = false;
+            let firstStamp = null, pending = false, lastActivity = Date.now();
+            ['mousemove', 'keydown', 'click', 'touchstart', 'wheel'].forEach(ev => document.addEventListener(ev, () => { lastActivity = Date.now(); }, { passive: true }));
+            // Onglet visible mais personne devant (PC laissé allumé) : on recharge quand même après
+            // 10 min sans activité, si aucune fenêtre de saisie n'est ouverte.
+            const idleSafe = () => Date.now() - lastActivity > 10 * 60 * 1000 &&
+                !Array.prototype.some.call(document.querySelectorAll('[id$="Modal"]'), m => !m.classList.contains('hidden') && m.offsetParent !== null);
             const stampOf = r => r.headers.get('etag') || r.headers.get('last-modified') || '';
             function showBar() {
                 if (document.getElementById('updateBar')) return;
@@ -10756,6 +10774,7 @@
                         pending = true;
                         if (document.visibilityState === 'hidden') location.reload(); else showBar();
                     }
+                    if (pending && document.visibilityState === 'visible' && idleSafe()) location.reload();
                 } catch (e) {}
             }
             document.addEventListener('visibilitychange', () => { if (pending && document.visibilityState === 'hidden') location.reload(); });
