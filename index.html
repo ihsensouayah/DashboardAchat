@@ -5085,7 +5085,7 @@
             const buyerName = b ? b.name : '';
             
             const orderData = {
-                reference: document.getElementById('formReference').value,
+                reference: canonicalDossierRef(document.getElementById('formReference').value),
                 client: document.getElementById('formClient').value,
                 vehicle: veh,
                 vehicleBrand: document.getElementById('formVehicleBrand').value || extractVehicleBrand(veh),
@@ -5271,8 +5271,17 @@
             });
         }
 
+        // Clé de comparaison d'une référence : « 3703/2026 », « ds 3703/2026 » et « DS3703/2026 »
+        // désignent le même dossier (sert aux anti-doublons, pas à l'affichage).
         function normalizeReference(ref) {
-            return String(ref || '').trim().toUpperCase().replace(/\s+/g, ' ');
+            let r = String(ref || '').trim().toUpperCase().replace(/\s+/g, '');
+            if (/^\d+\/\d{4}$/.test(r)) r = 'DS' + r;
+            return r;
+        }
+        // Référence saisie à la main : on ajoute « DS » s'il manque (3703/2026 -> DS3703/2026)
+        function canonicalDossierRef(ref) {
+            const r = String(ref || '').trim().toUpperCase().replace(/\s+/g, '');
+            return /^\d+\/\d{4}$/.test(r) ? 'DS' + r : String(ref || '').trim();
         }
 
         // Cœur de l'import « état des dossiers », partagé entre l'import manuel du fichier
