@@ -7442,7 +7442,28 @@
             setTimeout(() => lucide.createIcons(), 100);
         }
 
+        // Carte « Marques » pour les acheteurs : l'Analyse Marge complète n'est plus chargée à
+        // l'ouverture (économie de lectures). On lit seulement sa copie compacte (~3 lectures).
+        let __margeCardRows = [], __margeCardLoading = false;
+        async function loadMargeCardRows() {
+            if (__margeCardLoading || (margeAllData && margeAllData.length)) return;
+            __margeCardLoading = true;
+            try {
+                const meta = await db.collection('_bundles').doc('margeData').get();
+                if (!meta.exists || !meta.data().chunks) return;
+                const n = meta.data().chunks, rows = [];
+                for (let i = 0; i < n; i++) {
+                    const c = await db.collection('_bundles').doc('margeData').collection('chunks').doc(String(i)).get();
+                    if (!c.exists) return;
+                    const cd = c.data();
+                    (cd.json ? JSON.parse(cd.json) : (cd.docs || [])).forEach(e => { if (e && e.d) rows.push({ marque: e.d.marque, mois: e.d.mois }); });
+                }
+                __margeCardRows = rows.filter(r => typeof margeIsValidMois !== 'function' || margeIsValidMois(r.mois));
+                renderBrandStats();
+            } catch (e) { console.warn('Carte marques : copie Analyse Marge indisponible', e.message); setTimeout(() => { __margeCardLoading = false; }, 120000); }
+        }
         function renderBrandStats() {
+            if (!(margeAllData && margeAllData.length) && !__margeCardRows.length) loadMargeCardRows();
             const container = document.getElementById('brandStats');
             if (!container) return;
             
@@ -7461,7 +7482,7 @@
                 if (bucket) byBrand[brand][bucket]++;
             }
 
-            (margeAllData || []).forEach(r => {
+            ((margeAllData && margeAllData.length) ? margeAllData : __margeCardRows).forEach(r => {
                 if (!r || !r.marque) return;
                 addToBrand(canonicalizeMargeBrand(r.marque), 'achatTermine');
             });
