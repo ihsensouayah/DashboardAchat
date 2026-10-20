@@ -3164,13 +3164,14 @@
                 const snap = await db.collection('diagReads').where('day', '==', day).get();
                 const rows = snap.docs.map(d => d.data()).sort((a, b) => (b.total || 0) - (a.total || 0));
                 const tot = {}; let all = 0;
+                let allW = 0; rows.forEach(r => { allW += r.writes || 0; });
                 rows.forEach(r => { all += r.total || 0; Object.entries(r.byColl || {}).forEach(([k, v]) => { tot[k] = (tot[k] || 0) + v; }); });
                 const top = o => Object.entries(o || {}).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => k + ' ' + v.toLocaleString('fr-FR')).join(' · ');
                 const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-                box.innerHTML = '<p class="font-semibold mb-1">Lectures Firebase estimées aujourd\'hui : ' + all.toLocaleString('fr-FR') + ' (' + rows.length + ' poste(s) ayant la nouvelle version)</p>'
+                box.innerHTML = '<p class="font-semibold mb-1">Lectures Firebase estimées aujourd\'hui : ' + all.toLocaleString('fr-FR') + ' — écritures : ' + allW.toLocaleString('fr-FR') + ' / 20 000 (' + rows.length + ' poste(s) ayant la nouvelle version)</p>'
                     + '<p class="text-gray-500 mb-3">Par collection : ' + esc(top(tot)) + '</p>'
-                    + '<table class="w-full"><thead><tr class="text-left text-xs text-gray-500 uppercase"><th class="py-1 pr-4">Personne</th><th class="py-1 pr-4">Rôle</th><th class="py-1 pr-4 text-right">Lectures</th><th class="py-1">Principales collections</th></tr></thead><tbody>'
-                    + rows.map(r => '<tr class="border-t"><td class="py-1 pr-4">' + esc(r.name) + '</td><td class="py-1 pr-4">' + esc(ROLE_LABELS[r.role] || r.role) + '</td><td class="py-1 pr-4 text-right font-semibold">' + (r.total || 0).toLocaleString('fr-FR') + '</td><td class="py-1 text-gray-600">' + esc(top(r.byColl)) + '</td></tr>').join('')
+                    + '<table class="w-full"><thead><tr class="text-left text-xs text-gray-500 uppercase"><th class="py-1 pr-4">Personne</th><th class="py-1 pr-4">Rôle</th><th class="py-1 pr-4 text-right">Lectures</th><th class="py-1 pr-4 text-right">Écritures</th><th class="py-1">Principales collections</th></tr></thead><tbody>'
+                    + rows.map(r => '<tr class="border-t"><td class="py-1 pr-4">' + esc(r.name) + '</td><td class="py-1 pr-4">' + esc(ROLE_LABELS[r.role] || r.role) + '</td><td class="py-1 pr-4 text-right font-semibold">' + (r.total || 0).toLocaleString('fr-FR') + '</td><td class="py-1 pr-4 text-right font-semibold">' + (r.writes || 0).toLocaleString('fr-FR') + '</td><td class="py-1 text-gray-600">' + esc(top(r.byColl)) + (r.writesByColl ? '<br><span class="text-orange-700">écrit : ' + esc(top(r.writesByColl)) + '</span>' : '') + '</td></tr>').join('')
                     + '</tbody></table><p class="text-gray-400 text-xs mt-2">Chiffres envoyés par chaque poste toutes les 15 min environ. Une personne absente de la liste n\'a pas encore la nouvelle version (ou n\'a pas ouvert le Dashboard aujourd\'hui).</p>';
             } catch (e) { box.textContent = 'Diagnostic indisponible : ' + e.message; }
         }
@@ -3314,7 +3315,23 @@
             function patch(proto, hasRefArg) {
                 if (!proto || proto.__syncPatched) return;
                 proto.__syncPatched = true;
-                const oSet = proto.set, oUpd = proto.update, oDel = proto.delete;
+                // Compteur d'écritures (diagnostic + plafond de sécurité), toutes collections
+                const cnt = ref => { try { __countWrites(1, ref && ref.parent ? ref.parent.id : '?'); } catch (e) {} };
+                const r0 = proto.set, r1 = proto.update, r2 = proto.delete;
+                const oSet = hasRefArg ? function(ref) { cnt(ref); return r0.apply(this, arguments); } : function() { cnt(this); return r0.apply(this, arguments); };
+                const oUpd = hasRefArg ? function(ref) { cnt(ref); return r1.apply(this, arguments); } : function() { cnt(this); return r1.apply(this, arguments); };
+                const oDel = hasRefArg ? function(ref) { cnt(ref); return r2.apply(this, arguments); } : function() { cnt(this); return r2.apply(this, arguments); };
+                if (hasRefArg && proto.commit && !proto.__capPatched) {
+                    proto.__capPatched = true;
+                    const oCommit = proto.commit;
+                    proto.commit = function() {
+                        if (__writes > WRITE_CAP_PER_POSTE) {
+                            try { showToast('Plafond d\'écritures du jour atteint sur ce poste (' + __writes + ') : opération en masse bloquée pour protéger le quota de toute l\'équipe.', 'error'); } catch (e) {}
+                            return Promise.reject(new Error('Plafond d\'écritures du poste atteint'));
+                        }
+                        return oCommit.apply(this, arguments);
+                    };
+                }
                 if (hasRefArg) {
                     proto.set = function(ref, data, opts) { return tracked(ref) ? oSet.call(this, ref, withStamp(data), opts) : oSet.apply(this, arguments); };
                     proto.update = function(ref) { const rest = Array.prototype.slice.call(arguments, 1); return tracked(ref) ? oUpd.apply(this, [ref].concat(withStampArgs(rest))) : oUpd.apply(this, arguments); };
@@ -3353,6 +3370,18 @@
         var __economyMode = false;
         const __readDayKey = () => new Date(Date.now() - 8 * 3600e3).toISOString().slice(0, 10);
         let __reads = 0;
+        // Écritures : limite gratuite 20 000/jour pour TOUTE l'équipe. Un poste qui dépasse
+        // 6 000 écritures dans la journée ne peut plus lancer d'opération en masse (lots).
+        var WRITE_CAP_PER_POSTE = 6000;
+        let __writes = 0, __writesByColl = {};
+        try { const w = JSON.parse(localStorage.getItem('autop_writes_jour') || 'null'); if (w && w.day === __readDayKey()) { __writes = w.n || 0; __writesByColl = w.c || {}; } } catch (e) {}
+        function __countWrites(n, coll) {
+            const day = __readDayKey();
+            try { const w = JSON.parse(localStorage.getItem('autop_writes_jour') || 'null'); if (w && w.day !== day) { __writes = 0; __writesByColl = {}; } } catch (e) {}
+            const k = String(coll || '?').replace(/[.\/\[\]*~]/g, '_').slice(0, 60);
+            __writes += n; __writesByColl[k] = (__writesByColl[k] || 0) + n;
+            try { localStorage.setItem('autop_writes_jour', JSON.stringify({ day: day, n: __writes, c: __writesByColl })); } catch (e) {}
+        }
         try { const r = JSON.parse(localStorage.getItem('autop_reads_jour') || 'null'); if (r && r.day === __readDayKey() && r.v === 2) __reads = r.n || 0; } catch (e) {}
         // Diagnostic : lectures par collection, par poste et par jour, envoyées toutes les 15 min
         // dans diagReads/{jour}_{uid} (1 écriture), consultables par les super-admins.
@@ -3370,6 +3399,7 @@
                     name: (currentUserProfile && currentUserProfile.name) || currentUser.email || '',
                     role: (currentUserProfile && currentUserProfile.role) || '',
                     total: __reads, byColl: __readsByColl,
+                    writes: __writes, writesByColl: __writesByColl,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }).catch(() => {});
             } catch (e) {}
@@ -3532,6 +3562,63 @@
             return stop;
         }
 
+        // Copie compacte du jour : sans elle, chaque ouverture du Dashboard relit TOUS les dossiers
+        // modifiés depuis la dernière copie (l'agent Odoo ne la refait plus depuis le 14/10).
+        // Le premier poste connecté de la journée la reconstruit (une seule fois par jour, réservée
+        // par transaction) : ensuite chaque ouverture ne coûte plus que quelques lectures.
+        async function rebuildBundleFromServer(name) {
+            const enc = v => {
+                if (v instanceof firebase.firestore.Timestamp) return { __ts: [v.seconds, v.nanoseconds] };
+                if (Array.isArray(v)) return v.map(enc);
+                if (v && typeof v === 'object') { const o = {}; for (const k in v) o[k] = enc(v[k]); return o; }
+                return v;
+            };
+            const snap = await db.collection(name).get({ source: 'server' });
+            let maxSync = 0;
+            const chunks = []; let cur = [], size = 2;
+            snap.docs.forEach(d => {
+                const data = d.data();
+                const t = data._syncAt && data._syncAt.toMillis ? data._syncAt.toMillis() : 0;
+                if (t > maxSync) maxSync = t;
+                const e = { id: d.id, d: enc(data) };
+                const n = JSON.stringify(e).length + 1;
+                if (cur.length && size + n > 700000) { chunks.push(cur); cur = []; size = 2; }
+                cur.push(e); size += n;
+            });
+            chunks.push(cur);
+            const metaRef = db.collection('_bundles').doc(name);
+            const old = await metaRef.get({ source: 'server' });
+            const oldCount = (old.exists && old.data().chunks) || 0;
+            for (let i = 0; i < chunks.length; i++) await metaRef.collection('chunks').doc(String(i)).set({ json: JSON.stringify(chunks[i]) });
+            for (let i = chunks.length; i < oldCount; i++) await metaRef.collection('chunks').doc(String(i)).delete();
+            // builtAt = dernière modification contenue dans la copie, moins 2 min de marge :
+            // tout ce qui est modifié après la lecture a forcément un _syncAt plus récent.
+            const builtAt = maxSync ? firebase.firestore.Timestamp.fromMillis(maxSync - 120000) : firebase.firestore.FieldValue.serverTimestamp();
+            await metaRef.set({ builtAt, chunks: chunks.length, count: snap.size, builtBy: (currentUser && currentUser.email) || '' });
+            console.log('📦 Copie compacte ' + name + ' reconstruite : ' + snap.size + ' docs, ' + chunks.length + ' bloc(s)');
+        }
+        let __bundleRebuildStarted = false;
+        async function dailyBundleRebuild() {
+            if (__bundleRebuildStarted) return;
+            __bundleRebuildStarted = true;
+            const names = ['orders'].concat(REPARATION_ACTIVE ? ['repairDossiers'] : []);
+            const tunisDay = new Date(Date.now() + 3600 * 1000).toISOString().slice(0, 10);
+            const ref = db.collection('settings').doc('bundleRebuild');
+            try {
+                const claimed = await db.runTransaction(async tx => {
+                    const s = await tx.get(ref);
+                    if (s.exists && s.data().day === tunisDay) return false;
+                    tx.set(ref, { day: tunisDay, at: firebase.firestore.FieldValue.serverTimestamp(), by: (currentUser && currentUser.email) || '' });
+                    return true;
+                });
+                if (!claimed) return;
+                for (const n of names) await rebuildBundleFromServer(n);
+            } catch (e) {
+                console.warn('Copie compacte non reconstruite :', e.message);
+                ref.set({ day: '' }, { merge: true }).catch(() => {});
+            }
+        }
+
         // Chargement des données
         let __migrateDataRanOnce = false;
         function loadData() {
@@ -3542,6 +3629,7 @@
             // (elle relit tous les dossiers) — pas à chaque reprise après une pause.
             if (!__migrateDataRanOnce) {
                 __migrateDataRanOnce = true;
+                setTimeout(() => { dailyBundleRebuild(); }, 90 * 1000);
                 let lastMig = '';
                 try { lastMig = localStorage.getItem('autop_last_migration') || ''; } catch (e) {}
                 const todayKey = new Date().toISOString().slice(0, 10);
@@ -5040,6 +5128,9 @@
             
             if (this.value === 'achat_termine') {
                 finishedDateDiv?.classList.remove('hidden');
+                // Date d'achat terminé pré-remplie à aujourd'hui (modifiable) : sans elle, le délai continuait de grimper
+                const fd = document.getElementById('formFinishedDate');
+                if (fd && !fd.value) { const t = new Date(); fd.value = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); }
             } else {
                 finishedDateDiv?.classList.add('hidden');
             }
