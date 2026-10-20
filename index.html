@@ -3691,7 +3691,7 @@
                 }
                 if (!garageLocationsSeeded) {
                     garageLocationsSeeded = true;
-                    seedGarageLocationsIfNeeded(cmGarages);
+                    seedGarageLocationsIfNeeded(snapshot.docs.map(doc => doc.data()));
                 }
                 if (window.__cmPendingGarageSelect) {
                     const sel = document.getElementById('cmGarage');
@@ -10820,11 +10820,23 @@
         // GARAGE_LOCATION_SEED : met à jour (merge) les garages déjà enregistrés qui
         // n'ont pas encore de zone, et crée les garages Odoo absents du registre
         // existant (ex-CM_GARAGE_SEED). Ne touche jamais au nom d'un garage existant.
-        async function seedGarageLocationsIfNeeded(existingNames) {
+        // CORRECTIF 20/10 : avant, les ~116 garages étaient réécrits à CHAQUE ouverture du
+        // Dashboard sur chaque poste (≈ 17 000 écritures le 19/10). Désormais seuls les garages
+        // absents ou sans zone sont écrits (normalement 0).
+        async function seedGarageLocationsIfNeeded(existingDocs) {
             try {
-                const existingByUpper = {};
-                existingNames.forEach(function(n) { existingByUpper[String(n || '').trim().toUpperCase()] = n; });
-                const entries = Object.entries(GARAGE_LOCATION_SEED);
+                const existingByUpper = {}, existingData = {};
+                (existingDocs || []).forEach(function(d) {
+                    if (!d || !d.name) return;
+                    const u = String(d.name).trim().toUpperCase();
+                    existingByUpper[u] = d.name; existingData[u] = d;
+                });
+                const entries = Object.entries(GARAGE_LOCATION_SEED).filter(function([upperName, loc]) {
+                    const d = existingData[upperName];
+                    return !d || !d.zone; // garage absent ou sans zone uniquement (ne réécrit jamais une zone existante)
+                });
+                if (!entries.length) return;
+                console.log('🏁 Zones garages à compléter : ' + entries.length);
                 for (let i = 0; i < entries.length; i += 400) {
                     const batch = db.batch();
                     entries.slice(i, i + 400).forEach(function([upperName, loc]) {
