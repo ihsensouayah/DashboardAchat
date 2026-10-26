@@ -365,10 +365,10 @@ def reception_direct(rows):
                   for r in rows if str(r.get("Référence commande", "")).strip().upper().startswith("PO/")})
     existing = {}
     for i in range(0, len(ids), 300):
-        for d in rdb.get_all([coll.document(x) for x in ids[i:i + 300]], field_paths=["status", "manual", "deleted", "mag", "autoDevis", "recu"]):
+        for d in rdb.get_all([coll.document(x) for x in ids[i:i + 300]], field_paths=["status", "manual", "deleted", "mag", "autoDevis", "recu", "fournisseur", "responsable", "origine", "total"]):
             if d.exists:
                 existing[d.id] = d.to_dict() or {}
-    batch, ops, added, updated, trashed, restored = rdb.batch(), 0, 0, 0, 0, 0
+    batch, ops, added, updated, trashed, restored, infos = rdb.batch(), 0, 0, 0, 0, 0, 0
     for r in rows:
         ref = str(r.get("Référence commande", "")).strip()
         m = re.match(r"(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})", str(r.get("Date de la commande", "")))
@@ -411,14 +411,32 @@ def reception_direct(rows):
                 "note": "", "manual": None, "mag": None, "magDate": None,
             })
             added += 1
-        elif (not cur.get("deleted") and st in ("partiel", "recu")
-              and RECEPTION_RANK.get(cur.get("status") or "non", 9) < RECEPTION_RANK[st]):
-            # Odoo fait foi pour AVANCER le statut (réception validée = « Fait »), même si le BC
-            # a été modifié à la main ; il ne le fait jamais reculer.
-            batch.update(coll.document(doc_id), {"status": st, "recu": cur.get("recu") or today})
-            updated += 1
         else:
-            continue
+            upd = {}
+            if (not cur.get("deleted") and st in ("partiel", "recu")
+                    and RECEPTION_RANK.get(cur.get("status") or "non", 9) < RECEPTION_RANK[st]):
+                # Odoo fait foi pour AVANCER le statut (réception validée = « Fait »), même si le BC
+                # a été modifié à la main ; il ne le fait jamais reculer.
+                upd.update({"status": st, "recu": cur.get("recu") or today})
+                updated += 1
+            # Odoo fait foi aussi pour les infos du BC (fournisseur changé, responsable, document
+            # d'origine, montant) : mises à jour si elles ont changé dans Odoo. Les saisies faites
+            # dans le dashboard (réception, magasin, BL, facture, avoir, commentaire) ne sont jamais touchées.
+            total = r.get("Total")
+            odoo_info = {
+                "fournisseur": str(r.get("Fournisseur", "") or ""),
+                "responsable": resp,
+                "origine": str(r.get("Document d'origine", "") or ""),
+                "total": round(float(total), 3) if isinstance(total, (int, float)) else None,
+            }
+            info_upd = {k: v for k, v in odoo_info.items()
+                        if v not in ("", None) and v != cur.get(k)}
+            if info_upd:
+                upd.update(info_upd)
+                infos += 1
+            if not upd:
+                continue
+            batch.update(coll.document(doc_id), upd)
         ops += 1
         if ops >= 400:
             batch.commit(); batch, ops = rdb.batch(), 0
@@ -426,7 +444,8 @@ def reception_direct(rows):
         batch.commit()
     print(f"  ✓ reception_bc direct (autop-reception) : {added} BC ajouté(s), {updated} statut(s) mis à jour depuis Odoo"
           + (f", {trashed} devis mis à la corbeille" if trashed else "")
-          + (f", {restored} devis devenu(s) BC restauré(s)" if restored else ""))
+          + (f", {restored} devis devenu(s) BC restauré(s)" if restored else "")
+          + (f", {infos} BC avec fournisseur/infos corrigé(s) depuis Odoo" if infos else ""))
 
 
 # ------------------------------------------------- copies compactes (quota)
